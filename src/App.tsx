@@ -219,18 +219,20 @@ function createInitialOfflineMarkets(): Record<CommodityId, CommodityMarketState
   return out;
 }
 
+const HarborWorks = React.lazy(() => import('./components/HarborWorks'));
 const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
+  const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>(
-    isAutostart || startAtPort || startAtCoast ? 'playing' : 'title',
+    isAutostart || startAtWorks || startAtPort || startAtCoast ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
   const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>('all');
@@ -258,10 +260,11 @@ export default function App() {
   const [showWorldLabels, setShowWorldLabels] = useState<boolean>(true);
   const [muted, setMuted] = useState<boolean>(false);
   const [showCinematicIntro, setShowCinematicIntro] = useState<boolean>(false);
-  const [onRoad, setOnRoad] = useState(startAtPort);
+  const [onRoad, setOnRoad] = useState(startAtPort || startAtWorks);
+  const [atWorks, setAtWorks] = useState(startAtWorks);
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
-  const returnToPort = useRef(false);
+  const returnToPort = useRef<'scales' | 'works' | null>(null);
   const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
   const [coastView,setCoastView] = useState(startAtCoast);
@@ -853,7 +856,8 @@ export default function App() {
   }
 
   const visitStop = (stop: RoadStop) => {
-    returnToPort.current = false;
+    returnToPort.current = null;
+    setAtWorks(false);
     setAtPort(false);
     setCoastView(false);
     setRoadStop(stop);
@@ -2555,14 +2559,20 @@ export default function App() {
       {onRoad && atPort && gameState === 'playing' && (
         <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie komory celnej…</p>}>
           <PortWeighhouse token={backendToken} moving={portMotion} onClose={() => setAtPort(false)}
-            onAccount={() => { returnToPort.current=true; setAtPort(false); openRoadPanel('profile'); }}/>
+            onAccount={() => { returnToPort.current='scales'; setAtPort(false); openRoadPanel('profile'); }}/>
         </React.Suspense>
       )}
-      {onRoad && !atPort && gameState === 'playing' && !showCinematicIntro && (
+      {onRoad && atWorks && gameState === 'playing' && (
+        <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie warzelni…</p>}>
+          <HarborWorks token={backendToken} onClose={() => setAtWorks(false)}
+            onAccount={() => { returnToPort.current='works'; setAtWorks(false); openRoadPanel('profile'); }}/>
+        </React.Suspense>
+      )}
+      {onRoad && !atPort && !atWorks && gameState === 'playing' && !showCinematicIntro && (
         <MerchantRoad
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
-          onTravel={visitStop} onMenu={openRoadPanel} onCoast={enterCoast}
+          onTravel={visitStop} onMenu={openRoadPanel} onCoast={enterCoast} onWorks={()=>setAtWorks(true)}
           onWeighhouse={moving => {setPortMotion(moving);setAtPort(true);}}
           onBuy={commodityId => void handleExecuteTrade({ commodityId, quantity: 1, side: 'buy', cityId: roadStop.city })}
           onFilm={() => setShowCinematicIntro(true)}
@@ -3233,9 +3243,10 @@ export default function App() {
                       if (profile.tradeHistory) setTradeHistory(profile.tradeHistory);
                       setSyncStatusMsg('Zalogowano i zsynchronizowano z bazą');
                       if (returnToPort.current) {
-                        returnToPort.current = false;
+                        const destination = returnToPort.current;
                         visitStop(roadStops[0]);
-                        setAtPort(true);
+                        if (destination === 'works') setAtWorks(true);
+                        else setAtPort(true);
                       }
                       pushNotification(
                         `Witaj w Księstwie, ${profile.displayName}!`,

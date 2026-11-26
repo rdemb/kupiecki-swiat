@@ -2,6 +2,8 @@ import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { CITIES } from '../src/economy/economyEngine';
 
+import { harborRules } from '../src/economy/harborWorks';
+
 class Rule extends Error {}
 function requireRule(test: unknown, message: string): asserts test {
   if (!test) throw new Rule(message);
@@ -12,6 +14,7 @@ export function installProvinces(
   db: DatabaseSync,
   authenticate: (req: Request) => { uid: string; displayName: string } | null,
   portCleared: () => boolean,
+  useHarborTeam: () => boolean,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS towns (
@@ -163,7 +166,8 @@ export function installProvinces(
               'Budowa nie potrzebuje tego materiału.',
             );
           const callsAtPort = target.site === 'krolewska_przystan' || (cargo === 'handel' && mine?.site === 'krolewska_przystan');
-          const duration = callsAtPort && portCleared() ? 30_000 : 60_000;
+          const handling = callsAtPort && portCleared() ? 30_000 : 60_000;
+          const duration = handling - (callsAtPort && useHarborTeam() ? harborRules.savingSeconds * 1000 : 0);
           db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + duration);
         } else if (action === 'arrive') {
           const job = db.prepare('SELECT * FROM freight WHERE carrier=?').get(me.uid);

@@ -1,0 +1,241 @@
+.harbor-works {
+  position: fixed;
+  inset: 0;
+  z-index: 22;
+  overflow: auto;
+  background: #e7e0cf;
+  color: #282a25;
+  font:
+    16px/1.52 Georgia,
+    serif;
+  overscroll-behavior: contain;
+}
+.harbor-scene {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: clamp(280px, 46vh, 540px);
+  background-size: cover;
+  background-position: center 53%;
+  color: #fff6de;
+}
+.harbor-scene:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, #14170ee3 0%, #191d1442 48%, transparent 75%),
+    linear-gradient(0deg, #10140fbf, transparent 48%);
+}
+.harbor-top,
+.harbor-title {
+  padding: clamp(16px, 2.2vw, 38px) max(5vw, calc((100vw - 1150px) / 2));
+}
+.harbor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.harbor-top span,
+.harbor-recipe dt,
+.harbor-stock span,
+.harbor-columns h3 {
+  font: 650 0.72rem/1.4 system-ui;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.harbor-top button,
+.harbor-primary {
+  border: 1px solid #bfb393;
+  border-radius: 2px;
+  padding: 0.58rem 0.95rem;
+  background: #292b21eb;
+  color: #fff3d9;
+  cursor: pointer;
+  font: 600 0.88rem/1.4 system-ui;
+}
+.harbor-title h1 {
+  font-size: clamp(2.5rem, 5vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  margin: 0 0 0.65rem;
+  max-width: 12em;
+}
+.harbor-title p {
+  max-width: 35rem;
+  font-size: clamp(0.98rem, 1.35vw, 1.23rem);
+  text-shadow: 0 1px 5px #161914;
+}
+.harbor-ledger {
+  width: min(90%, 1150px);
+  margin: 0 auto 3rem;
+}
+.harbor-stock {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid #9a8e74;
+  padding: 1.1rem 0;
+}
+.harbor-stock div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  border-left: 1px solid #b3a891;
+}
+.harbor-stock div:first-child {
+  border: 0;
+  padding-left: 0;
+}
+.harbor-stock strong {
+  font:
+    normal clamp(1.65rem, 3.4vw, 3.1rem) / 1 Georgia,
+    serif;
+  color: #324c43;
+  font-variant-numeric: tabular-nums;
+}
+.harbor-stock span {
+  color: #454b3f;
+}
+.harbor-columns {
+  display: grid;
+  grid-template-columns: 1.75fr 1fr;
+  gap: clamp(20px, 5vw, 84px);
+  padding-top: 1.3rem;
+}
+.harbor-columns h2 {
+  font:
+    normal clamp(1.6rem, 2.8vw, 2.4rem) / 1.15 Georgia,
+    serif;
+  letter-spacing: -0.03em;
+  margin: 0.85rem 0 0.55rem;
+}
+.harbor-columns h3 {
+  margin: 1.15rem 0 0.3rem;
+  color: #494f42;
+}
+.harbor-columns h3 b {
+  padding-left: 0.5rem;
+}
+.harbor-columns aside {
+  border-left: 1px solid #b3a891;
+  padding-left: clamp(18px, 3.3vw, 50px);
+}
+.harbor-columns aside h2 {
+  font-size: 1.6rem;
+}
+.harbor-columns li {
+  margin: 0.3rem 0;
+}
+.harbor-stations {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.harbor-stations button {
+  font: 600 0.8rem system-ui;
+  border-bottom: 2px solid transparent;
+  padding: 0.56rem 0.5rem;
+  cursor: pointer;
+}
+.harbor-stations button[aria-pressed='true'] {
+  color: #1c4137;
+  border-color: #926333;
+  background: #d8d2bf;
+}
+.harbor-recipe {
+  display: flex;
+  gap: 2rem;
+  border-top: 1px solid #b5aa96;
+  border-bottom: 1px solid #b5aa96;
+  padding: 0.65rem 0;
+  margin: 1rem 0;
+}
+.harbor-recipe dt {
+  font-size: 0.66rem;
+  color: #515644;
+}
+.harbor-recipe dd {
+  margin: 0.15rem 0 0;
+}
+.harbor-primary {
+  background: #304e43;
+  border-color: #304e43;
+}
+.harbor-primary:disabled {
+  opacity: 0.58;
+  cursor: default;
+}
+.harbor-note {
+  font: 0.89rem/1.4 system-ui;
+  margin: 0.45rem 0;
+  color: #464536;
+}
+.harbor-reload {
+  text-decoration: underline;
+  cursor: pointer;
+}
+.harbor-order {
+  display: grid;
+  gap: 0.25rem;
+}
+.harbor-order progress {
+  accent-color: #3a5d49;
+  width: min(100%, 400px);
+}
+.harbor-order span {
+  font: 0.85rem system-ui;
+}
+.harbor-works button:focus-visible {
+  outline: 3px solid #b47924;
+  outline-offset: 2px;
+}
+@media (max-width: 650px) {
+  .harbor-scene {
+    height: 37svh;
+    min-height: 260px;
+    background-position: 64% center;
+  }
+  .harbor-ledger {
+    width: 92%;
+  }
+  .harbor-title,
+  .harbor-top {
+    padding: 15px 4%;
+  }
+  .harbor-stock {
+    padding: 0.75rem 0;
+  }
+  .harbor-stock div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.22rem;
+    padding: 0 0.65rem;
+  }
+  .harbor-stock span {
+    font-size: 0.59rem;
+  }
+  .harbor-columns {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .harbor-columns aside {
+    padding: 0;
+    border: 0;
+    border-top: 1px solid #aa9d85;
+  }
+  .harbor-stations {
+    gap: 0.16rem;
+  }
+  .harbor-stations button {
+    font-size: 0.75rem;
+    padding: 0.55rem 0.3rem;
+  }
+  .harbor-recipe {
+    gap: 1.1rem;
+    font-size: 0.9rem;
+  }
+}

@@ -1,4 +1,5 @@
 import express from 'express';
+import { installHarborWorks } from './server/harborWorks';
 import { installWeighhouse } from './server/weighhouse';
 import { installProvinces } from './server/provinces';
 import { installCourt } from './server/court';
@@ -1103,7 +1104,8 @@ async function startServer() {
   const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
-  installProvinces(app, db, getAuthenticatedAccount, portCleared);
+  const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount);
+  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam);
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {

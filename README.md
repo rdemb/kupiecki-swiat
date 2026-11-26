@@ -16,6 +16,14 @@ Prolog ma 20 sekund, własną ścieżkę dźwiękową i polskie opisy dźwiękó
 
 Waga, odważniki i łańcuchy są geometrią Three.js. Fotograficzne tło komory powstało w ImageGen na podstawie opisu średniowiecznej bałtyckiej przystani widzianej znad pustego dębowego stołu. Komora i reguła trzech pieczęci to rozwinięcie świata na potrzeby tej wersji.
 
+### Warzelnia nad zatoką
+
+[Otwórz warzelnię](https://rdemb.github.io/kupiecki-swiat/?miejsce=warzelnia). W dawnej grze głód zatrzymywał produkcję, a do zakładów nadmorskich należały poławiacz krabów i warzelnia soli. [Zarządzanie miastem](https://kupiecki-swiat.wikidot.com/zarzadzanie-miastem) · [Miasta nadmorskie](https://kupiecki-swiat.wikidot.com/nadmorskie).
+
+W Odrodzeniu kupcy dzielą zapasy Królewskiej Przystani. Połów daje 4 racje po 25 sekundach. Za 2 racje warzelnicy w 35 sekund produkują 2 beczki. Każdy zalogowany kupiec może wydać 4 beczki szyprowi. Fracht opłaca jeden zaprzęg, który skraca o 15 sekund najbliższy nowy konwój budowlany lub handlowy kancelarii zawijający do tego portu. Premia łączy się z odprawą komory celnej. Czasy, przeliczniki i zaprzęgi to reguły Odrodzenia.
+
+Księga korzysta z serwerowego czasu i SQLite. Zmiana kończy się także pod nieobecność gracza. Scenę do `public/cinema/warzelnia.webp` przygotowano w ImageGen. Kadr przedstawia żelazną panew z solanką przy drewnianym nabrzeżu, warzelnika z grabiami i łódź poławiaczy w bocznym świetle późnego popołudnia.
+
 ## Najważniejsze Funkcje
 
 ### 1. Sześć Kontynentów, 26 Regionów i 12 Stolic Handlowych w Świecie 3D PBR

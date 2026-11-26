@@ -273,7 +273,7 @@ export function ProvinceHall({
                       key={k}
                       onClick={() => act('dispatch', { town: t.id, cargo: k })}
                     >
-                      Przewieź {k === 'wood' ? 'drewno z tartaku' : 'żelazo z huty'} · 1 min
+                      Przewieź {k === 'wood' ? 'drewno z tartaku' : 'żelazo z huty'}
                     </button>
                   ))}
               {mine?.id === t.id && complete(t) && !t.capital && (

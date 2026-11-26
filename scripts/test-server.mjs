@@ -149,6 +149,44 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
       return job.due;
     };
     const initialDue = await send(port,'wood',60);
+    const works = token => request('/api/harbor-works',200,undefined,token);
+    const work = (token,action,status=201,nonce=randomUUID()) =>
+      request('/api/harbor-works',status,{action,nonce},token);
+    const land = () => testDb.exec('UPDATE harborShifts SET due=0');
+    assert.equal((await works()).food,0);
+    await work(null,'fish',401);
+    await work(logged.token,'boil',409);
+    const fishing = randomUUID();
+    await work(logged.token,'fish',201,fishing);
+    await work(logged.token,'fish',200,fishing);
+    await work(logged.token,'ship',409,fishing);
+    await work(logged.token,'fish',409);
+    assert.equal((await works()).workers.length,1);
+    assert.equal((await works()).mine,null);
+    land();
+    assert.equal((await works()).food,4);
+    assert.equal((await works()).food,4);
+    await Promise.all([work(renter.token,'boil'),work(third.token,'boil')]);
+    await work(logged.token,'boil',409);
+    assert.equal((await works()).food,0);
+    assert.equal((await works()).salt,0);
+    land();
+    assert.equal((await works()).salt,4);
+    const exportSlips = [randomUUID(),randomUUID()];
+    const shippers = [logged.token,third.token];
+    const outcomes = await Promise.all(shippers.map((token,i) => fetch(base+'/api/harbor-works',{
+      method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'ship',nonce:exportSlips[i]})})));
+    assert.deepEqual(outcomes.map(x=>x.status).sort(),[201,409]);
+    const winner = outcomes.findIndex(x=>x.status===201);
+    await work(shippers[winner],'ship',200,exportSlips[winner]);
+    assert.equal((await works()).shipments,1);
+    assert.equal((await works()).provisions,1);
+    assert.equal((await works()).salt,0);
+    assert.equal((await registry(renter.token)).freight.due,initialDue);
+    // An inland dispatch leaves the paid team waiting for the next port waybill.
+    await order(third.token,'dispatch',{town:forest,cargo:'iron'});
+    assert.equal((await works()).provisions,1);
     const secondSlip=await sample(renter.token), thirdSlip=await sample(third.token);
     await Promise.all([seal(renter.token,secondSlip,201),seal(third.token,thirdSlip,201)]);
     assert.equal((await registry(renter.token)).freight.due,initialDue);
@@ -162,7 +200,9 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     await order(renter.token,'arrive',{town:port});
     for(const town of [port,forest]) {
       for(const cargo of (town===port ? ['iron','wood','iron'] : ['wood','iron','wood','iron'])){
-        await send(town,cargo,town===port?30:60);
+        const reserve = (await works()).provisions;
+        await send(town,cargo,town===port ? (reserve ? 15 : 30) : 60);
+        if (town===port) assert.equal((await works()).provisions,0);
         await order(renter.token,'arrive',{town},400);
         testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(b.profile.uid);
         await order(renter.token,'arrive',{town});
@@ -186,7 +226,13 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     assert.match(latest.story,/Sir/);
     await order(logged.token,'witness',{town:latest.id});
     assert.equal((await request('/api/provinces/chronicle',200)).entries[0].witnesses.length,1);
+    await work(third.token,'fish');
     await stop();await start();
+    assert.equal((await works()).workers.length,1);
+    land();
+    assert.equal((await works()).food,4);
+    assert.equal((await works()).shipments,1);
+    assert.equal((await works()).provisions,0);
     assert.equal((await readPort()).count,3);
     assert.deepEqual((await registry()).towns.map(t=>t.treasury),[94.4,5.6]);
   } finally {testDb.close();}
