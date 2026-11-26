@@ -50,7 +50,26 @@ export interface LaunchNotice {
   vessel: string | null;
   launched: number | null;
 }
+export interface MaidenPassage {
+  ship: number;
+  vessel: string;
+  voyage: number;
+  payer: string;
+  skipper: string;
+  departed: number;
+  settled: number;
+  barrels: number;
+  teams: number;
+  course: Course;
+}
+
+export interface MaidenLetter extends MaidenPassage {
+  signatures: { name: string; at: number }[];
+  canSign: boolean;
+}
+
 export interface LaunchBoard {
+  lastMaiden: MaidenPassage | null;
   open: LaunchNotice[];
   lastLaunch: LaunchNotice | null;
   portOak: number;
@@ -92,7 +111,7 @@ export type YardAction =
       ship: number;
     }
   | { action: 'launch'; ship: number; name: string }
-  | { action: 'withdraw'; ship: number; charter: number }
+  | { action: 'withdraw' | 'signMaiden'; ship: number; charter: number }
   | {
       action: 'sail';
       ship: number;
@@ -135,6 +154,7 @@ export interface YardBook {
       kind: 'oak' | 'iron';
       at: number;
     }[];
+    maiden: MaidenLetter | null;
     job: Charter | null;
     journal: Charter[];
     more: boolean;

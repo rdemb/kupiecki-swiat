@@ -1,0 +1,21 @@
+.maiden-letter, .maiden-await { margin: 1.4rem 0; overflow-wrap: anywhere; }
+.maiden-letter { border: 1px solid #a39273; background: #f2ead8; color: #302c24; }
+.maiden-letter header, .maiden-letter footer, .maiden-letter figcaption { padding: .9rem clamp(.85rem, 3vw, 1.5rem); }
+.maiden-letter header { background: #233b37; color: #f6edda; }
+.maiden-letter header h3 { font: italic 500 clamp(1.5rem, 4vw, 2.35rem)/1.1 Georgia, serif; margin: 0; }
+.maiden-letter header p, .maiden-letter footer p { margin: .35rem 0; }
+.maiden-leaves { display: flex; flex-wrap: wrap; gap: .35rem; padding: .65rem; }
+.maiden-leaves button[aria-pressed="true"] { background: #355248; color: white; }
+.maiden-letter figure { margin: 0; }
+.maiden-letter figure img { display: block; width: 100%; height: auto; aspect-ratio: 2.4; object-fit: cover; }
+.maiden-letter time { font: 500 .82rem/1.4 system-ui; }
+.maiden-letter dl { display: flex; flex-wrap: wrap; gap: .75rem 2rem; margin: .4rem 0; }
+.maiden-letter dd { margin: .2rem 0 0; font: 500 1.8rem/1 Georgia, serif; }
+.maiden-letter ul { margin: .4rem 0; padding-inline-start: 1.2rem; }
+.maiden-letter footer { border-top: 1px solid #b4a68e; }
+.maiden-letter footer h4 { margin: 0; }
+.maiden-await { border-inline-start: 2px solid #938267; padding-inline: .85rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .maiden-letter figure img { animation: maiden-open .45s ease-out; }
+  @keyframes maiden-open { from { opacity: .55; } to { opacity: 1; } }
+}

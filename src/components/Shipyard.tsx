@@ -10,6 +10,7 @@ import { cinemaFile } from './MerchantRoad';
 import { InnGuide } from './InnGuide';
 import { courseNames } from '../economy/pilotage';
 import { PortLink } from './PortLink';
+import { MaidenLetter } from './MaidenLetter';
 import { LighterQuay } from './LighterQuay';
 import { PassageOrder } from './PassageOrder';
 import './shipyard.css';
@@ -187,6 +188,7 @@ export default function Shipyard({
         oak: 'Sześć dębowych belek wydano na poszycie.',
         iron: 'Okucia z kuźni przyjęte na pochylnię.',
         launch: 'Szkuta jest na wodzie. Jej metryka pozostanie w rejestrze.',
+        signMaiden: 'Twój podpis widnieje na liście z pierwszego rejsu.',
         hire: 'Żołd i cztery beczki czekają na szypra.',
         withdraw: 'Żołd wrócił do wystawcy, a sól do warzelni.',
         sail: 'Cumę oddano. Bosman zapisał wyjście na redę.',
@@ -213,6 +215,10 @@ export default function Shipyard({
   useEffect(() => {
     if (hull?.id && material) document.getElementById('wybrana-dostawa')?.focus();
   }, [hull?.id, material]);
+  const maidenRequested = new URLSearchParams(location.search).get('rejs') === 'pierwszy';
+  useEffect(() => {
+    if (hull?.launched && maidenRequested) document.getElementById('list-z-redy')?.focus();
+  }, [hull?.id, hull?.launched, maidenRequested]);
   const hullReady = ship?.oak === r.oakLoads && ship?.iron === r.ironLots;
   return (
     <main className="merchant-inn shipyard">
@@ -481,6 +487,8 @@ export default function Shipyard({
                       )}
                     </section>
                   )}
+                  {hull.launched && <MaidenLetter key={hull.id} ship={ship} busy={disabled}
+                    sign={charter => act({ action: 'signMaiden', ship: hull.id, charter })}/>}
                   <h3>Podpisy budowniczych</h3>
                   {ship.deliveries.length ? (
                     <ul className="yard-lines">

@@ -94,6 +94,15 @@ export function LaunchBoard({
           dostarczyły materiały.
         </p>
       )}
+      {board.lastMaiden ? (
+        <p className="launch-news">
+          Z pierwszego frachtu wróciła szkuta „{board.lastMaiden.vessel}”.
+          {' '}U steru {board.lastMaiden.skipper}. Ładunek dotarł do kupców na redzie.
+          {' '}<PortLink href={'?miejsce=stocznia&szkuta=' + board.lastMaiden.ship + '&rejs=pierwszy'} go={yard}>
+            Przeczytaj list z pierwszego rejsu
+          </PortLink>
+        </p>
+      ) : <p>Pierwszy list z redy trafi na tablicę, gdy gildijna szkuta wróci z solnego szlaku.</p>}
       {!board.open.length && (
         <PortLink href="?miejsce=stocznia" go={yard}>
           Odwiedź stocznię

@@ -1,3 +1,4 @@
+import { maidenRegister } from './maidenVoyage';
 import { installLighters } from './lighters';
 import { installPilotage, PilotRule } from './pilotage';
 import {
@@ -61,6 +62,7 @@ export function installShipyard(
   `);
   const pilots = installPilotage(db, gold);
   const lighters = installLighters(db, gold);
+  const maidens = maidenRegister(db);
   const hull = db.prepare('SELECT * FROM yardShips WHERE id=?');
   const guild = db.prepare(
     'SELECT id,name,tag,founder,archived FROM innGuilds WHERE id=?',
@@ -86,6 +88,7 @@ export function installShipyard(
   );
   function launchBoard(): LaunchBoard {
     return {
+      lastMaiden: maidens.latest(),
       open: openNotices.all() as unknown as LaunchNotice[],
       lastLaunch:
         (lastLaunch.get() as unknown as LaunchNotice | undefined) ?? null,
@@ -237,6 +240,7 @@ export function installShipyard(
         (invitation.get(s.id) as unknown as NonNullable<
           YardBook['ship']
         >['invitation']) ?? null,
+      maiden: maidens.letter(Number(s.id), uid),
       job: job ? charter(job) : null,
       journal: rows.slice(0, 8).map(charter),
       more: rows.length > 8,
@@ -294,7 +298,11 @@ export function installShipyard(
     check(positive(ship), 'Wybierz statek z rejestru.');
     const s = hull.get(ship);
     check(s, 'W rejestrze nie ma takiego statku.');
-    if (action === 'inviteBuilders' || action === 'removeInvitation') {
+    if (action === 'signMaiden') {
+      check(positive(charter), 'Wybierz list z pierwszego rejsu tej szkuty.');
+      const problem = maidens.sign(ship, charter, me.uid, me.displayName, now);
+      if (problem) throw new YardRule(problem);
+    } else if (action === 'inviteBuilders' || action === 'removeInvitation') {
       check(s.launched === null, 'Ta szkuta została już zwodowana.');
       check(
         !guild.get(s.guild)?.archived && master(me, s),

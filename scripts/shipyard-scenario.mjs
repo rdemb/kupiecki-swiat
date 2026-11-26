@@ -122,6 +122,8 @@ export async function exerciseShipyard({
   assert.equal(named.ship.hull.name, 'Skowronek');
   const archivedBill = await notices();
   assert.equal(archivedBill.open.length, 0);
+  assert.equal(archivedBill.lastMaiden, null);
+  assert.equal(named.ship.maiden, null);
   assert.equal(archivedBill.lastLaunch.vessel, 'Skowronek');
   assert.equal(archivedBill.lastLaunch.ship, id);
   await send(master, 'inviteBuilders', ship, 409);
@@ -165,6 +167,8 @@ export async function exerciseShipyard({
   for (const a of [master, oak, smith]) await logIn(a);
   assert.equal((await read(master, '?ship=' + id)).ship.job.id, actual.id);
   assert.equal((await notices()).lastLaunch.signer, 'Róża');
+  assert.equal((await notices()).lastMaiden, null);
+  await send(oak, 'signMaiden', { ...ship, charter: actual.id }, 409);
   assert.deepEqual(
     (await read(null, '?ship=' + id)).ship.deliveries.map((d) => d.name),
     ['Jan od dębu', 'Jan od dębu', 'Ida z Kuźni'],
@@ -175,6 +179,21 @@ export async function exerciseShipyard({
   );
   const paid = await read(master);
   assert.equal(paid.ship.completed, 1);
+  const maiden = paid.ship.maiden;
+  assert.deepEqual([maiden.voyage, maiden.vessel, maiden.course, maiden.barrels, maiden.teams, maiden.payer],
+    [actual.id, 'Skowronek', 'outer', 4, 1, 'Róża']);
+  assert.equal(maiden.canSign, true);
+  assert.equal((await read()).ship.maiden.canSign, false);
+  assert.equal((await notices()).lastMaiden.skipper, maiden.skipper);
+  const witnessSlip = { ...ship, charter: actual.id, nonce: randomUUID() };
+  await send(undefined, 'signMaiden', witnessSlip, 401);
+  await send(master, 'signMaiden', { ...ship, charter: job.id }, 409);
+  await Promise.all([send(oak, 'signMaiden', witnessSlip), send(oak, 'signMaiden', witnessSlip)]);
+  await send(oak, 'signMaiden', { ...ship, charter: actual.id }, 409);
+  await send(smith, 'signMaiden', { ...ship, charter: actual.id });
+  const signedLetter = (await read(oak)).ship.maiden;
+  assert.equal(signedLetter.canSign, false);
+  assert.deepEqual(signedLetter.signatures.map(s => s.name), ['Jan od dębu', 'Ida z Kuźni']);
   assert.equal(paid.ship.job, null);
   assert.equal(paid.ship.journal[0].skipper, ['Jan od dębu', 'Ida z Kuźni'][i]);
   assert.equal(paid.wallet.gold, coins - 18 + 36);
@@ -348,6 +367,10 @@ export async function exerciseShipyard({
   const archive = await read(smith, '?ship=' + id);
   assert.ok(archive.ship.archived && archive.ship.mayManage);
   assert.equal(archive.ship.completed, 14);
+  assert.equal(archive.ship.maiden.voyage, actual.id);
+  assert.equal((await read(null, '?ship=' + id + '&before=' + actual.id)).ship.maiden.voyage, actual.id);
+  assert.deepEqual(archive.ship.maiden.signatures, signedLetter.signatures);
+  await send(master, 'signMaiden', { ...ship, charter: actual.id });
   assert.ok(
     (await request('/api/pilots', 200)).history.every((m) => m.reward === 0),
   );
@@ -374,6 +397,7 @@ export async function exerciseShipyard({
   assert.equal(await balance(smith), gold2);
   const newest = (await read()).pilotage.edition;
   const short = await account('szkutnik_bez_sakwy', 'Uczeń');
+  await send(short, 'signMaiden', { ...ship, charter: actual.id }, 409);
   db.prepare(
     "UPDATE players SET profile=json_set(profile,'$.gold',2) WHERE username=?",
   ).run(short.credentials.username);
@@ -419,6 +443,10 @@ export async function exerciseShipyard({
     ],
   );
   assert.equal(finish.fund.last.skipper, 'Jan od dębu');
+  const latestMaiden = (await notices()).lastMaiden;
+  assert.deepEqual([latestMaiden.ship, latestMaiden.voyage, latestMaiden.vessel], [secondHull.ship, b, 'Jaskółka']);
+  assert.equal((await read(null, '?ship=' + id)).ship.maiden.voyage, actual.id);
+  await send(smith, 'signMaiden', { ...secondHull, charter: actual.id }, 409);
   assert.equal(await balance(oak), baseline + 18 + 2);
   assert.equal(
     db
