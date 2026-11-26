@@ -40,6 +40,7 @@ interface Props {
   onClose: () => void;
   onHarbor: () => void;
   onCabinet:()=>void;
+  onLetter:()=>void;
   onNests:()=>void;
   postFromNests:boolean;
   onAccount: () => void;
@@ -54,7 +55,7 @@ export default function MerchantInn({
   tab,
   onTab,
   onClose,
-  onHarbor,onCabinet,onNests,postFromNests,
+  onHarbor,onCabinet,onNests,onLetter,postFromNests,
   onAccount,
   onSettlement,
   onMembership,
@@ -237,6 +238,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  <button className="inn-link" onClick={onLetter}>List zaginionego kupca · Zachodnie Rozlewiska</button>
                   {<button className="inn-link" onClick={onCabinet}>Wędrowny gabinet · droga do Domu Matryc</button>}
                   {city==='krolewska_przystan' && book.seaMail && <SeaPost postFromNests={postFromNests} book={book} busy={busy} login={onAccount} act={act}/>}
                   {isFairTown(city) && <section className="feast-table">{!!book.reliefCalls?.length && <MillHouse visit={onTab} room="relief" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}<PortLink href={infirmaryHref(city)} go={()=>onTab('ward',city)}>Do lazaretu przy koszarach</PortLink><InnSpurRoll entries={book.spurRoll ?? []}/><InnRoadLedger records={book.roadRecords ?? []}/><NewsBoard letters={book.newsLetters ?? []} now={book.boardAt}/><PortLink href={garrisonHref(city)+'#kuchnia'} go={()=>onTab('garrison',city)}>Kuchnia polowa, koszary i poczta traktowa</PortLink></section>}

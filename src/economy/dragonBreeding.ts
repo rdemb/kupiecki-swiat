@@ -8,7 +8,7 @@ import { imageUrl } from '../utils/imageUrl';
 
 import type { CommodityId } from './economyEngine';
 
-export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony' | 'blekitny_legendarny' | 'zloty_legendarny';
+export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony' | 'blekitny_legendarny' | 'zloty_legendarny' | 'trzcinowy' | 'krzemienny';
 
 export type DragonLifeStage = 1 | 2 | 3 | 4 | 5;
 
@@ -18,7 +18,7 @@ export interface DragonSpeciesSpec {
   elementLabel: string;
   originContinentName: string;
   artworkUrl: string;
-  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown';
+  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' | 'reedFrill' | 'flintShield';
   accentHex: string;
   favoriteCommodity: CommodityId;
   favoriteCommodityName: string;
@@ -30,6 +30,16 @@ export interface DragonSpeciesSpec {
 }
 
 export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
+  trzcinowy: {
+    id:'trzcinowy',name:'Smok trzcinowy',elementLabel:'Ols i woda',originContinentName:'Olszyna Łusek',artworkUrl:imageUrl('smok-trzcinowy.webp'),
+    variant3D:'reedFrill',accentHex:'#9bb46c',favoriteCommodity:'zboze',favoriteCommodityName:'Zboże',specialtySummary:'Lekki lot między trzcinami. Zwiad skarbca zużywa o 8 punktów energii mniej.',
+    baseFirePower:12,baseFlightSpeed:31,baseHoardGreed:11,eggCostGold:2100,
+  },
+  krzemienny: {
+    id:'krzemienny',name:'Smok krzemienny',elementLabel:'Kreda i krzemień',originContinentName:'Jar Krzemienia',artworkUrl:imageUrl('smok-krzemienny.webp'),
+    variant3D:'flintShield',accentHex:'#bd976a',favoriteCommodity:'zelazo',favoriteCommodityName:'Żelazo',specialtySummary:'Wypatruje zrzuconych pancerzy w rumoszu. Z wyprawy na kalderę przynosi jedną dodatkową łuskę.',
+    baseFirePower:30,baseFlightSpeed:12,baseHoardGreed:21,eggCostGold:2750,
+  },
   blekitny_legendarny: {
     id:'blekitny_legendarny',name:'Legendarny błękitny smok',elementLabel:'Mgła i nurt',originContinentName:'Delta Perłowa',
     artworkUrl:imageUrl('legendarny-blekitny.webp'),variant3D:'deltaSail',accentHex:'#84bad9',favoriteCommodity:'krysztaly_many',favoriteCommodityName:'Kryształy Many',
@@ -244,6 +254,8 @@ export const DRAGON_MISSIONS: DragonMissionSpec[] = [
 ];
 
 const DRAGON_NAMES_BY_SPECIES: Record<DragonSpeciesId, string[]> = {
+  trzcinowy:['Wiklin','Sitowie','Tatarak'],
+  krzemienny:['Buła','Krzesiwo','Otoczak'],
   blekitny_legendarny:['Opar','Szafir','Rusał'],
   zloty_legendarny:['Wachlarz','Talarek','Aurek'],
   dwuglowy_brazowy:['Dwułom','Łupek','Rogacz'],
@@ -633,9 +645,12 @@ export function dispatchDragonMission(params: {
     };
   }
 
-  const energyCost = dragon.speciesId==='blekitny_legendarny' && missionId==='eskorta_powietrzna' ? mission.energyCost-12 : mission.energyCost;
-  const rewardCommodity = dragon.speciesId==='zloty_legendarny' && missionId==='zwiad_skarbca'
-    ? {...mission.commodityReward,qty:mission.commodityReward.qty+2} : mission.commodityReward;
+  let energyCost=mission.energyCost;
+  if(dragon.speciesId==='blekitny_legendarny' && missionId==='eskorta_powietrzna') energyCost-=12;
+  if(dragon.speciesId==='trzcinowy' && missionId==='zwiad_skarbca') energyCost-=8;
+  const rewardCommodity={...mission.commodityReward};
+  if(dragon.speciesId==='zloty_legendarny' && missionId==='zwiad_skarbca') rewardCommodity.qty+=2;
+  if(dragon.speciesId==='krzemienny' && missionId==='polowanie_lusek') rewardCommodity.qty++;
   if (dragon.energy < energyCost) {
     return {
       success: false,

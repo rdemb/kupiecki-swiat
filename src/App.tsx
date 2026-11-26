@@ -232,10 +232,11 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
+  const startAtLetter=place==='list';
   const startAtCabinet=place==='gabinet';
   const startAtNests = place==='morze-wylin';
   const startAtCoastlands = place==='dalekie-wybrzeze';
-  const startAtHope = place==='nowa-nadzieja' || startAtCoastlands || startAtNests || startAtCabinet;
+  const startAtHope = place==='nowa-nadzieja' || startAtCoastlands || startAtNests || startAtCabinet || startAtLetter;
   const startAtPort = place === 'waga-portowa';
   const startAtInn = place === 'lazaret' || place === 'koszary' || place === 'targ' || place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
@@ -248,12 +249,13 @@ export default function App() {
     isAutostart || startAtInn || startAtWorks || startAtPort || startAtCoast || startAtHope ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
+  const [ferryOpen,setFerryOpen]=useState(false);
   const [postFromNests,setPostFromNests]=useState(false);
   const [nestSighting,setNestSighting]=useState<import('./economy/northPassage').NestBook['sighting']>(null);
   const [careerSite,setCareerSite]=useState('mierzeja');
-  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtCabinet?'poludniowe_trakty':startAtNests?'morze_wylin':startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
+  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtLetter?'zachodnie_rozlewiska':startAtCabinet?'poludniowe_trakty':startAtNests?'morze_wylin':startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
   const [selectedCityId, setSelectedCityId] = useState<string>('krolewska_przystan');
-  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtCabinet?'dom_matryc':startAtNests?'sieci_matyldy':startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtLetter?'gospoda_koperty':startAtCabinet?'dom_matryc':startAtNests?'sieci_matyldy':startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
@@ -2432,7 +2434,7 @@ export default function App() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#080b10] select-none">
       {/* Persistent 3D World WebGL Canvas (Isolated Container) */}
-      {hasOpenedMap && <div hidden={!showMap}><World3DCanvas
+      {hasOpenedMap && <div hidden={!showMap}><World3DCanvas ferryOpen={ferryOpen}
         visible={showMap}
         fieldStage={macro.fieldStage}
         towns={provinces.data.towns}
@@ -2568,7 +2570,10 @@ export default function App() {
         </React.Suspense>
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
-        <MerchantInn onCabinet={()=>{
+        <MerchantInn onLetter={()=>{
+          setInn(null);setOnRoad(false);setCoastView(false);setHasOpenedMap(true);setDockCollapsed(false);
+          setActiveTab('world_map');setSelectedContinentId('zachodnie_rozlewiska');setSelectedRegionId('gospoda_koperty');setCameraPreset('city');
+        }} onCabinet={()=>{
           setInn(null);setOnRoad(false);setCoastView(false);setHasOpenedMap(true);setDockCollapsed(false);
           setActiveTab('world_map');setSelectedContinentId('poludniowe_trakty');setSelectedRegionId('dom_matryc');setCameraPreset('continent');
         }} postFromNests={postFromNests} onNests={()=>{
@@ -3005,7 +3010,7 @@ export default function App() {
             {!dockCollapsed && (
               <div className="w-full bg-[#080b10]/95 border border-slate-700 rounded-b-xl rounded-tr-xl p-3.5 shadow-2xl max-h-[58vh] overflow-y-auto">
                 {activeTab === 'world_map' && (
-                  <WorldMapAtlasPanel onNestPost={()=>{setPostFromNests(true);setInn({city:'krolewska_przystan',tab:'board'});}} onNestSighting={setNestSighting}
+                  <WorldMapAtlasPanel ferryOpen={ferryOpen} onFerryOpen={setFerryOpen} onSettlement={applyMillMark} onNestPost={()=>{setPostFromNests(true);setInn({city:'krolewska_przystan',tab:'board'});}} onNestSighting={setNestSighting}
                     token={backendToken} towns={provinces.data.towns}
                     selectedRegionId={selectedRegionId}
                     selectedContinentId={selectedContinentId}

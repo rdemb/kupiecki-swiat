@@ -314,7 +314,8 @@ export type ContinentId =
   | 'nowa_nadzieja'
   | 'kresy_nadziei'
   | 'morze_wylin'
-  | 'poludniowe_trakty';
+  | 'poludniowe_trakty'
+  | 'zachodnie_rozlewiska';
 
 export interface CityNode {
   id: string;

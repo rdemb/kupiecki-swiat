@@ -1,3 +1,4 @@
+import {exerciseFord} from './ford-scenario.mjs';
 import {exerciseCabinet} from './cabinet-scenario.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -34,6 +35,7 @@ export async function exerciseNests({request,db,account,setSky,read,post}) {
   assert.equal((await doAt(scribe,'observe',site,{choice:correct})).album[0].species,species);
   assert.deepEqual((await book(buyer)).album,[]);
   await exerciseCabinet({request,db,owner:scribe,guest:buyer,voter:guide,edition,post,guild});
+  await exerciseFord({request,db,owner:scribe,partner:buyer});
   const seal=async()=> (await post(scout,'sealPost',{kind:'nest',groupId:guild,nonce:randomUUID()})).seaMail.sent[0];
   const first=await seal();await post(scout,'recallPost',{notice:first.id});
   assert.equal((await book(scout)).stage,'identified');
@@ -54,6 +56,11 @@ export async function exerciseNests({request,db,account,setSky,read,post}) {
   // Server sessions are reset by the isolated fixture restart.
   const relog=async a=>{a.token=(await request('/api/auth/login',200,a.credentials)).token;};
   await relog(scout);await relog(scribe);
+  const ford=await request('/api/lost-letter',200,undefined,scribe.token);
+  assert.ok(ford.found && ford.stage===5 && ford.fund===36 && ford.parcel.origin==='brod_wschodni');
+  const when=Date.now();
+  const stormLoad=await request('/api/lost-letter',200,{action:'book',site:'brod_wschodni'},scout.token);
+  assert.ok(stormLoad.parcel.arrives>=when+30000 && stormLoad.parcel.arrives<=Date.now()+30000);
   const archive=await request('/api/cabinet/dom_matryc',200,undefined,scribe.token);
   assert.ok(archive.shows[0].done && archive.shows[0].route.length===3);
   assert.deepEqual(archive.stamps,['dom_matryc']);

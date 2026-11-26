@@ -1,3 +1,4 @@
+import {westBounds, riverX} from './westernMarch';
 import {southBounds} from './southernTrail';
 import {worksites, crafts} from './newHope';
 import sanJuanElevation from '../assets/terrain/san-juan.json';
@@ -97,6 +98,8 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     cameraOverviewLook: [154, 7, 156],
     capitalRegionId: 'obsydianowa_cytadela',
   },
+  {id:'zachodnie_rozlewiska',name:'Zachodnie Rozlewiska Starego Lądu',shortName:'Zachodnie Rozlewiska',subtitle:'Kredowe jary, sady i zatopione trakty',climate:'Rzeczny',
+    colorHex:'#98bb96',description:'Po obu stronach rzeki kupcy szukają wieści o zaginionej karawanie.',cameraOverviewPos:[-1550,1280,1480],cameraOverviewLook:[-1550,4,310],capitalRegionId:'gospoda_koperty'},
   {id:'poludniowe_trakty',name:'Południowe Trakty Nowej Nadziei',shortName:'Południowe Trakty',subtitle:'Od delty pereł do złotych stołów skalnych',climate:'Rzeczny i stepowy',
     colorHex:'#dfb675',description:'Gospody na trzech szlakach przyjmują wędrowny gabinet. Jego drogę wyznaczają kupcy.',cameraOverviewPos:[910,960,1760],cameraOverviewLook:[910,5,925],capitalRegionId:'dom_matryc'},
   {id:'morze_wylin',name:'Morze Wylin · północny szlak',shortName:'Morze Wylin',subtitle:'Od fiordu do ciepłych kominów',climate:'Chłodny morski',
@@ -118,6 +121,7 @@ export interface WorldRegionNode {
   type: WorldRegionType;
   typeLabel: string;
   biome:
+    | 'Kredowe jary' | 'Łąki zalewowe' | 'Olsy nadrzeczne'
     | 'Delta Perłowa' | 'Solne tarasy' | 'Ochrowe płaskowyże'
     | NorthernBiome
     | 'Nadmorska Nizina'
@@ -634,9 +638,9 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     featuredCommodity: 'mithril',
   },
   ...worksites.map((site):WorldRegionNode=>({
-    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.z>310?'poludniowe_trakty':site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
-    typeLabel:'Warsztat kupiecki',biome:site.z>310 ? southBiome(site.x) : site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
-    atlasPercent:site.z>310?[(site.x-southBounds.west)*100/(southBounds.east-southBounds.west),(site.z-southBounds.near)*100/(southBounds.far-southBounds.near)]:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
+    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.x<westBounds.east?'zachodnie_rozlewiska':site.z>310?'poludniowe_trakty':site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
+    typeLabel:'Warsztat kupiecki',biome:site.x<westBounds.east ? westBiome(site.x) : site.z>310 ? southBiome(site.x) : site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
+    atlasPercent:site.x<westBounds.east?[(site.x-westBounds.west)/24.8,(site.z-westBounds.north)/24.8]:site.z>310?[(site.x-southBounds.west)*100/(southBounds.east-southBounds.west),(site.z-southBounds.near)*100/(southBounds.far-southBounds.near)]:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
     dangerLabel:'Osada rzemieślnicza',loreDescription:site.description,colorHex:crafts[site.craft].color,
   })),
 ];
@@ -733,6 +737,7 @@ export interface ContinentBiomeWeights {
  * Pure geographic biome classifier across all 6 Continents in 620x620 world space.
  */
 export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWeights {
+  if (x<westBounds.east) return {desert:x < -2100?.25:0,glacier:0,jade:x>-1300?.65:.1,oasis:x>-2100?.8:.1,volcanic:0};
   if (z>310) {
     return {desert:x<560?0:.65,glacier:0,jade:0,oasis:x<560?.78:.12,volcanic:0};
   }
@@ -811,6 +816,20 @@ function northHeight(x:number,z:number) {
   if(biome==='dune') relief=10+12*Math.sin(x*.09+noise*3);
   return -9+smoothstep(-.12,.32,land)*(15+Math.max(land,0)*relief);
 }
+function westBiome(x:number) {
+  if(x < -2100) return 'Kredowe jary';
+  return x > -1300 ? 'Olsy nadrzeczne' : 'Łąki zalewowe';
+}
+function westHeight(x:number,z:number) {
+  const edge=Math.min(x-westBounds.west,westBounds.east-x,z-westBounds.north,westBounds.south-z);
+  const shore=edge+28*Math.sin(x*.013)+22*Math.cos(z*.014);
+  if(shore<45) return -10;
+  const relief=fbm2D(x*.009,z*.009,3);
+  const gorge=x < -2100 ? 22+54*Math.abs(Math.sin(z*.008+relief*2)) : 13+9*relief;
+  const bank=Math.abs(x-riverX(z));
+  const surface=-8+smoothstep(25,65,bank)*(8+gorge);
+  return -10+smoothstep(45,155,shore)*(surface+10);
+}
 function southBiome(x:number) {
   return x<560?'Delta Perłowa':x<1240?'Solne tarasy':'Ochrowe płaskowyże';
 }
@@ -828,6 +847,7 @@ function southHeight(x:number,z:number) {
   return -9+smoothstep(-.08,.16,land)*surface;
 }
 export function getTerrainHeight(x: number, z: number): number {
+  if(x<westBounds.east) return westHeight(x,z);
   if(z>310) return southHeight(x,z);
   if(z < -310) return northHeight(x,z);
   if(x>930) {

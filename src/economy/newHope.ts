@@ -1,3 +1,4 @@
+import { marshSites } from './westernMarch';
 import { southernInns } from './southernTrail';
 import {northernSites} from './northPassage';
 
@@ -24,6 +25,7 @@ export const worksites: Worksite[] = [
   {id:'przyladek_dwoch_szyj',name:'Przylądek Dwóch Szyj',craft:'szkutnik',x:2040,z:-55,description:'Z pomostu widać mokradła. Piloci omijają trzcinę, gdy nad szuwarami podnoszą się jednocześnie dwie zielone głowy.'},
   ...northernSites,
   ...southernInns,
+  ...marshSites,
 ];
 export function craftRank(completed:number) {
   return completed >= 8 ? 'Mistrz' : completed >= 3 ? 'Czeladnik' : 'Uczeń';

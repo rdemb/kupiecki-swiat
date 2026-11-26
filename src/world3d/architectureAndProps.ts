@@ -1216,11 +1216,13 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
  */
 export function buildArticulatedDragon(
   materials: SharedWorldMaterials,
-  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' = 'crimson',
+  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' | 'reedFrill' | 'flintShield' = 'crimson',
 ): THREE.Group {
   const dragon = new THREE.Group();
 
   const palette = {
+    reedFrill:{body:0x66794c,wing:0x445c3d,emissive:0x273b20,roughness:.62,metalness:.13},
+    flintShield:{body:0x564e46,wing:0x825c47,emissive:0x463328,roughness:.82,metalness:.18},
     deltaSail:{body:0x326789,wing:0x32577d,emissive:0x5386b2,roughness:.49,metalness:.21},
     ochreCrown:{body:0x9e7336,wing:0x604526,emissive:0x8d5e2c,roughness:.65,metalness:.35},
     ochreTwin: {body:0x6e5947,wing:0x604837,emissive:0x392719,roughness:.94,metalness:.08},
@@ -1303,6 +1305,18 @@ export function buildArticulatedDragon(
   }
   for(const [z,x,y,w,h] of stations.slice(2,twoHeads?10:13)){
     spur(dragon,[x,y+h*.86,z],[x,y+h+.09+w*.44,z-.24-w*.19],.045+w*.11,.008);
+  }
+  if(variant==='reedFrill'){
+    for(const side of [-1,1]) for(let i=0;i<5;i++){
+      const z=1.6+i*.27;
+      spur(dragon,[side*.26,1.23,z],[side*(1.45-i*.12),1.68+i*.13,z-.85],.13,.006);
+    }
+  }
+  if(variant==='flintShield'){
+    for(const side of [-1,1]) for(let i=0;i<6;i++){
+      const plate=new THREE.Mesh(new THREE.DodecahedronGeometry(1),scaleMat);
+      plate.scale.set(.47,.31,.72);plate.position.set(side*.54,.87,2.1-i*.67);dragon.add(plate);
+    }
   }
   if (variant==='deltaSail') {
     const fin=new THREE.BufferGeometry();

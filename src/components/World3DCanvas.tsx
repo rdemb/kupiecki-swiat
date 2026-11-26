@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadLanding } from '../world3d/coastalScenery';
+import { buildFordFerry } from '../world3d/fordFerry';
 import { buildCommonField } from '../world3d/commonField';
 import type { FieldStage } from '../economy/commonField';
 import { outdoorReflections } from '../world3d/outdoorReflections';
@@ -62,6 +63,7 @@ export type { CameraPresetId };
 
 interface World3DCanvasProps {
   visible: boolean;
+  ferryOpen?: boolean;
   fieldStage?: FieldStage;
   towns:Town[];
   gameState: 'title' | 'playing' | 'paused' | 'gameover';
@@ -135,7 +137,7 @@ const _tmpSunPos = new THREE.Vector3();
 
 export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   visible,
-  gameState, towns, fieldStage,
+  gameState, towns, fieldStage, ferryOpen = false,
   selectedRegionId,
   selectedContinentId,
   onSelectRegion,
@@ -156,6 +158,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   cinematicTourActive = false,
   onTourContinentChange,
 }) => {
+  const ferryOpenRef=useRef(ferryOpen);
+  ferryOpenRef.current=ferryOpen;
   const nestRef=useRef(nestSighting);
   nestRef.current=nestSighting;
   const fieldStageRef = useRef(fieldStage);
@@ -370,6 +374,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     scene.add(terrain.mesh);
     const field = buildCommonField(terrain.heightAt);
     scene.add(field.group);
+    const ferry=buildFordFerry(materials.timberWood);
+    scene.add(ferry.group);
 
     const ocean = buildRealisticOcean(isSoftwareGl);
     scene.add(ocean.mesh);
@@ -660,6 +666,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const playerDragonRig = new THREE.Group();
     const playerDragonModels: Record<DragonSpeciesId, THREE.Group> = {
+      trzcinowy:buildArticulatedDragon(materials,'reedFrill'),
+      krzemienny:buildArticulatedDragon(materials,'flintShield'),
       blekitny_legendarny:buildArticulatedDragon(materials,'deltaSail'),
       zloty_legendarny:buildArticulatedDragon(materials,'ochreCrown'),
       dwuglowy_brazowy:buildArticulatedDragon(materials,'ochreTwin'),
@@ -673,6 +681,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       szmaragd: buildArticulatedDragon(materials, 'emerald'),
       zloto: buildArticulatedDragon(materials, 'gold'),
     };
+    playerDragonModels.trzcinowy.scale.set(1,.8,1.55);
+    playerDragonModels.krzemienny.scale.set(1.5,1.18,1.08);
     playerDragonModels.blekitny_legendarny.scale.set(1.42,.94,1.63);
     playerDragonModels.zloty_legendarny.scale.set(1.53,1.41,1.18);
     playerDragonModels.dwuglowy_brazowy.scale.set(1.42,1.08,.94);
@@ -1295,7 +1305,11 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const homeReg = WORLD_REGIONS.find((r) => r.id === selectedRegionIdRef.current) ?? WORLD_REGIONS[0];
         const [hx, hz] = homeReg.position2D;
         const hy = Math.max(2.0, getTerrainHeight(hx, hz));
-        const sight=homeReg.id==='prom_lnu'?{site:homeReg.id,species:'blekitny_legendarny' as const}
+        ferry.group.visible=ferryOpenRef.current;
+        if(ferry.group.visible) ferry.boat.position.x=reduceLandscapeMotion.matches ? -32 : 32*Math.sin(Date.now()/8700);
+        const sight=homeReg.id==='olszyna_lusek'?{site:homeReg.id,species:'trzcinowy' as const}
+          :homeReg.id==='jar_krzemienia'?{site:homeReg.id,species:'krzemienny' as const}
+          :homeReg.id==='prom_lnu'?{site:homeReg.id,species:'blekitny_legendarny' as const}
           :homeReg.id==='wrota_plaskowyzu'?{site:homeReg.id,species:'zloty_legendarny' as const}:nestRef.current;
         rookery.visible=!!sight && sight.site===homeReg.id;
         if(rookery.visible && sight) {
@@ -1528,6 +1542,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       materials.timberWood.dispose();
       cityGroups.krolewska_przystan?.getObjectByName('mennica-krolewska')?.userData.releaseMint?.();
       field.dispose();
+      ferry.dispose();
       settlements.dispose();
       closeLanding();
       terrain.dispose();

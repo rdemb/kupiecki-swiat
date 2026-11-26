@@ -1,3 +1,6 @@
+import { LostLetter } from './LostLetter';
+import { landings } from '../economy/westernMarch';
+import type { MillMark } from '../economy/mill';
 import { CuriosityCabinet } from './CuriosityCabinet';
 import { NestingJournal } from './NestingJournal';
 import { CareerDesk } from './CareerDesk';
@@ -23,6 +26,9 @@ import { CameraPresetId, buildActiveRouteList } from '../world3d/cameraPresets';
 import type { ActiveCaravan3D } from './World3DCanvas';
 
 interface WorldMapAtlasPanelProps {
+  ferryOpen:boolean;
+  onFerryOpen:(open:boolean)=>void;
+  onSettlement:(uid:string,mark:MillMark)=>void;
   onNestPost:()=>void;
   onNestSighting:(s:import('../economy/northPassage').NestBook['sighting'])=>void;
   token: string|null;
@@ -56,7 +62,7 @@ interface WorldMapAtlasPanelProps {
 }
 
 export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
-  token, towns, selectedRegionId, onNestSighting, onNestPost,
+  ferryOpen, onFerryOpen, token, towns, selectedRegionId, onNestSighting, onNestPost, onSettlement,
   selectedContinentId,
   onSelectContinent,
   onSelectRegion,
@@ -89,17 +95,18 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
 
   const [selectedShow,setSelectedShow]=React.useState(0);
   const [showRoute,setShowRoute]=React.useState<string[]>([]);
+  const western=selectedContinentId==='zachodnie_rozlewiska';
   const southern=selectedContinentId==='poludniowe_trakty';
   const routePoints=showRoute.map(id=>WORLD_REGIONS.find(r=>r.id===id)?.atlasPercent.join(',')).join(' ');
   const northern=selectedContinentId==='morze_wylin';
   const farCoast=selectedContinentId==='kresy_nadziei';
-  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast || northern || southern;
+  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast || northern || southern || western;
   const visibleRegions = WORLD_REGIONS.filter((r) =>
-    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' : r.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska' : r.continentId === selectedContinentId,
   );
 
   const visibleTrailEvents = trailEvents.filter((ev) =>
-    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' && ev.continentId!=='morze_wylin' && ev.continentId!=='poludniowe_trakty' : ev.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' && ev.continentId!=='morze_wylin' && ev.continentId!=='poludniowe_trakty' && ev.continentId!=='zachodnie_rozlewiska' : ev.continentId === selectedContinentId,
   );
 
   const visibleRoutes = buildActiveRouteList(activeCaravans, selectedContinentId);
@@ -134,7 +141,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   : 'bg-[#111722] text-slate-300 border border-slate-800 hover:bg-slate-800'
               }`}
             >
-              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty').length})
+              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska').length})
             </button>
             {WORLD_CONTINENTS.map((cont) => {
               const count = WORLD_REGIONS.filter((r) => r.continentId === cont.id).length;
@@ -160,13 +167,14 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         {/* High-Altitude Photorealistic 6-Continent Satellite Map */}
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
-            src={southern ? imageUrl('poludniowe-trakty.webp') : northern ? imageUrl('morze-wylin.webp') : farCoast ? imageUrl('dalekie-wybrzeze.webp') : eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
-            alt={southern?'Południowe Trakty · mapa gospód':northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
+            src={western ? imageUrl('zachodnie-rozlewiska.webp') : southern ? imageUrl('poludniowe-trakty.webp') : northern ? imageUrl('morze-wylin.webp') : farCoast ? imageUrl('dalekie-wybrzeze.webp') : eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
+            alt={western?'Zachodnie Rozlewiska · mapa brodu':southern?'Południowe Trakty · mapa gospód':northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
             referrerPolicy="no-referrer"
             className={eastern?'w-full h-full object-fill':'w-full h-full object-cover'}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/25 pointer-events-none" />
 
+          {western && ferryOpen && <svg aria-label="Czynna przeprawa nad brodem" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none"><polyline points={landings.map(id=>WORLD_REGIONS.find(r=>r.id===id)!.atlasPercent.join(',')).join(' ')} stroke="#ffe393" strokeDasharray="1 .6" strokeWidth="1" fill="none"/></svg>}
           {southern && showRoute.length>0 && <svg aria-label="Ślad objazdu wystawy" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
             <polyline points={routePoints} fill="none" stroke="#27180e" strokeWidth="1.4" />
             <polyline points={routePoints} fill="none" stroke="#ffd586" strokeWidth=".65" strokeDasharray="1.5 .7" />
@@ -209,6 +217,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                 type="button"
                 onClick={() => onSelectRegion(reg.id)}
                 style={{
+                  translate: reg.id===landings[0]?'-100% -50%':reg.id===landings[1]?'0 -50%':undefined,
                   left: `${reg.atlasPercent[0]}%`,
                   top: `${reg.atlasPercent[1]}%`,
                 }}
@@ -550,6 +559,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             </button>
           </div>
 
+          {western && <LostLetter key={token??'guest'} token={token} site={activeRegion.id} go={onSelectRegion} onOpen={onFerryOpen} onSettlement={onSettlement}/>}
           {southern && <CuriosityCabinet selected={selectedShow} onSelected={setSelectedShow} key={(token??'guest')+activeRegion.id} token={token} site={activeRegion.id} go={onSelectRegion} onRoute={setShowRoute}/>}
           {(northern || activeRegion.id==='lawica_krabow' || activeRegion.id==='przyladek_dwoch_szyj') &&
             <NestingJournal onPost={onNestPost} onSighting={onNestSighting} key={(token??'guest')+activeRegion.id} token={token} site={activeRegion.id} choose={onSelectRegion}/>}

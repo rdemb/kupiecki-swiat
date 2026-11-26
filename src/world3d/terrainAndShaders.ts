@@ -196,7 +196,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const segments = 324;
   const eastColumns = 176;
   const coastColumns = 248;
-  const columns = segments + eastColumns + coastColumns;
+  const westColumns=192;
+  const columns = westColumns + segments + eastColumns + coastColumns;
   const northRows = 124;
   const southRows = 168;
   const rows = northRows + segments + southRows;
@@ -209,8 +210,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const continentData = new Float32Array(count * 4); // x: desert, y: glacier, z: jade, w: oasis
 
   for (let i = 0; i < count; i++) {
-    const column = i % (columns+1);
-    const vx = column <= segments ? surveyAxis(column/segments,-76,98) : column <= segments+eastColumns ? size/2+(column-segments)*size/eastColumns : 930+(column-segments-eastColumns)*1240/coastColumns;
+    const column = i % (columns+1) - westColumns;
+    const vx = column < 0 ? -310+column*2480/westColumns : column <= segments ? surveyAxis(column/segments,-76,98) : column <= segments+eastColumns ? size/2+(column-segments)*size/eastColumns : 930+(column-segments-eastColumns)*1240/coastColumns;
     const row = Math.floor(i / (columns+1));
     const vz = row < northRows ? -930 + row * size / northRows : row<=northRows+segments ? surveyAxis((row-northRows)/segments,-96,42) : 310 + (row-northRows-segments)*1240/southRows;
     const vy = getTerrainHeight(vx, vz);
@@ -676,7 +677,7 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
   }
   for (let i = 0; i < pos.count; i++) {
     const innerX = gridCoordinate(pos.getX(i));
-    const x = innerX + Math.max(0,innerX-240)*1860/380;
+    const x = innerX + Math.max(0,innerX-240)*1860/380 + Math.min(0,innerX+240)*2480/380;
     const innerZ = gridCoordinate(pos.getZ(i));
     const z = innerZ + Math.min(0,innerZ+240)*620/380 + Math.max(0,innerZ-240)*1240/380;
     pos.setXYZ(i, x, 0, z);
