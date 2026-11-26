@@ -5,7 +5,10 @@ import { CuriosityCabinet } from './CuriosityCabinet';
 import { NestingJournal } from './NestingJournal';
 import { CareerDesk } from './CareerDesk';
 import { fieldLabels } from '../economy/commonField';
-import { imageUrl } from '../utils/imageUrl';
+import {UplandFair} from './UplandFair';
+import {WorldPostcard,type SceneCamera} from './WorldPostcard';
+import {ReliefViewer,reliefUrl} from './ReliefViewer';
+import {projectAtlas,sheetFor} from '../economy/atlasSheets';
 import React from 'react';
 import {
   CITIES,
@@ -26,9 +29,14 @@ import { CameraPresetId, buildActiveRouteList } from '../world3d/cameraPresets';
 import type { ActiveCaravan3D } from './World3DCanvas';
 
 interface WorldMapAtlasPanelProps {
+  sceneCamera:SceneCamera;
   ferryOpen:boolean;
   onFerryOpen:(open:boolean)=>void;
   onSettlement:(uid:string,mark:MillMark)=>void;
+  fairHost:string|null;
+  uhd:boolean;
+  selectUhd:(enabled:boolean)=>void;
+  onWinner:(site:string|null)=>void;
   onNestPost:()=>void;
   onNestSighting:(s:import('../economy/northPassage').NestBook['sighting'])=>void;
   token: string|null;
@@ -62,7 +70,7 @@ interface WorldMapAtlasPanelProps {
 }
 
 export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
-  ferryOpen, onFerryOpen, token, towns, selectedRegionId, onNestSighting, onNestPost, onSettlement,
+  sceneCamera,uhd,selectUhd,fairHost,onWinner,ferryOpen, onFerryOpen, token, towns, selectedRegionId, onNestSighting, onNestPost, onSettlement,
   selectedContinentId,
   onSelectContinent,
   onSelectRegion,
@@ -93,20 +101,23 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
   const activeContinent =
     WORLD_CONTINENTS.find((c) => c.id === activeRegion.continentId) ?? WORLD_CONTINENTS[0];
 
+  const [largeAtlas,setLargeAtlas]=React.useState(false);
+  const sheet=sheetFor(selectedContinentId);
   const [selectedShow,setSelectedShow]=React.useState(0);
   const [showRoute,setShowRoute]=React.useState<string[]>([]);
+  const uplands=selectedContinentId==='wzgorza_jarmarczne';
   const western=selectedContinentId==='zachodnie_rozlewiska';
   const southern=selectedContinentId==='poludniowe_trakty';
   const routePoints=showRoute.map(id=>WORLD_REGIONS.find(r=>r.id===id)?.atlasPercent.join(',')).join(' ');
   const northern=selectedContinentId==='morze_wylin';
   const farCoast=selectedContinentId==='kresy_nadziei';
-  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast || northern || southern || western;
+  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast || northern || southern || western || uplands;
   const visibleRegions = WORLD_REGIONS.filter((r) =>
-    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska' : r.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska' && r.continentId!=='wzgorza_jarmarczne' : r.continentId === selectedContinentId,
   );
 
   const visibleTrailEvents = trailEvents.filter((ev) =>
-    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' && ev.continentId!=='morze_wylin' && ev.continentId!=='poludniowe_trakty' && ev.continentId!=='zachodnie_rozlewiska' : ev.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' && ev.continentId!=='morze_wylin' && ev.continentId!=='poludniowe_trakty' && ev.continentId!=='zachodnie_rozlewiska' && ev.continentId!=='wzgorza_jarmarczne' : ev.continentId === selectedContinentId,
   );
 
   const visibleRoutes = buildActiveRouteList(activeCaravans, selectedContinentId);
@@ -141,8 +152,15 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   : 'bg-[#111722] text-slate-300 border border-slate-800 hover:bg-slate-800'
               }`}
             >
-              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska').length})
+              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska' && r.continentId!=='wzgorza_jarmarczne').length})
             </button>
+            <button className="atlas-expand" aria-pressed={uhd} onClick={()=>selectUhd(!uhd)}>Scena 3D · {uhd?'4K UHD':'Auto'}</button>
+            <button className="atlas-expand" onClick={()=>setLargeAtlas(true)}>Otwórz atlas 4K</button>
+            <WorldPostcard camera={sceneCamera} place={cameraPreset==='world'?'Mapa świata':WORLD_REGIONS.find(r=>r.id===selectedRegionId)?.name??'Atlas'}/>
+            {largeAtlas && <ReliefViewer initial={sheet} close={()=>setLargeAtlas(false)} visit={id=>{
+              const reg=WORLD_REGIONS.find(r=>r.id===id)!;
+              onSelectContinent(reg.continentId);onSelectRegion(id);onFocus3DCameraOnRegion(id);
+            }}/>}
             {WORLD_CONTINENTS.map((cont) => {
               const count = WORLD_REGIONS.filter((r) => r.continentId === cont.id).length;
               return (
@@ -167,10 +185,10 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         {/* High-Altitude Photorealistic 6-Continent Satellite Map */}
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
-            src={western ? imageUrl('zachodnie-rozlewiska.webp') : southern ? imageUrl('poludniowe-trakty.webp') : northern ? imageUrl('morze-wylin.webp') : farCoast ? imageUrl('dalekie-wybrzeze.webp') : eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
-            alt={western?'Zachodnie Rozlewiska · mapa brodu':southern?'Południowe Trakty · mapa gospód':northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
+            src={reliefUrl(sheet)}
+            alt={uplands?'Mapa Wzgórz Trzech Jarmarków':western?'Zachodnie Rozlewiska · mapa brodu':southern?'Południowe Trakty · mapa gospód':northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
             referrerPolicy="no-referrer"
-            className={eastern?'w-full h-full object-fill':'w-full h-full object-cover'}
+            className="w-full h-full object-fill"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/25 pointer-events-none" />
 
@@ -185,26 +203,13 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             preserveAspectRatio="none"
             className="absolute inset-0 w-full h-full pointer-events-none"
           >
-            {/* Heartland Land Caravan Routes */}
-            <line x1="51.0" y1="45.0" x2="43.0" y2="39.0" stroke="#fbbf24" strokeWidth="0.32" strokeDasharray="1.1,0.7" opacity="0.88" />
-            <line x1="51.0" y1="45.0" x2="54.0" y2="27.0" stroke="#fbbf24" strokeWidth="0.32" strokeDasharray="1.1,0.7" opacity="0.88" />
-            <line x1="51.0" y1="45.0" x2="59.0" y2="47.0" stroke="#fbbf24" strokeWidth="0.32" strokeDasharray="1.1,0.7" opacity="0.88" />
-            <line x1="43.0" y1="39.0" x2="54.0" y2="27.0" stroke="#fbbf24" strokeWidth="0.28" strokeDasharray="1.0,1.0" opacity="0.65" />
-
-            {/* Intercontinental Oceanic Shipping Lanes across all 6 Continents */}
-            {/* Stary Kontynent -> Frostheim */}
-            <path d="M 43.0 39.0 Q 34 27 22.0 21.0" fill="none" stroke="#60a5fa" strokeWidth="0.4" strokeDasharray="1.4,0.9" opacity="0.9" />
-            {/* Frostheim & Stary Kontynent -> Valoria (Far-West Emerald Highlands) */}
-            <path d="M 22.0 21.0 Q 15 33 13.5 47.0" fill="none" stroke="#4ade80" strokeWidth="0.38" strokeDasharray="1.4,0.9" opacity="0.9" />
-            <path d="M 43.0 39.0 Q 28 45 13.5 47.0" fill="none" stroke="#4ade80" strokeWidth="0.36" strokeDasharray="1.4,0.9" opacity="0.85" />
-            {/* Valoria -> Solaria & Stary Kontynent -> Solaria */}
-            <path d="M 19.0 54.0 Q 23 64 29.0 74.0" fill="none" stroke="#fb923c" strokeWidth="0.38" strokeDasharray="1.4,0.9" opacity="0.88" />
-            <path d="M 51.0 45.0 Q 44 63 39.0 78.0" fill="none" stroke="#38bdf8" strokeWidth="0.42" strokeDasharray="1.5,1.0" opacity="0.92" />
-            {/* Stary Kontynent -> Cesarstwo Aetheris (Far-East) */}
-            <path d="M 59.0 47.0 Q 72 41 85.0 39.0" fill="none" stroke="#2dd4bf" strokeWidth="0.42" strokeDasharray="1.5,1.0" opacity="0.92" />
-            {/* Aetheris & Solaria -> Archipelag Obsydianowy (Far-SE Volcanoes) */}
-            <path d="M 85.0 39.0 Q 86 58 81.0 75.0" fill="none" stroke="#f97316" strokeWidth="0.4" strokeDasharray="1.4,0.9" opacity="0.92" />
-            <path d="M 39.0 78.0 Q 58 84 74.0 82.0" fill="none" stroke="#f97316" strokeWidth="0.38" strokeDasharray="1.4,0.9" opacity="0.85" />
+            {visibleRoutes.map(route=>{
+              const origin=WORLD_REGIONS.find(r=>r.id===route.originCityId || r.linkedCityId===route.originCityId);
+              const destination=WORLD_REGIONS.find(r=>r.id===route.destinationCityId || r.linkedCityId===route.destinationCityId);
+              if(!origin || !destination)return null;
+              const [x1,y1]=projectAtlas(sheet,origin.position2D),[x2,y2]=projectAtlas(sheet,destination.position2D);
+              return <line key={route.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke={route.kind==='player'?'#f5d38c':'#b0d7d9'} strokeWidth=".3" strokeDasharray="1 .7"/>;
+            })}
           </svg>}
 
           {/* Interactive Clickable Region Pins */}
@@ -218,8 +223,8 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                 onClick={() => onSelectRegion(reg.id)}
                 style={{
                   translate: reg.id===landings[0]?'-100% -50%':reg.id===landings[1]?'0 -50%':undefined,
-                  left: `${reg.atlasPercent[0]}%`,
-                  top: `${reg.atlasPercent[1]}%`,
+                  left: `${projectAtlas(sheet,reg.position2D)[0]}%`,
+                  top: `${projectAtlas(sheet,reg.position2D)[1]}%`,
                 }}
                 className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9.5px] font-bold shadow-lg transition-transform cursor-pointer ${
                   isSelected
@@ -233,7 +238,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   className="w-1.5 h-1.5 rounded-full shrink-0"
                   style={{ backgroundColor: reg.colorHex }}
                 />
-                <span className="whitespace-nowrap">{reg.name.split(' (')[0]}{towns.filter(t=>t.approved && t.site===reg.linkedCityId).map(t=><small className="block" key={t.site}>⚑ {t.name}</small>)}</span>
+                <span className="whitespace-nowrap">{reg.name.split(' (')[0]}{reg.id===fairHost && <small className="block">Jarmark</small>}{towns.filter(t=>t.approved && t.site===reg.linkedCityId).map(t=><small className="block" key={t.site}>⚑ {t.name}</small>)}</span>
               </button>
             );
           })}
@@ -254,8 +259,8 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                 onClick={() => onSelectTrailEvent(ev.id)}
                 title={`${ev.categoryLabel}: ${ev.title}`}
                 style={{
-                  left: `${ev.atlasPercent[0]}%`,
-                  top: `${ev.atlasPercent[1]}%`,
+                  left: `${projectAtlas(sheet,ev.position2D)[0]}%`,
+                  top: `${projectAtlas(sheet,ev.position2D)[1]}%`,
                 }}
                 className={`absolute -translate-x-1/2 -translate-y-1/2 z-30 flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-extrabold shadow-xl transition-transform hover:scale-110 cursor-pointer ${toneClass}`}
               >
@@ -559,6 +564,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             </button>
           </div>
 
+          {uplands && <UplandFair key={token??'guest'} site={activeRegion.id} go={onSelectRegion} token={token} onWinner={onWinner} onSettlement={onSettlement}/>}
           {western && <LostLetter key={token??'guest'} token={token} site={activeRegion.id} go={onSelectRegion} onOpen={onFerryOpen} onSettlement={onSettlement}/>}
           {southern && <CuriosityCabinet selected={selectedShow} onSelected={setSelectedShow} key={(token??'guest')+activeRegion.id} token={token} site={activeRegion.id} go={onSelectRegion} onRoute={setShowRoute}/>}
           {(northern || activeRegion.id==='lawica_krabow' || activeRegion.id==='przyladek_dwoch_szyj') &&

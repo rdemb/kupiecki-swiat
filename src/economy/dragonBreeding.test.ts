@@ -27,7 +27,7 @@ test('Dragon Sanctuary initializes with starter Fire Dragon, incubating Frost Eg
   const s = createInitialDragonSanctuary();
   assert.equal(s.dragons.length, 1);
   assert.equal(s.eggs.length, 1);
-  assert.equal(Object.keys(DRAGON_SPECIES).length, 14);
+  assert.equal(Object.keys(DRAGON_SPECIES).length, 16);
 
   const bonuses = computeDragonGlobalBonuses(s);
   assert.ok(bonuses.knightAttackBonus > 0);
@@ -128,6 +128,22 @@ test('Coastal eggs hatch into companions with distinct travel and weather bonuse
     assert.equal(bonus.duchyIncomeBonusPct-neutral.duchyIncomeBonusPct,speciesId==='dwuglowy_brazowy'?6:0);
     assert.equal(bonus.caravanSpeedBonusPct - neutral.caravanSpeedBonusPct, speciesId === 'pseudosmok' ? 4 : speciesId === 'dwuglowy' ? 5 : 0);
     assert.equal(bonus.disasterResistancePct - neutral.disasterResistancePct, speciesId === 'blekit' ? 8 : speciesId === 'brazowy' ? 5 : 0);
+  }
+});
+
+test('Gatunki ze wzgórz wykluwają się z własnymi zdolnościami',()=>{
+  for(const speciesId of ['maczny','jedwabnik'] as const) {
+    const base=createInitialDragonSanctuary();
+    const bought=purchaseOrBreedDragonEgg({sanctuary:base,speciesId,playerGold:6000});assert.ok(bought.success);
+    const egg=bought.nextSanctuary.eggs.at(-1)!;
+    const warm=incubateOrHatchEgg({sanctuary:bought.nextSanctuary,eggId:egg.id,playerGold:7500});
+    const hatch=incubateOrHatchEgg({sanctuary:warm.nextSanctuary,eggId:egg.id,playerGold:7500});
+    const d=hatch.hatchedDragon!;assert.equal(d.speciesId,speciesId);
+    const sanctuary={...base,dragons:[{...d,stage:3 as const,energy:100}]};
+    const fed=feedAndTrainDragon({sanctuary,dragonId:d.id,playerGold:9000,feedMode:'grain',playerInventory:TEST_INVENTORY});
+    assert.equal(fed.consumedCommodity?.qty,speciesId==='maczny'?8:12);
+    const flight=dispatchDragonMission({sanctuary,dragonId:d.id,missionId:'eskorta_powietrzna'});
+    assert.equal(flight.nextSanctuary.dragons[0].xp-d.xp,speciesId==='jedwabnik'?120:85);
   }
 });
 

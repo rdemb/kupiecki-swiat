@@ -29,6 +29,7 @@ import { HarvestTable } from './HarvestFeast';
 import { feastTowns, type FeastTown } from '../economy/harvestLoaf';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
+import { FairChronicle } from './UplandFair';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
 export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair' | 'barter' | 'garrison' | 'ward';
@@ -41,6 +42,7 @@ interface Props {
   onHarbor: () => void;
   onCabinet:()=>void;
   onLetter:()=>void;
+  onUpland:(site:string)=>void;
   onNests:()=>void;
   postFromNests:boolean;
   onAccount: () => void;
@@ -55,7 +57,7 @@ export default function MerchantInn({
   tab,
   onTab,
   onClose,
-  onHarbor,onCabinet,onNests,onLetter,postFromNests,
+  onHarbor,onCabinet,onNests,onLetter,onUpland,postFromNests,
   onAccount,
   onSettlement,
   onMembership,
@@ -238,6 +240,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  <FairChronicle go={onUpland}/>
                   <button className="inn-link" onClick={onLetter}>List zaginionego kupca · Zachodnie Rozlewiska</button>
                   {<button className="inn-link" onClick={onCabinet}>Wędrowny gabinet · droga do Domu Matryc</button>}
                   {city==='krolewska_przystan' && book.seaMail && <SeaPost postFromNests={postFromNests} book={book} busy={busy} login={onAccount} act={act}/>}

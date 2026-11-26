@@ -1,3 +1,4 @@
+import {exerciseUplands} from './upland-fair-scenario.mjs';
 import {exerciseFord} from './ford-scenario.mjs';
 import {exerciseCabinet} from './cabinet-scenario.mjs';
 import assert from 'node:assert/strict';
@@ -36,6 +37,7 @@ export async function exerciseNests({request,db,account,setSky,read,post}) {
   assert.deepEqual((await book(buyer)).album,[]);
   await exerciseCabinet({request,db,owner:scribe,guest:buyer,voter:guide,edition,post,guild});
   await exerciseFord({request,db,owner:scribe,partner:buyer});
+  const afterFlood=await exerciseUplands({request,owner:scribe,partner:buyer,scout});
   const seal=async()=> (await post(scout,'sealPost',{kind:'nest',groupId:guild,nonce:randomUUID()})).seaMail.sent[0];
   const first=await seal();await post(scout,'recallPost',{notice:first.id});
   assert.equal((await book(scout)).stage,'identified');
@@ -55,7 +57,7 @@ export async function exerciseNests({request,db,account,setSky,read,post}) {
   await setSky(3);
   // Server sessions are reset by the isolated fixture restart.
   const relog=async a=>{a.token=(await request('/api/auth/login',200,a.credentials)).token;};
-  await relog(scout);await relog(scribe);
+  await relog(scout);await relog(scribe);await afterFlood();
   const ford=await request('/api/lost-letter',200,undefined,scribe.token);
   assert.ok(ford.found && ford.stage===5 && ford.fund===36 && ford.parcel.origin==='brod_wschodni');
   const when=Date.now();

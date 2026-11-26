@@ -1,3 +1,5 @@
+import type {SceneCamera} from './WorldPostcard';
+import {settlementLandscape} from '../world3d/settlementLandscape';
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -62,8 +64,11 @@ export interface ActiveCaravan3D {
 export type { CameraPresetId };
 
 interface World3DCanvasProps {
+  sceneCamera:SceneCamera;
   visible: boolean;
   ferryOpen?: boolean;
+  uhd:boolean;
+  fairHost:string|null;
   fieldStage?: FieldStage;
   towns:Town[];
   gameState: 'title' | 'playing' | 'paused' | 'gameover';
@@ -137,7 +142,7 @@ const _tmpSunPos = new THREE.Vector3();
 
 export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   visible,
-  gameState, towns, fieldStage, ferryOpen = false,
+  gameState, towns, fieldStage, fairHost, sceneCamera, uhd, ferryOpen = false,
   selectedRegionId,
   selectedContinentId,
   onSelectRegion,
@@ -158,6 +163,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   cinematicTourActive = false,
   onTourContinentChange,
 }) => {
+  const fairHostRef=useRef(fairHost);fairHostRef.current=fairHost;
+  const qualityRef=useRef(uhd);qualityRef.current=uhd;
+  const refreshSize=useRef<()=>void>(()=>{});
+  useEffect(()=>{refreshSize.current();},[uhd]);
   const ferryOpenRef=useRef(ferryOpen);
   ferryOpenRef.current=ferryOpen;
   const nestRef=useRef(nestSighting);
@@ -261,7 +270,12 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
-    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+    function pixelRatio(w:number,h:number) {
+      const limit=renderer.capabilities.maxTextureSize;
+      const uhdRatio=Math.min(3840/Math.max(w,h),2160/Math.min(w,h));
+      return Math.min(limit/w,limit/h,uhdRatio,qualityRef.current ? uhdRatio : isSoftwareGl ? 1 : Math.min(window.devicePixelRatio,2));
+    }
+    renderer.setPixelRatio(pixelRatio(width,height));
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = !isSoftwareGl;
     renderer.shadowMap.autoUpdate = !isSoftwareGl;
@@ -282,7 +296,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     scene.environment = reflections.texture;
 
 
-    const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 3400);
+    const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 40000);
     camera.position.set(16, 152, 266);
 
     function isHarbourView() {
@@ -294,7 +308,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     controls.dampingFactor = 0.065;
     controls.maxPolarAngle = isHarbourView() ? Math.PI * .525 : Math.PI / 2.12;
     controls.minDistance = 16;
-    controls.maxDistance = 1800;
+    controls.maxDistance = 32000;
     controls.target.set(4, 3, 12);
 
     // On a tall screen keep both the quay and the nearest ship in frame.
@@ -344,7 +358,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     const sunLight = new THREE.DirectionalLight(initAtmo.sunColor, initAtmo.sunIntensity);
     sunLight.position.set(...initAtmo.sunPos);
     sunLight.castShadow = !isSoftwareGl;
-    sunLight.shadow.mapSize.setScalar(isSoftwareGl ? 768 : 2048);
+    sunLight.shadow.mapSize.setScalar(Math.min(renderer.capabilities.maxTextureSize,isSoftwareGl ? 1024 : 4096));
     sunLight.shadow.camera.near = 25;
     sunLight.shadow.camera.far = 520;
     const d = 195;
@@ -354,7 +368,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     sunLight.shadow.camera.bottom = -d;
     sunLight.shadow.bias = -0.00045;
     sunLight.shadow.normalBias = 0.035;
-    scene.add(sunLight);
+    scene.add(sunLight,sunLight.target);
+    const sunlightOffset=new THREE.Vector3(...initAtmo.sunPos);
 
     const seaRimLight = new THREE.DirectionalLight(0x7dd3fc, 0.72);
     seaRimLight.position.set(-140, 58, 165);
@@ -363,6 +378,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     // 5. Load PBR Textures & Build 4-Continent Sculpted Terrain, Ocean, Volumetric Cloud Sky & Mist
     const textures = loadWorldTextures(renderer);
     const materials = createSharedWorldMaterials(textures);
+    const townLandscape=settlementLandscape(materials);
+    scene.add(townLandscape.group);
     const closeLanding = loadLanding(scene);
     const settlements=charteredTowns(scene,materials);
     let lastTowns: Town[] | null=null;
@@ -666,6 +683,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const playerDragonRig = new THREE.Group();
     const playerDragonModels: Record<DragonSpeciesId, THREE.Group> = {
+      maczny:buildArticulatedDragon(materials,'ramHorn'),
+      jedwabnik:buildArticulatedDragon(materials,'silkMoth'),
       trzcinowy:buildArticulatedDragon(materials,'reedFrill'),
       krzemienny:buildArticulatedDragon(materials,'flintShield'),
       blekitny_legendarny:buildArticulatedDragon(materials,'deltaSail'),
@@ -682,6 +701,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       zloto: buildArticulatedDragon(materials, 'gold'),
     };
     playerDragonModels.trzcinowy.scale.set(1,.8,1.55);
+    playerDragonModels.maczny.scale.set(1.25,1.19,1.07);
+    playerDragonModels.jedwabnik.scale.set(1.62,.84,.93);
     playerDragonModels.krzemienny.scale.set(1.5,1.18,1.08);
     playerDragonModels.blekitny_legendarny.scale.set(1.42,.94,1.63);
     playerDragonModels.zloty_legendarny.scale.set(1.53,1.41,1.18);
@@ -828,9 +849,11 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       const h = container.clientHeight || window.innerHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      if (composer) composer.setSize(w, h);
+      const ratio=pixelRatio(w,h);
+      renderer.setPixelRatio(ratio);renderer.setSize(w,h);
+      if(composer){composer.setPixelRatio(ratio);composer.setSize(w,h);}
     };
+    refreshSize.current=handleResize;
     window.addEventListener('resize', handleResize);
 
     // 15. Animation Loop (Zero GC, performance.now(), afterDraw on software WebGL)
@@ -939,7 +962,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         return;
       }
       const nowMs = performance.now();
-      const dt = Math.min((nowMs - prevTimeMs) / 1000, 0.05);
+      const cameraDt = Math.min((nowMs - prevTimeMs) / 1000, .45);
+      const dt = Math.min(cameraDt, 0.05);
       prevTimeMs = nowMs;
       elapsed += dt;
 
@@ -1016,9 +1040,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         terrain.uniforms.uWeatherDust.value = snapNow
           ? weatherParams.dustCoat
           : THREE.MathUtils.damp(terrain.uniforms.uWeatherDust.value, weatherParams.dustCoat, 3.0, dt);
-        terrain.uniforms.uAerialFogDensity.value = snapNow
-          ? weatherParams.fogMultiplier
-          : THREE.MathUtils.damp(terrain.uniforms.uAerialFogDensity.value, weatherParams.fogMultiplier, 3.5, dt);
+        const airDensity = weatherParams.fogMultiplier * Math.min(1, 150 / Math.max(150,camera.position.y));
+        terrain.uniforms.uAerialFogDensity.value = airDensity;
 
         // Dynamic PBR Wetness Roughness & Environment Reflection Modulation on City Stone, Roofs & Roads!
         const wet = terrain.uniforms.uWeatherWetness.value;
@@ -1033,8 +1056,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         materials.slateRoof.envMapIntensity = envBoost;
 
         _tmpSunPos.set(...atmo.sunPos);
-        sunLight.position.lerp(_tmpSunPos, atmoLerp);
-        const sunDirNorm = _tmpSunPos.copy(sunLight.position).normalize();
+        sunlightOffset.lerp(_tmpSunPos, atmoLerp);
+        const sunDirNorm = _tmpSunPos.copy(sunlightOffset).normalize();
         skyDome.uniforms.uSunDir.value.copy(sunDirNorm);
         ocean.uniforms.uSunDir.value.copy(sunDirNorm);
         terrain.uniforms.uSunDir.value.copy(sunDirNorm);
@@ -1103,7 +1126,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             _tmpColor.lerp(_tmpWxColor, Math.min(0.75, (weatherParams.fogMultiplier - 1.0) * 0.55));
           }
           scene.fog.color.lerp(_tmpColor, atmoLerp);
-          const targetFogDensity = 0.00175 * weatherParams.fogMultiplier;
+          const targetFogDensity = 0.00175 * airDensity;
           scene.fog.density = snapNow
             ? targetFogDensity
             : THREE.MathUtils.damp(scene.fog.density, targetFogDensity, 3.5, dt);
@@ -1307,7 +1330,9 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const hy = Math.max(2.0, getTerrainHeight(hx, hz));
         ferry.group.visible=ferryOpenRef.current;
         if(ferry.group.visible) ferry.boat.position.x=reduceLandscapeMotion.matches ? -32 : 32*Math.sin(Date.now()/8700);
-        const sight=homeReg.id==='olszyna_lusek'?{site:homeReg.id,species:'trzcinowy' as const}
+        const sight=homeReg.id==='rogata_skarpa'?{site:homeReg.id,species:'maczny' as const}
+          :homeReg.id==='zmierzchowe_buki'?{site:homeReg.id,species:'jedwabnik' as const}
+          :homeReg.id==='olszyna_lusek'?{site:homeReg.id,species:'trzcinowy' as const}
           :homeReg.id==='jar_krzemienia'?{site:homeReg.id,species:'krzemienny' as const}
           :homeReg.id==='prom_lnu'?{site:homeReg.id,species:'blekitny_legendarny' as const}
           :homeReg.id==='wrota_plaskowyzu'?{site:homeReg.id,species:'zloty_legendarny' as const}:nestRef.current;
@@ -1369,11 +1394,11 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             ? _trackedPos.y + 0.35
             : ay + 0.38;
 
-        selectionRing.visible = cameraPresetRef.current !== 'quay' && !isHarbourView();
+        selectionRing.visible = showWorldLabelsRef.current && cameraPresetRef.current !== 'city' && cameraPresetRef.current !== 'quay' && !isHarbourView();
         selectionRing.position.x = THREE.MathUtils.damp(selectionRing.position.x, ringTargetX, 7, dt);
         selectionRing.position.z = THREE.MathUtils.damp(selectionRing.position.z, ringTargetZ, 7, dt);
         selectionRing.position.y = THREE.MathUtils.damp(selectionRing.position.y, ringTargetY, 7, dt);
-        selectionRing.rotation.z = elapsed * 0.5;
+        selectionRing.rotation.y = elapsed * 0.5;
 
         // Camera Choreography across the 6-Continent World (with Cinematic Flyover Tour Mode!)
         if (gameStateRef.current === 'title') {
@@ -1390,12 +1415,12 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           tourPosCurve.getPointAt(tourProgress, _targetPos);
           tourLookCurve.getPointAt(tourProgress, _targetLook);
           const camDamp = isSoftwareGl ? 10.0 : 3.2;
-          camera.position.x = THREE.MathUtils.damp(camera.position.x, _targetPos.x, camDamp, dt);
-          camera.position.y = THREE.MathUtils.damp(camera.position.y, _targetPos.y, camDamp, dt);
-          camera.position.z = THREE.MathUtils.damp(camera.position.z, _targetPos.z, camDamp, dt);
-          controls.target.x = THREE.MathUtils.damp(controls.target.x, _targetLook.x, camDamp, dt);
-          controls.target.y = THREE.MathUtils.damp(controls.target.y, _targetLook.y, camDamp, dt);
-          controls.target.z = THREE.MathUtils.damp(controls.target.z, _targetLook.z, camDamp, dt);
+          camera.position.x = THREE.MathUtils.damp(camera.position.x, _targetPos.x, camDamp, cameraDt);
+          camera.position.y = THREE.MathUtils.damp(camera.position.y, _targetPos.y, camDamp, cameraDt);
+          camera.position.z = THREE.MathUtils.damp(camera.position.z, _targetPos.z, camDamp, cameraDt);
+          controls.target.x = THREE.MathUtils.damp(controls.target.x, _targetLook.x, camDamp, cameraDt);
+          controls.target.y = THREE.MathUtils.damp(controls.target.y, _targetLook.y, camDamp, cameraDt);
+          controls.target.z = THREE.MathUtils.damp(controls.target.z, _targetLook.z, camDamp, cameraDt);
           controls.update();
 
           const contIdx = Math.floor(tourProgress * WORLD_CONTINENTS.length) % WORLD_CONTINENTS.length;
@@ -1452,6 +1477,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
               );
               _targetPos.set(...staticPose.position);
               _targetLook.set(...staticPose.target);
+              if (preset==='world' && camera.aspect<1) _targetPos.sub(_targetLook).multiplyScalar(1/Math.max(.25,camera.aspect)).add(_targetLook);
               if (preset === 'coast' || preset === 'mint') {
                 if (preset === 'coast') frameCoast(_targetLook);
                 if (coastTrackingRef.current) coastPhase += dt * .19;
@@ -1473,20 +1499,25 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
                 : isSoftwareGl
                   ? 14.0
                   : 4.2;
-            camera.position.x = THREE.MathUtils.damp(camera.position.x, _targetPos.x, camDamp, dt);
-            camera.position.y = THREE.MathUtils.damp(camera.position.y, _targetPos.y, camDamp, dt);
-            camera.position.z = THREE.MathUtils.damp(camera.position.z, _targetPos.z, camDamp, dt);
+            camera.position.x = THREE.MathUtils.damp(camera.position.x, _targetPos.x, camDamp, cameraDt);
+            camera.position.y = THREE.MathUtils.damp(camera.position.y, _targetPos.y, camDamp, cameraDt);
+            camera.position.z = THREE.MathUtils.damp(camera.position.z, _targetPos.z, camDamp, cameraDt);
 
-            controls.target.x = THREE.MathUtils.damp(controls.target.x, _targetLook.x, camDamp + 1.2, dt);
-            controls.target.y = THREE.MathUtils.damp(controls.target.y, _targetLook.y, camDamp + 1.2, dt);
-            controls.target.z = THREE.MathUtils.damp(controls.target.z, _targetLook.z, camDamp + 1.2, dt);
+            controls.target.x = THREE.MathUtils.damp(controls.target.x, _targetLook.x, camDamp, cameraDt);
+            controls.target.y = THREE.MathUtils.damp(controls.target.y, _targetLook.y, camDamp, cameraDt);
+            controls.target.z = THREE.MathUtils.damp(controls.target.z, _targetLook.z, camDamp, cameraDt);
           }
           controls.update();
         }
       }
 
       skyDome.mesh.position.copy(camera.position);
-      const quayDetail = isHarbourView();
+      // Keep the sun's shadow volume over the camera's subject on every sheet.
+      const snap=.25;
+      sunLight.target.position.set(Math.round(controls.target.x/snap)*snap,controls.target.y,Math.round(controls.target.z/snap)*snap);
+      sunLight.position.copy(sunLight.target.position).add(sunlightOffset);
+      townLandscape.update(fairHostRef.current,camera.position.y-controls.target.y,reduceLandscapeMotion.matches?0:elapsed);
+      const quayDetail = isHarbourView() || cameraPresetRef.current==='city';
       if (shadowAtHarbour !== quayDetail) {
         shadowAtHarbour = quayDetail;
         if (isSoftwareGl) renderer.shadowMap.enabled = sunLight.castShadow = quayDetail;
@@ -1511,11 +1542,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       scenery.update(camera.position.y, reduceLandscapeMotion.matches ? 0 : elapsed, getPbrWeatherParams(pbrWeatherRef.current).windSpeed,
         terrain.uniforms.uSeasonAutumn.value, terrain.uniforms.uSeasonSnow.value);
       ocean.updateReflection(renderer, scene, camera, performance.now());
-      if (composer && !isSoftwareGl) {
-        composer.render();
-      } else {
-        renderer.render(scene, camera);
-      }
+      drawWorld();
       updateProjectedLabels();
 
       if (isSoftwareGl) {
@@ -1525,6 +1552,15 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       }
     }
 
+    function drawWorld(){
+      if(composer && !isSoftwareGl)composer.render();
+      else renderer.render(scene,camera);
+    }
+    sceneCamera.current=async()=>{
+      if(disposed || renderer.getContext().isContextLost())return null;
+      drawWorld();
+      return new Promise<Blob|null>(resolve=>renderer.domElement.toBlob(resolve,'image/png'));
+    };
     tick();
 
     return () => {
@@ -1541,6 +1577,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       materials.timberWood.map?.dispose();
       materials.timberWood.dispose();
       cityGroups.krolewska_przystan?.getObjectByName('mennica-krolewska')?.userData.releaseMint?.();
+      refreshSize.current=()=>{};
+      townLandscape.dispose();
       field.dispose();
       ferry.dispose();
       settlements.dispose();
@@ -1561,6 +1599,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         b.crystalMat.dispose();
         b.ringMat.dispose();
       }
+      sceneCamera.current=null;
       pmremGenerator.dispose();
       controls.dispose();
       reflections.dispose();

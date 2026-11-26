@@ -158,13 +158,16 @@ import {
 } from './achievementsAndQuests.ts';
 
 test('Expanded map retains old ports and adds six workshops across the eastern strait', () => {
-  assert.equal(WORLD_CONTINENTS.length, 11);
+  assert.equal(WORLD_CONTINENTS.length, 12);
   assert.equal(CITIES.length, 12, 'Expected 12 trade capitals across the 6 continents');
-  assert.equal(WORLD_REGIONS.length, 66);
+  assert.equal(WORLD_REGIONS.length, 78);
   const workshops=WORLD_REGIONS.filter(r=>r.continentId==='nowa_nadzieja');
   assert.equal(workshops.length,6);
   for(const {position2D:[x,z]} of workshops) assert.ok(x>310 && x<930 && getTerrainHeight(x,z)>1);
 
+  const uplands=WORLD_REGIONS.filter(r=>r.continentId==='wzgorza_jarmarczne');
+  assert.equal(uplands.length,12);
+  for(const r of uplands){assert.ok(getTerrainHeight(...r.position2D)>1,r.name);assert.ok(r.atlasPercent.every(v=>v>0 && v<100));}
   const west=WORLD_REGIONS.filter(r=>r.continentId==='zachodnie_rozlewiska');
   assert.equal(west.length,10);
   for(const r of west){

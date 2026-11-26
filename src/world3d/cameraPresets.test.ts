@@ -59,7 +59,8 @@ describe('computeStaticCameraPresetPose & CAMERA_PRESETS', () => {
 
     assert.equal(cityPose.position[0], 36);
     assert.ok(worldPose.position[1] > cityPose.position[1]);
-    assert.ok(routesPose.position[1] > worldPose.position[1]);
+    assert.ok(worldPose.position[1] > routesPose.position[1]);
+    assert.deepEqual(worldPose.target,[-310,0,-930]);
   });
 });
 

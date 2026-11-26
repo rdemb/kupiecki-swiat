@@ -1,3 +1,4 @@
+import { fairSites } from './uplandFair';
 import { marshSites } from './westernMarch';
 import { southernInns } from './southernTrail';
 import {northernSites} from './northPassage';
@@ -26,6 +27,7 @@ export const worksites: Worksite[] = [
   ...northernSites,
   ...southernInns,
   ...marshSites,
+  ...fairSites,
 ];
 export function craftRank(completed:number) {
   return completed >= 8 ? 'Mistrz' : completed >= 3 ? 'Czeladnik' : 'Uczeń';

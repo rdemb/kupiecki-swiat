@@ -1,3 +1,4 @@
+import { installUplandFair } from './uplandFair';
 import { installLostLetter } from './lostLetter';
 import { installCabinet } from './cabinet';
 import { installReturnFreight, ReturnRule } from './returnFreight';
@@ -76,6 +77,7 @@ export function installShipyard(
   const nests=installNestingGrounds(app,db,auth,gold,mail);
   installCabinet(app,db,auth);
   installLostLetter(app,db,auth,gold,weather);
+  installUplandFair(app,db,auth,transfer);
   function sealReport(uid: string, sender: string, destination: string, topic: unknown, now: number) {
     if (topic==='nest') return nests.seal(uid,sender,destination,now);
     const body = topic === 'grain' ? mail.grainReport()

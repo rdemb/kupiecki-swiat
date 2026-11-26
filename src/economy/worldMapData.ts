@@ -1,3 +1,4 @@
+import {uplandBounds} from './uplandFair';
 import {westBounds, riverX} from './westernMarch';
 import {southBounds} from './southernTrail';
 import {worksites, crafts} from './newHope';
@@ -98,6 +99,8 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     cameraOverviewLook: [154, 7, 156],
     capitalRegionId: 'obsydianowa_cytadela',
   },
+  {id:'wzgorza_jarmarczne',name:'Wzgórza Trzech Jarmarków',shortName:'Wzgórza Jarmarczne',subtitle:'Od pól nad rzeką po krasnoludzkie podcienia',climate:'Wyżynny',
+    colorHex:'#ddab70',description:'Po każdej wysokiej wodzie trzy osady wytyczają dojazdy. Pierwsza, która przyjmie mąkę, drewno i płótno, otwiera jarmark.',cameraOverviewPos:[-280,1250,-940],cameraOverviewLook:[-280,7,-2180],capitalRegionId:'rozhuk'},
   {id:'zachodnie_rozlewiska',name:'Zachodnie Rozlewiska Starego Lądu',shortName:'Zachodnie Rozlewiska',subtitle:'Kredowe jary, sady i zatopione trakty',climate:'Rzeczny',
     colorHex:'#98bb96',description:'Po obu stronach rzeki kupcy szukają wieści o zaginionej karawanie.',cameraOverviewPos:[-1550,1280,1480],cameraOverviewLook:[-1550,4,310],capitalRegionId:'gospoda_koperty'},
   {id:'poludniowe_trakty',name:'Południowe Trakty Nowej Nadziei',shortName:'Południowe Trakty',subtitle:'Od delty pereł do złotych stołów skalnych',climate:'Rzeczny i stepowy',
@@ -123,6 +126,7 @@ export interface WorldRegionNode {
   biome:
     | 'Kredowe jary' | 'Łąki zalewowe' | 'Olsy nadrzeczne'
     | 'Delta Perłowa' | 'Solne tarasy' | 'Ochrowe płaskowyże'
+    | 'Pola lessowe' | 'Bukowe grzbiety' | 'Łupkowe góry'
     | NorthernBiome
     | 'Nadmorska Nizina'
     | 'Zaczarowana Puszcza'
@@ -638,9 +642,9 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     featuredCommodity: 'mithril',
   },
   ...worksites.map((site):WorldRegionNode=>({
-    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.x<westBounds.east?'zachodnie_rozlewiska':site.z>310?'poludniowe_trakty':site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
-    typeLabel:'Warsztat kupiecki',biome:site.x<westBounds.east ? westBiome(site.x) : site.z>310 ? southBiome(site.x) : site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
-    atlasPercent:site.x<westBounds.east?[(site.x-westBounds.west)/24.8,(site.z-westBounds.north)/24.8]:site.z>310?[(site.x-southBounds.west)*100/(southBounds.east-southBounds.west),(site.z-southBounds.near)*100/(southBounds.far-southBounds.near)]:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
+    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.z<uplandBounds.south?'wzgorza_jarmarczne':site.x<westBounds.east?'zachodnie_rozlewiska':site.z>310?'poludniowe_trakty':site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
+    typeLabel:'Warsztat kupiecki',biome:site.z<uplandBounds.south ? uplandBiome(site.x) : site.x<westBounds.east ? westBiome(site.x) : site.z>310 ? southBiome(site.x) : site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
+    atlasPercent:site.z<uplandBounds.south?[(site.x-uplandBounds.west)/49.6,(site.z-uplandBounds.north)/24.8]:site.x<westBounds.east?[(site.x-westBounds.west)/24.8,(site.z-westBounds.north)/24.8]:site.z>310?[(site.x-southBounds.west)*100/(southBounds.east-southBounds.west),(site.z-southBounds.near)*100/(southBounds.far-southBounds.near)]:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
     dangerLabel:'Osada rzemieślnicza',loreDescription:site.description,colorHex:crafts[site.craft].color,
   })),
 ];
@@ -737,6 +741,7 @@ export interface ContinentBiomeWeights {
  * Pure geographic biome classifier across all 6 Continents in 620x620 world space.
  */
 export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWeights {
+  if (z<uplandBounds.south) return {desert:x>800?.38:.08,glacier:0,jade:x>=-900 && x<800?.7:.1,oasis:x < -900?.66:.15,volcanic:0};
   if (x<westBounds.east) return {desert:x < -2100?.25:0,glacier:0,jade:x>-1300?.65:.1,oasis:x>-2100?.8:.1,volcanic:0};
   if (z>310) {
     return {desert:x<560?0:.65,glacier:0,jade:0,oasis:x<560?.78:.12,volcanic:0};
@@ -816,6 +821,19 @@ function northHeight(x:number,z:number) {
   if(biome==='dune') relief=10+12*Math.sin(x*.09+noise*3);
   return -9+smoothstep(-.12,.32,land)*(15+Math.max(land,0)*relief);
 }
+function uplandBiome(x:number) {
+  return x < -900 ? 'Pola lessowe' : x < 800 ? 'Bukowe grzbiety' : 'Łupkowe góry';
+}
+function uplandHeight(x:number,z:number) {
+  const {west,east,north,south}=uplandBounds;
+  const margin=Math.min(x-west,east-x,z-north,south-z);
+  if(margin<10) return -10;
+  const noise=fbm2D(x*.004,z*.004,3);
+  const valley=Math.abs(z-(-2390+135*Math.sin(x*.003)+60*Math.cos(x*.006)));
+  const ridge=x < -900 ? 13+Math.floor(noise*6)*2 : x < 800 ? 32+19*Math.sin(x*.006+noise*2) : 28+85*Math.abs(Math.cos(z*.006+x*.003+noise));
+  const ground=-6+smoothstep(12,70,valley)*(8+ridge);
+  return -10+smoothstep(15,130,margin)*(ground+10);
+}
 function westBiome(x:number) {
   if(x < -2100) return 'Kredowe jary';
   return x > -1300 ? 'Olsy nadrzeczne' : 'Łąki zalewowe';
@@ -847,6 +865,7 @@ function southHeight(x:number,z:number) {
   return -9+smoothstep(-.08,.16,land)*surface;
 }
 export function getTerrainHeight(x: number, z: number): number {
+  if(z<uplandBounds.south) return uplandHeight(x,z);
   if(x<westBounds.east) return westHeight(x,z);
   if(z>310) return southHeight(x,z);
   if(z < -310) return northHeight(x,z);

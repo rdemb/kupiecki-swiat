@@ -56,6 +56,10 @@ export function merchantCraft(materials: SharedWorldMaterials) {
       const z = d / 2 + 0.04;
       for (const side of [-1, 1]) {
         const edge = side * w * 0.46;
+        piece(block,materials.timberWood,parent,[side*w*.21,h*.62,z+.055],[w*.095,h*.31,.055],[0,side*.30,0]);
+        piece(block,materials.castleStone,parent,[side*w*.46,.12,0],[w*.13,.24,d+.10]);
+        piece(block,materials.timberWood,parent,[side*w*.52,h-.025,0],[.10,.13,d+.35]);
+        for(let r=0;r<5;r++)piece(block,materials.timberWood,parent,[side*w*.52,h+.016,(r/4-.5)*d],[.19,.13,.085]);
         piece(block, materials.timberWood, parent, [edge, h / 2, z], [0.095, h, 0.1]);
         beam(parent, [edge, h * 0.59, z], [side * w * 0.19, h * 0.94, z], 0.085);
       }
@@ -69,6 +73,26 @@ export function merchantCraft(materials: SharedWorldMaterials) {
       );
       piece(block, materials.darkBasaltStone, parent, [w * 0.29, h * 1.82, -d * 0.17], [0.35, 0.1, 0.4]);
       piece(block, materials.timberWood, parent, [0, h * 0.62, z + 0.04], [0.035, h * 0.29, 0.04]);
+    },
+    rampart(parent:THREE.Matrix4,length:number,stone:THREE.Material) {
+      for(const side of [-1,1]){
+        piece(block,stone,parent,[0,.22,side*.42],[length,.42,.23]);
+        piece(block,stone,parent,[0,2.29,side*.42],[length+.08,.13,.21]);
+        for(let i=-1;i<=1;i++){
+          const x=length*i*.33;
+          piece(block,stone,parent,[x,1.16,side*.5],[.39,2.1,.38]);
+          piece(block,stone,parent,[x,.40,side*.59],[.56,.78,.44]);
+          piece(block,materials.darkBasaltStone,parent,[x+length*.15,1.59,side*.424],[.10,.54,.045]);
+        }
+      }
+    },
+    terrace(parent:THREE.Matrix4,w:number,h:number,d:number) {
+      for(const sign of [-1,1]){
+        piece(block,materials.sandstoneBrick,parent,[0,h/2,sign*d*.49],[w+.12,.32,.16]);
+        piece(block,materials.sandstoneBrick,parent,[sign*w*.49,h/2,0],[.16,.32,d]);
+      }
+      for(let j=-2;j<=2;j++)piece(block,materials.timberWood,parent,[j*w*.18,h*.33,d*.51],[.11,.12,.32]);
+      piece(block,materials.timberWood,parent,[0,-h*.23,d*.51],[w*.28,h*.54,.08]);
     },
     quay(x: number, y: number, z: number) {
       const local = new THREE.Matrix4().makeTranslation(x, y, z);

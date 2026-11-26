@@ -38,6 +38,27 @@ export interface SharedWorldMaterials {
   oasisWaterMat: THREE.MeshPhysicalMaterial;
 }
 
+// Drive long rain streaks in world space, across separate blocks and instances.
+function weatherMasonry(material:THREE.MeshStandardMaterial,strength:number){
+  material.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 masonryPosition;\n'+shader.vertexShader.replace('#include <project_vertex>',`
+      vec4 masonryVertex=vec4(transformed,1.);
+      #ifdef USE_INSTANCING
+        masonryVertex=instanceMatrix*masonryVertex;
+      #endif
+      masonryPosition=(modelMatrix*masonryVertex).xyz;
+      #include <project_vertex>`);
+    shader.fragmentShader='varying vec3 masonryPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
+      #include <color_fragment>
+      vec3 p=masonryPosition;
+      float exposure=.5+.5*sin(p.x*.74+sin(p.z*.87)+sin(p.y*.21+p.z*.31));
+      float drip=.5+.5*sin(8.3*p.x+5.2*p.z+.35*sin(2.4*p.y)+1.8*sin(.19*p.z));
+      float crust=smoothstep(.59,.92,exposure)*smoothstep(.51,.9,drip);
+      diffuseColor.rgb*=mix(vec3(1.),vec3(.66,.69,.55),crust*${strength.toFixed(2)});
+    `);
+  };
+  material.customProgramCacheKey=()=> 'masonry-weathering-'+strength;
+}
 export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWorldMaterials {
   const grain = harbourTimber();
   const canvas = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'materials/waga-len.webp');
@@ -65,7 +86,7 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
       diffuseColor.rgb *= (.84 + min(.18,grain*2.5)) * (1.-seam*.23);
     `);
   };
-  return {
+  const shared = {
     castleStone: new THREE.MeshStandardMaterial({
       map: textures.castleStone,
       normalMap: textures.masonryNormal,
@@ -203,6 +224,9 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
       clearcoat: 0.9,
     }),
   };
+  weatherMasonry(shared.castleStone,.9);weatherMasonry(shared.sandstoneBrick,.62);
+  weatherMasonry(shared.plasterWall,.42);weatherMasonry(shared.darkBasaltStone,.7);
+  return shared;
 }
 
 function buildMedievalHouse(
@@ -386,6 +410,8 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
       wall.castShadow = true;
       wall.receiveShadow = true;
       group.add(wall);
+      const wallFoot=wall.matrix.clone().makeRotationY(wall.rotation.y).setPosition(wall.position.x,0,wall.position.z);
+      craft.rampart(wallFoot,segLen,primaryStone);
 
       for (let m = -2; m <= 2; m++) {
         const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.45, 0.88), primaryStone);
@@ -580,6 +606,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
       dHouse.rotation.y = rot;
       dHouse.castShadow = true;
       group.add(dHouse);
+      dHouse.updateMatrix();craft.terrace(dHouse.matrix,hw,hh*1.15,hd);
     } else {
       const wallM = i % 2 === 0 ? materials.plasterWall : primaryStone;
       const roofM = isNordicFjord ? materials.snowRoof : i % 3 === 0 ? materials.slateRoof : primaryRoof;
@@ -1216,11 +1243,13 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
  */
 export function buildArticulatedDragon(
   materials: SharedWorldMaterials,
-  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' | 'reedFrill' | 'flintShield' = 'crimson',
+  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' | 'reedFrill' | 'flintShield' | 'ramHorn' | 'silkMoth' = 'crimson',
 ): THREE.Group {
   const dragon = new THREE.Group();
 
   const palette = {
+    ramHorn:{body:0xc9b99c,wing:0xcdb988,emissive:0x302417,roughness:.83,metalness:.04},
+    silkMoth:{body:0x393655,wing:0x544781,emissive:0x382447,roughness:.63,metalness:.16},
     reedFrill:{body:0x66794c,wing:0x445c3d,emissive:0x273b20,roughness:.62,metalness:.13},
     flintShield:{body:0x564e46,wing:0x825c47,emissive:0x463328,roughness:.82,metalness:.18},
     deltaSail:{body:0x326789,wing:0x32577d,emissive:0x5386b2,roughness:.49,metalness:.21},
@@ -1251,6 +1280,35 @@ export function buildArticulatedDragon(
     roughness: 0.86,
     side: THREE.DoubleSide,
   });
+
+  function detailSurface(material:THREE.MeshStandardMaterial, membrane:boolean) {
+    material.onBeforeCompile=shader=>{
+      shader.vertexShader='varying vec3 hidePosition;\n'+shader.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n hidePosition=position;');
+      const pattern=membrane ? `
+        vec2 ray=hidePosition.xz-vec2(2.42,1.56);
+        float angle=atan(ray.x,ray.y);
+        float vein=abs(sin(angle*28.+.37*sin(length(ray)*7.+angle*3.)));
+        float fine=clamp(1.-fwidth(angle)*44.,0.,1.);
+        float rib=(1.-smoothstep(.02,.17,vein))*fine;
+        float folds=.5+.5*sin(8.*angle+length(ray)*1.4);
+        diffuseColor.rgb*=mix(vec3(.60,.54,.55),vec3(1.24,1.10,1.03),folds)*(1.-.37*rib);
+      ` : `
+        vec2 tile=vec2(hidePosition.z*6.3,(hidePosition.y+hidePosition.x*.71)*9.);
+        tile.x+=.5*mod(floor(tile.y),2.);
+        vec2 cell=fract(tile)-.5;
+        float ridge=1.-smoothstep(.025,.15,abs(length(cell*vec2(1.,1.35))-.48));
+        float fade=clamp(1.-length(fwidth(tile)),0.,1.);
+        float speck=fract(sin(dot(floor(tile),vec2(12.35,78.17)))*4375.);
+        diffuseColor.rgb*=1.+fade*(.24*(speck-.5)-.32*ridge);
+      `;
+      shader.fragmentShader='varying vec3 hidePosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',
+        '#include <color_fragment>\n'+pattern);
+    };
+    material.customProgramCacheKey=()=>membrane?'dragon-wing-veins':'dragon-scales';
+  }
+  detailSurface(scaleMat,false);
+  detailSurface(wingMembrane,true);
 
   // A continuous tapered spine gives the chest, hips, tail and neck a single silhouette.
   type Station = [number, number, number, number, number]; // z, x/y centre, half width/height
@@ -1297,6 +1355,10 @@ export function buildArticulatedDragon(
   for(const side of [-1,1]){
     for(const neck of (twoHeads?[-1,1]:[0])) {
       const dx=neck*.87,dy=neck*.14;
+      const eye=new THREE.Mesh(new THREE.SphereGeometry(.096,12,8),materials.gildedBrass);
+      eye.scale.set(.54,.8,1);eye.position.set(dx+.43*side,1.19+dy,3.45);dragon.add(eye);
+      const pupil=new THREE.Mesh(new THREE.SphereGeometry(.059,8,6),materials.darkBasaltStone);
+      pupil.scale.set(.45,1,.31);pupil.position.copy(eye.position);pupil.position.x+=side*.043;dragon.add(pupil);
       spur(dragon,[dx+.27*side,dy+1.28,3.17],[dx+.61*side,dy+1.78,2.4],.14,.013);
     }
     spur(dragon,[.54*side,-.04,-1.18],[.85*side,-.66,-1.78],.27,.17);
@@ -1305,6 +1367,19 @@ export function buildArticulatedDragon(
   }
   for(const [z,x,y,w,h] of stations.slice(2,twoHeads?10:13)){
     spur(dragon,[x,y+h*.86,z],[x,y+h+.09+w*.44,z-.24-w*.19],.045+w*.11,.008);
+  }
+  for(const side of [-1,1]) {
+    if(variant==='ramHorn') {
+      const horn=new THREE.Mesh(new THREE.TorusGeometry(.46,.12,8,22,Math.PI*1.76),materials.gildedBrass);
+      horn.rotation.y=side*Math.PI/2;horn.position.set(side*.44,1.53,3.02);dragon.add(horn);
+    }
+    if(variant==='silkMoth') {
+      spur(dragon,[side*.22,1.3,3.2],[side*1.13,2.48,3.66],.07,.015,materials.timberWood);
+      for(let j=1;j<=6;j++) {
+        const k=j/7,x=side*(.22+.91*k),y=1.3+1.18*k,z=3.2+.46*k;
+        spur(dragon,[x,y,z],[x+side*.39,y+.23,z-.24],.045,.006,materials.timberWood);
+      }
+    }
   }
   if(variant==='reedFrill'){
     for(const side of [-1,1]) for(let i=0;i<5;i++){

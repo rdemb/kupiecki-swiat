@@ -315,7 +315,8 @@ export type ContinentId =
   | 'kresy_nadziei'
   | 'morze_wylin'
   | 'poludniowe_trakty'
-  | 'zachodnie_rozlewiska';
+  | 'zachodnie_rozlewiska'
+  | 'wzgorza_jarmarczne';
 
 export interface CityNode {
   id: string;

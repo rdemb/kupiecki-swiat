@@ -8,7 +8,7 @@ import { imageUrl } from '../utils/imageUrl';
 
 import type { CommodityId } from './economyEngine';
 
-export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony' | 'blekitny_legendarny' | 'zloty_legendarny' | 'trzcinowy' | 'krzemienny';
+export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony' | 'blekitny_legendarny' | 'zloty_legendarny' | 'trzcinowy' | 'krzemienny' | 'maczny' | 'jedwabnik';
 
 export type DragonLifeStage = 1 | 2 | 3 | 4 | 5;
 
@@ -18,7 +18,7 @@ export interface DragonSpeciesSpec {
   elementLabel: string;
   originContinentName: string;
   artworkUrl: string;
-  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' | 'reedFrill' | 'flintShield';
+  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' | 'reedFrill' | 'flintShield' | 'ramHorn' | 'silkMoth';
   accentHex: string;
   favoriteCommodity: CommodityId;
   favoriteCommodityName: string;
@@ -30,6 +30,16 @@ export interface DragonSpeciesSpec {
 }
 
 export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
+  maczny: {
+    id:'maczny',name:'Smok mączny',elementLabel:'Kreda i ziarno',originContinentName:'Rogata Skarpa',artworkUrl:imageUrl('smok-maczny.webp'),
+    variant3D:'ramHorn',accentHex:'#ddcea8',favoriteCommodity:'zboze',favoriteCommodityName:'Zboże',
+    specialtySummary:'Do zwykłego karmienia wystarcza mu 8 miar zboża.',baseFirePower:20,baseFlightSpeed:18,baseHoardGreed:15,eggCostGold:2200,
+  },
+  jedwabnik: {
+    id:'jedwabnik',name:'Smok jedwabnik',elementLabel:'Zmierzch i jedwab',originContinentName:'Zmierzchowe Buki',artworkUrl:imageUrl('smok-jedwabnik.webp'),
+    variant3D:'silkMoth',accentHex:'#aca1d9',favoriteCommodity:'krysztaly_many',favoriteCommodityName:'Kryształy Many',
+    specialtySummary:'Za eskortę powietrzną zdobywa 35 dodatkowych punktów doświadczenia.',baseFirePower:12,baseFlightSpeed:33,baseHoardGreed:14,eggCostGold:2550,
+  },
   trzcinowy: {
     id:'trzcinowy',name:'Smok trzcinowy',elementLabel:'Ols i woda',originContinentName:'Olszyna Łusek',artworkUrl:imageUrl('smok-trzcinowy.webp'),
     variant3D:'reedFrill',accentHex:'#9bb46c',favoriteCommodity:'zboze',favoriteCommodityName:'Zboże',specialtySummary:'Lekki lot między trzcinami. Zwiad skarbca zużywa o 8 punktów energii mniej.',
@@ -255,6 +265,8 @@ export const DRAGON_MISSIONS: DragonMissionSpec[] = [
 
 const DRAGON_NAMES_BY_SPECIES: Record<DragonSpeciesId, string[]> = {
   trzcinowy:['Wiklin','Sitowie','Tatarak'],
+  maczny:['Otrąbek','Żarnów','Bielik'],
+  jedwabnik:['Osnowa','Zmierzch','Urzet'],
   krzemienny:['Buła','Krzesiwo','Otoczak'],
   blekitny_legendarny:['Opar','Szafir','Rusał'],
   zloty_legendarny:['Wachlarz','Talarek','Aurek'],
@@ -476,7 +488,7 @@ export function feedAndTrainDragon(params: {
   const reqComm: { id: CommodityId; qty: number } =
     feedMode === 'favorite_commodity'
       ? { id: spec.favoriteCommodity, qty: spec.favoriteCommodity === 'smocza_luska' ? 1 : 3 }
-      : { id: 'zboze', qty: 12 };
+      : { id: 'zboze', qty: dragon.speciesId==='maczny' ? 8 : 12 };
 
   if (playerGold < goldCost) {
     return {
@@ -663,7 +675,7 @@ export function dispatchDragonMission(params: {
 
   const greedMult = 1 + dragon.hoardGreed * 0.014 + (dragon.stage - 1) * 0.14;
   const rewardGold = Math.round(mission.baseGoldReward * greedMult);
-  const nextXp = dragon.xp + mission.xpReward;
+  const nextXp = dragon.xp + mission.xpReward + (dragon.speciesId==='jedwabnik' && missionId==='eskorta_powietrzna' ? 35 : 0);
   const nextStage = stageForDragonXp(nextXp);
 
   const updated: BredDragon = {

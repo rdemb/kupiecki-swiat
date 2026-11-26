@@ -1,4 +1,5 @@
 import { CITIES, COMMODITIES, CommodityId, ContinentId } from '../economy/economyEngine';
+import {atlasSheets,projectAtlas} from '../economy/atlasSheets';
 import { WORLD_CONTINENTS, WORLD_REGIONS } from '../economy/worldMapData';
 
 export type CameraPresetId = 'world' | 'continent' | 'city' | 'routes' | 'caravan' | 'quay' | 'coast' | 'mint';
@@ -16,7 +17,7 @@ export const CAMERA_PRESETS: Record<CameraPresetId, CameraPresetSpec> = {
   world: {
     id: 'world',
     label: 'Świat 4K',
-    description: 'Panorama wszystkich 6 kontynentów',
+    description: 'Panorama całego odkrytego świata',
   },
   continent: {
     id: 'continent',
@@ -237,17 +238,17 @@ export function computeStaticCameraPresetPose(
       target: [6, 2, 10],
     };
   }
-  return {
-    position: [10, 178, 306],
-    target: [0, 4, 14],
-  };
+  const [west,north,east,south]=atlasSheets.swiat;
+  const x=(west+east)/2, z=(north+south)/2;
+  const altitude=(south-north)*1.36;
+  return {position:[x,altitude,z+altitude*.16],target:[x,0,z]};
 }
 
 function getCityAtlasPercent(cityId: string): [number, number] {
   const reg =
     WORLD_REGIONS.find((r) => r.linkedCityId === cityId || r.id === cityId) ??
     WORLD_REGIONS[0];
-  return reg.atlasPercent;
+  return projectAtlas('stary_lad',reg.position2D);
 }
 
 function getCityShortName(cityId: string): string {

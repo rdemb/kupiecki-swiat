@@ -1,0 +1,11 @@
+.relief-viewer:modal{inset:0;margin:0;padding:0;border:0;width:100vw;max-width:none;height:100dvh;max-height:none;background:#101b20;color:#f0e2c9;display:flex;flex-direction:column}.relief-viewer header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:#162023;border-bottom:1px solid #50605a}.relief-viewer header strong{margin-right:auto;font:600 20px Georgia,serif}.relief-viewer header button,.relief-viewer select{background:#263339;border:1px solid #687670;color:inherit;padding:4px 8px;border-radius:4px;cursor:pointer}.relief-viewer header button:disabled{opacity:.4}.relief-viewport{flex:1;overflow:auto;container-type:size;overscroll-behavior:contain}.relief-sheet{position:relative;margin-inline:auto;min-width:1px}.relief-sheet>img{width:100%;height:100%;display:block}.relief-pin{position:absolute;transform:translate(-50%,-50%);max-width:140px;font:600 11px/1.2 system-ui;color:#fff4cc;background:#13201de8;border:1px solid #b4a16c;padding:2px 5px;border-radius:3px;cursor:pointer}.relief-pin:focus-visible,.relief-pin:hover{background:#7b571e;z-index:5}
+.relief-viewer select{max-width:min(42vw,225px)}
+.overview .relief-pin{width:9px;height:9px;padding:0;background:#ede0b6;border:2px solid #4c5140;border-radius:50%;box-shadow:0 1px 3px #172526}
+.overview .relief-pin span{position:absolute;top:100%;left:50%;transform:translateX(-50%);width:max-content;max-width:14em;padding:3px 6px;background:#14201e;border-radius:3px;clip-path:inset(50%);pointer-events:none}
+.overview .relief-pin:is(:focus-visible,:hover) span{clip-path:none}
+.world-postcard:modal{margin:auto;width:min(95vw,1200px);max-height:94dvh;padding:5px;border:1px solid #a18a60;border-radius:5px;background:#182222;color:#f4ead5}
+.world-postcard::backdrop{background:#080d10cf}
+.world-postcard img{display:block;width:100%;max-height:78dvh;object-fit:contain}
+.world-postcard footer{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:10px}
+.world-postcard strong{margin-right:auto;font:600 19px Georgia,serif}
+.world-postcard a,.world-postcard footer button{color:#f1ddb6;padding:5px 10px;border:1px solid #80735b;border-radius:3px}

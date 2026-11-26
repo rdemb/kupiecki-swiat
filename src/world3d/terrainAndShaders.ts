@@ -200,7 +200,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const columns = westColumns + segments + eastColumns + coastColumns;
   const northRows = 124;
   const southRows = 168;
-  const rows = northRows + segments + southRows;
+  const uplandRows = 144;
+  const rows = uplandRows + northRows + segments + southRows;
   const geo = new THREE.PlaneGeometry(size, size, columns, rows);
   geo.rotateX(-Math.PI / 2);
 
@@ -212,8 +213,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   for (let i = 0; i < count; i++) {
     const column = i % (columns+1) - westColumns;
     const vx = column < 0 ? -310+column*2480/westColumns : column <= segments ? surveyAxis(column/segments,-76,98) : column <= segments+eastColumns ? size/2+(column-segments)*size/eastColumns : 930+(column-segments-eastColumns)*1240/coastColumns;
-    const row = Math.floor(i / (columns+1));
-    const vz = row < northRows ? -930 + row * size / northRows : row<=northRows+segments ? surveyAxis((row-northRows)/segments,-96,42) : 310 + (row-northRows-segments)*1240/southRows;
+    const row = Math.floor(i / (columns+1)) - uplandRows;
+    const vz = row < 0 ? -930+row*2480/uplandRows : row < northRows ? -930 + row * size / northRows : row<=northRows+segments ? surveyAxis((row-northRows)/segments,-96,42) : 310 + (row-northRows-segments)*1240/southRows;
     const vy = getTerrainHeight(vx, vz);
     posAttr.setXYZ(i, vx, vy, vz);
 
@@ -453,7 +454,9 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
                      + texture2D(uRockTex, strata.xy) * triW.z;
         vec3 rockCol = exposed.rgb;
 
-        vec3 grassDetail = texture2D(uGrassTex, uvGrass).rgb;
+        float groundBlend = smoothstep(-.75,.72,sin(vWorldPos.x*.042 + sin(vWorldPos.z*.017))+cos(vWorldPos.z*.059)*.6);
+        vec2 rotatedGrass = mat2(.7986,.6018,-.6018,.7986)*uvGrass*.89 + vec2(3.77,-6.14);
+        vec3 grassDetail = mix(texture2D(uGrassTex, uvGrass).rgb,texture2D(uGrassTex,rotatedGrass).rgb,groundBlend);
         vec3 grassMacro = texture2D(uGrassTex, uvGrassMacro).rgb;
         vec3 grassCol = mix(grassDetail, grassDetail * (0.76 + grassMacro * 0.48), 0.55);
 
@@ -518,7 +521,16 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         vec3 basaltCol = rockCol * vec3(0.42, 0.37, 0.39);
         terrainCol = mix(terrainCol, basaltCol, volc * 0.90);
 
-        vec2 groundUse = texture2D(uRoadMask, vWorldPos.xz / 620. + .5).rg;
+        if(vWorldPos.z < -930. && vWorldPos.x < -900.) {
+          vec2 plot = mat2(.91,-.41,.41,.91)*vWorldPos.xz*vec2(.019,.043);
+          plot += .09*sin(vWorldPos.zx*.015);
+          float stubble = fract(sin(dot(floor(plot),vec2(42.1,67.3)))*16213.);
+          float parcel = smoothstep(.0,.036,fract(plot.x))*smoothstep(.0,.045,fract(plot.y));
+          float furrow = sin(105.*plot.y)*max(0.,1.-fwidth(plot.y)*75.);
+          float tilled = smoothstep(2.,5.,h)*(1.-smoothstep(18.,27.,h))*smoothstep(.86,.96,flatness);
+          terrainCol *= mix(vec3(1.),mix(vec3(.58,.66,.39),vec3(.97+.43*stubble,.94+.13*stubble,.71),parcel)+.023*furrow,tilled);
+        }
+        vec2 groundUse = texture2D(uRoadMask, vWorldPos.xz / 620. + .5).rg * (1.-step(310.,max(abs(vWorldPos.x),abs(vWorldPos.z))));
         terrainCol *= mix(vec3(1.),vec3(.68,.58,.47),groundUse.g);
         float carriageway = groundUse.r;
         float wear = carriageway * smoothstep(.15,.5,h) * (1.-cityPlaza*.75);
@@ -679,7 +691,7 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
     const innerX = gridCoordinate(pos.getX(i));
     const x = innerX + Math.max(0,innerX-240)*1860/380 + Math.min(0,innerX+240)*2480/380;
     const innerZ = gridCoordinate(pos.getZ(i));
-    const z = innerZ + Math.min(0,innerZ+240)*620/380 + Math.max(0,innerZ-240)*1240/380;
+    const z = innerZ + Math.min(0,innerZ+475)*2480/145 + Math.min(0,innerZ+240)*620/380 + Math.max(0,innerZ-240)*1240/380;
     pos.setXYZ(i, x, 0, z);
     depths[i] = -getTerrainHeight(x, z);
   }
@@ -798,6 +810,10 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
           vec3 sceneReflection = texture2D(uMirror,clamp(uv+distort,.002,.998)).rgb;
           skyRefl = mix(skyRefl,sceneReflection,uMirrorWeight*smoothstep(0.,.035,min(edge.x,edge.y)));
         }
+        // Broken caustics reveal the bottom through shallow, sunlit water.
+        float lens1 = sin(a1*3.7 + sin(a2*2.4)), lens2 = cos(a2*4.1 + .7*sin(a3*2.2));
+        float rays = 1.-smoothstep(.035,.25+fwidth(lens1-lens2),abs(lens1-lens2));
+        waterCol += uSunColor * rays * (1.-shallowT) * (1.-fresnel) * .055;
         vec3 col = mix(waterCol, skyRefl, .10 + .86 * fresnel);
 
         // Dual-lobe UE5 Sun Specular Glitter (sharp pinpoint sun path + broad warm sheen)
@@ -894,6 +910,7 @@ export function buildAtmosphericSkyDome() {
       void main() {
         vDir = normalize(position);
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position.z = gl_Position.w;
       }
     `,
     fragmentShader: `
