@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { barterLot, type BarterTerms } from '../economy/barter';
 import { WEATHER_CONDITIONS } from '../economy/economyEngine';
 import {
   hallRules,
+  rationNames,
+  rationPlan,
+  type Ration,
   newsAge,
   otherPost,
   roadRank,
@@ -17,6 +20,11 @@ import type { FeastTown } from '../economy/harvestLoaf';
 import type { MillBook } from '../economy/mill';
 import { cinemaFile } from './MerchantRoad';
 import './garrison.css';
+
+const countLabel = (n: number, forms: [string,string,string]) =>
+  n+' '+(n===1 ? forms[0] : n%10>=2 && n%10<=4 && !(n%100>=12 && n%100<=14) ? forms[1] : forms[2]);
+const portionsLabel = (n: number) => countLabel(n,['porcja','porcje','porcji']);
+const sacksLabel = (n: number) => countLabel(n,['worek','worki','worków']);
 
 const date = new Intl.DateTimeFormat('pl-PL', {
   day: 'numeric',
@@ -76,12 +84,21 @@ type Props = {
 };
 export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
   const [qty, setQty] = useState('1');
+  const [ration, setRation] = useState<Ration>('pack');
+  const [sacks, setSacks] = useState('1');
   const [escort, setEscort] = useState(false);
   const m = book.mine,
     rank = roadRank(m?.marks ?? 0),
     n = Number(qty);
   const canEscort = !!m && !m.duty && m.counts.guards > 0;
   const withEscort = canEscort && escort;
+  const kitchen = book.kitchen;
+  useEffect(()=>{
+    if(kitchen && location.hash === '#kuchnia') document.getElementById('kuchnia')?.scrollIntoView();
+  },[town, !!kitchen]);
+  const fatigue = m?.fatigue ?? 0;
+  const escortMeal = rationPlan(ration, 1, fatigue);
+  const sackCount = Number(sacks);
   const soldiers = m ? Object.values(m.counts).reduce((a, b) => a + b, 0) : 0;
   return (
     <article className="garrison">
@@ -95,6 +112,23 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
           <h1>Koszary traktowe</h1>
         </div>
       </header>
+      {kitchen && <section className="camp-kitchen" id="kuchnia">
+        <div>
+          <h2>Kuchnia polowa</h2>
+          <img className="camp-still" src={cinemaFile('kuchnia-polowa.webp')} width="1080" height="460" alt="Na dziedzińcu kucharka nalewa kaszę strażnikowi, a kupiec przesypuje zboże z worka."/>
+          <p>Zapas na dziś · <b>{portionsLabel(kitchen.portions)}</b> dla miejscowych chorągwi. Każdy kupiec może przywieźć zboże. Z worka wychodzą dwie porcje.</p>
+          {kitchen.lastDelivery && <small>Ostatni transport · {kitchen.lastDelivery.carrier} · worki zboża: {kitchen.lastDelivery.sacks}</small>}
+          {wallet ? <div className="camp-delivery"><label>Worki zboża <input type="number" min="1" max="20" value={sacks} onChange={e=>setSacks(e.target.value)}/></label>
+            <button disabled={busy || !Number.isInteger(sackCount) || sackCount<1 || sackCount>20 || wallet.grain<sackCount} onClick={()=>sign({action:'stockKitchen',quantity:sackCount},'Kwatermistrz przyjął zboże do wspólnej kuchni.')}>Dostarcz zboże</button></div> : <button onClick={login}>Zaloguj się, by dostarczyć zboże</button>}
+        </div>
+        <div>
+          <h3>Rozkaz kwatermistrza</h3>
+          {m && <p>Stan twojej chorągwi · <b>{['wypoczęta','głodna','osłabiona','wyczerpana'][fatigue]}</b></p>}
+          <label>Racje na najbliższą służbę lub eskortę <select value={ration} onChange={e=>setRation(e.target.value as Ration)}>{(Object.keys(rationNames) as Ration[]).map(key=><option key={key} value={key}>{rationNames[key]}</option>)}</select></label>
+          <p aria-live="polite">Na osobę · {escortMeal.grain ? '1 worek z własnego wozu' : portionsLabel(escortMeal.portions)+' ze wspólnej kuchni'}. Dodatkowy czas drogi lub służby: {escortMeal.delay} s.</p>
+          <small>Połowa racji pogłębia głód o jeden stopień. Pełna racja utrzymuje siły, a wzmocniona odrabia jeden stopień. Każdy stopień wydłuża służbę o 10 s.</small>
+        </div>
+      </section>}
       <div className="garrison-pages">
         <section>
           <h2>Księga załogi</h2>
@@ -177,6 +211,7 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
           <div className="garrison-roster">
             {unitTypes.map((unit) => {
               const u = units[unit];
+              const meal = rationPlan(ration, u.crew, fatigue);
               const canHire =
                 !!m &&
                 !!wallet &&
@@ -193,7 +228,7 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
                     {m && <small> · {m.counts[unit]} w koszarach</small>}
                   </h3>
                   <p>
-                    {u.duty}. Załoga {u.crew} · {u.time} s · {u.marks} pkt służby.
+                    {u.duty}. Załoga {u.crew} · {u.time + meal.delay} s · {u.marks} pkt służby.
                   </p>
                   {m && wallet && m.level > 0 && (
                     <div>
@@ -210,10 +245,10 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
                       </button>
                       <button
                         disabled={
-                          busy || !!m.duty || m.counts[unit] < u.crew || wallet.grain < u.crew
+                          busy || !!m.duty || m.counts[unit] < u.crew || wallet.grain < meal.grain || (kitchen?.portions ?? 0) < meal.portions
                         }
                         onClick={() =>
-                          sign({ action: 'knightDuty', unit }, 'Rycerz objął służbę z załogą.')
+                          sign({ action: 'knightDuty', unit, ration }, 'Rycerz objął służbę z załogą.')
                         }
                       >
                         Wyślij na służbę
@@ -221,8 +256,7 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
                     </div>
                   )}
                   <small>
-                    Werbunek jednej osoby kosztuje {u.price} złota i 1 zboże. Prowiant na służbę
-                    wynosi {u.crew} zboża.
+                    Werbunek jednej osoby kosztuje {u.price} złota i 1 zboże. Prowiant na służbę · {meal.grain ? sacksLabel(meal.grain)+' z wozu' : portionsLabel(meal.portions)+' z kuchni'}.
                   </small>
                 </section>
               );
@@ -260,7 +294,8 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
             </label>
           )}
           <small>
-            Sam wóz zużywa 1 zboże. Z eskortą zużyje 2 i dotrze o {4 + rank.seconds} s wcześniej.
+            Sam wóz zużywa 1 worek zboża. Eskorta skraca przejazd o {4 + rank.seconds} s.
+            {withEscort && ` Jej prowiant to ${escortMeal.grain ? '1 dodatkowy worek z wozu' : portionsLabel(escortMeal.portions)+' z kuchni'}. Głód wydłuży każdy odcinek o ${escortMeal.delay} s.`}
             Rycerz wróci do koszar z 2 pkt służby.
           </small>
           {book.documents.map((d) => (
@@ -276,10 +311,10 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
               ) : (
                 wallet && (
                   <button
-                    disabled={busy || !!m?.wagon || wallet.grain < (withEscort ? 2 : 1)}
+                    disabled={busy || !!m?.wagon || wallet.grain < 1 + (withEscort ? escortMeal.grain : 0) || (withEscort && (kitchen?.portions ?? 0) < escortMeal.portions)}
                     onClick={() =>
                       sign(
-                        { action: 'carryNews', circle: d.id, escort: withEscort },
+                        { action: 'carryNews', circle: d.id, escort: withEscort, ...(withEscort ? {ration} : {}) },
                         'Wóz z zapieczętowaną umową wyruszył.',
                       )
                     }

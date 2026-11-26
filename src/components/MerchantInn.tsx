@@ -230,7 +230,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
-                  {isFairTown(city) && <section className="feast-table">{!!book.reliefCalls?.length && <MillHouse visit={onTab} room="relief" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}<PortLink href={infirmaryHref(city)} go={()=>onTab('ward',city)}>Do lazaretu przy koszarach</PortLink><NewsBoard letters={book.newsLetters ?? []} now={book.boardAt}/><PortLink href={garrisonHref(city)} go={()=>onTab('garrison',city)}>Odwiedź koszary i pocztę traktową</PortLink></section>}
+                  {isFairTown(city) && <section className="feast-table">{!!book.reliefCalls?.length && <MillHouse visit={onTab} room="relief" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}<PortLink href={infirmaryHref(city)} go={()=>onTab('ward',city)}>Do lazaretu przy koszarach</PortLink><NewsBoard letters={book.newsLetters ?? []} now={book.boardAt}/><PortLink href={garrisonHref(city)+'#kuchnia'} go={()=>onTab('garrison',city)}>Kuchnia polowa, koszary i poczta traktowa</PortLink></section>}
                   {isFairTown(city) && book.barterCalls && (
                     <section className="feast-table" id="wezwania-kupcow" aria-label="Wezwania z targu">
                       <h3>Wezwania z targu</h3>

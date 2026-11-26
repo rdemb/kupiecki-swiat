@@ -49,7 +49,24 @@ export interface Dispatch {
   weather: WeatherConditionId;
   terms: BarterTerms[];
 }
+export const rationNames = {
+  pack: 'Pełne racje z własnego wozu',
+  half: 'Pół racji z kuchni',
+  full: 'Pełne racje z kuchni',
+  extra: 'Wzmocnione racje z kuchni',
+} as const;
+export type Ration = keyof typeof rationNames;
+export function rationPlan(ration: Ration, crew: number, fatigue: number) {
+  const portions = crew * ({ pack: 0, half: 1, full: 2, extra: 3 }[ration]);
+  const nextFatigue = Math.min(3, Math.max(0, fatigue + (ration === 'half' ? 1 : ration === 'extra' ? -1 : 0)));
+  return { portions, grain: ration === 'pack' ? crew : 0, fatigue: nextFatigue, delay: nextFatigue * 10 };
+}
+export interface KitchenBook {
+  portions: number;
+  lastDelivery: null | { carrier: string; sacks: number };
+}
 export interface GarrisonBook {
+  kitchen: KitchenBook;
   now: number;
   letters: Dispatch[];
   documents: { id: number; signed: number; terms: BarterTerms[]; sent: boolean }[];
@@ -57,6 +74,7 @@ export interface GarrisonBook {
     name: string;
     level: number;
     counts: Record<Unit, number>;
+    fatigue: number;
     available: number;
     refill: number | null;
     marks: number;
@@ -67,8 +85,9 @@ export interface GarrisonBook {
 export type GarrisonCommand =
   | { action: 'fundGarrison'; level: number }
   | { action: 'recruitUnit'; unit: Unit; quantity: number }
-  | { action: 'knightDuty'; unit: Unit }
-  | { action: 'carryNews'; circle: number; escort: boolean };
+  | { action: 'stockKitchen'; quantity: number }
+  | { action: 'knightDuty'; unit: Unit; ration?: Ration }
+  | { action: 'carryNews'; circle: number; escort: boolean; ration?: Ration };
 export function newsAge(now: number, signed: number) {
   const minutes = Math.max(0, Math.floor((now - signed) / 60000));
   if (minutes < 1) return 'przed chwilą';

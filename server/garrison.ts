@@ -4,6 +4,9 @@ import type { WeatherConditionId } from '../src/economy/economyEngine';
 import type { FeastTown } from '../src/economy/harvestLoaf';
 import {
   hallRules,
+  rationPlan,
+  rationNames,
+  type Ration,
   otherPost,
   roadRank,
   units,
@@ -21,6 +24,8 @@ type Transfer = (uid: string, gold: number, grain: number, iron?: number, wood?:
 type Member = NonNullable<GarrisonBook['mine']>;
 export function openGarrison(db: DatabaseSync, transfer: Transfer) {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS garrisonKitchens(town TEXT PRIMARY KEY, portions INTEGER NOT NULL CHECK(portions>=0), carrier TEXT NOT NULL, sacks INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS garrisonMorale(town TEXT NOT NULL,uid TEXT NOT NULL,fatigue INTEGER NOT NULL CHECK(fatigue BETWEEN 0 AND 3),PRIMARY KEY(town,uid));
     CREATE TABLE IF NOT EXISTS garrisonHalls(uid TEXT NOT NULL,town TEXT NOT NULL,level INTEGER NOT NULL, PRIMARY KEY(uid,town));
     CREATE TABLE IF NOT EXISTS garrisonMusters(id INTEGER PRIMARY KEY,uid TEXT NOT NULL,town TEXT NOT NULL,unit TEXT NOT NULL,qty INTEGER NOT NULL,at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS garrisonRoll ON garrisonMusters(uid,town,at);
@@ -81,6 +86,7 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
       name: String(hero?.name || 'Rycerz'),
       level,
       counts,
+      fatigue: Number(db.prepare('SELECT fatigue FROM garrisonMorale WHERE town=? AND uid=?').get(town,uid)?.fatigue ?? 0),
       available: Math.min(
         level * hallRules.hourly - Number(spent.hired ?? 0),
         level * hallRules.beds - Object.values(counts).reduce((a, b) => a + b, 0),
@@ -97,7 +103,9 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
         'SELECT c.id,c.completed signed,n.circle sent FROM barterCircles c LEFT JOIN marketNews n ON n.circle=c.id WHERE c.town=? AND c.completed IS NOT NULL ORDER BY c.completed DESC,c.id DESC LIMIT 5',
       )
       .all(town);
+    const kitchen = db.prepare('SELECT portions,carrier,sacks FROM garrisonKitchens WHERE town=?').get(town);
     return {
+      kitchen: {portions:Number(kitchen?.portions ?? 0), lastDelivery:kitchen ? {carrier:String(kitchen.carrier), sacks:Number(kitchen.sacks)} : null},
       now,
       documents: rows.map((r) => ({
         id: Number(r.id),
@@ -120,7 +128,28 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     closed: boolean,
   ) {
     const uid = me.uid;
+    if (cmd.action === 'stockKitchen') {
+      const sacks = cmd.quantity;
+      requireRule(typeof sacks === 'number' && Number.isSafeInteger(sacks) && sacks >= 1 && sacks <= 20, 'Wybierz od 1 do 20 worków.');
+      transfer(uid, 0, -sacks);
+      db.prepare(`INSERT INTO garrisonKitchens VALUES(?,?,?,?) ON CONFLICT(town) DO UPDATE SET
+        portions=portions+excluded.portions,carrier=excluded.carrier,sacks=excluded.sacks`).run(town,sacks*2,me.displayName,sacks);
+      return;
+    }
     const m = member(town, uid, now);
+    function provision(crew: number) {
+      const ration = cmd.ration === undefined ? 'pack' : cmd.ration;
+      requireRule(typeof ration === 'string' && Object.hasOwn(rationNames,ration), 'Wybierz sposób wydania racji.');
+      const plan = rationPlan(ration as Ration, crew, m.fatigue);
+      if (plan.portions) {
+        const taken = db.prepare('UPDATE garrisonKitchens SET portions=portions-? WHERE town=? AND portions>=?').run(plan.portions,town,plan.portions);
+        requireRule(taken.changes === 1, 'Kuchnia ma za mało porcji. Sprawdź zapas lub weź własny prowiant.');
+      }
+      if (plan.grain) transfer(uid, 0, -plan.grain);
+      if (plan.fatigue !== m.fatigue)
+        db.prepare('INSERT INTO garrisonMorale VALUES(?,?,?) ON CONFLICT(town,uid) DO UPDATE SET fatigue=excluded.fatigue').run(town,uid,plan.fatigue);
+      return plan.delay;
+    }
     if (cmd.action === 'fundGarrison') {
       requireRule(
         m.level === cmd.level && m.level < hallRules.max,
@@ -156,10 +185,11 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
           'Eskorta wymaga wolnego rycerza i miejscowego gwardzisty.',
         );
       const road = closed ? 'detour' : 'bridge';
+      const rationDelay = cmd.escort ? provision(1) : 0;
       const seconds =
-        journeySeconds(1, weather, road) * 2 - (cmd.escort ? 4 + roadRank(m.marks).seconds : 0);
+        journeySeconds(1, weather, road) * 2 - (cmd.escort ? 4 + roadRank(m.marks).seconds : 0) + rationDelay;
       const arrival = now + seconds * 1000;
-      transfer(uid, 0, cmd.escort ? -2 : -1);
+      transfer(uid, 0, -1);
       db.prepare(
         'INSERT INTO marketNews(circle,origin,destination,uid,carrier,signed,departed,arrival,road,weather) VALUES(?,?,?,?,?,?,?,?,?,?)',
       ).run(
@@ -199,8 +229,8 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     }
     requireRule(cmd.action === 'knightDuty' && !m.duty, 'Rycerz jest już na służbie.');
     requireRule(m.counts[unit] >= rules.crew, 'W koszarach brakuje ludzi tej formacji.');
-    transfer(uid, 0, -rules.crew);
-    duty.run(uid, town, rules.duty, now + rules.time * 1000, rules.marks);
+    const delay = provision(rules.crew);
+    duty.run(uid, town, rules.duty, now + (rules.time + delay) * 1000, rules.marks);
   }
   return { book, letters, command };
 }

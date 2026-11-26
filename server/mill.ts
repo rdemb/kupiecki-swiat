@@ -251,10 +251,11 @@ export function installMill(
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
     const isBarter = ['postBarter','withdrawBarter','sealBarter','inviteBarter','recallBarterCall','answerBarterCall'].includes(action);
-    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews'].includes(action);
+    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews','stockKitchen'].includes(action);
     const isWard=wardActions.includes(action);
     if(isWard) fields.push(req.body.revision,req.body.sortie,req.body.step,req.body.stance);
     if (isGarrison) fields.push(req.body.level, req.body.unit, req.body.circle, req.body.escort);
+    if (isGarrison && req.body.ration !== undefined) fields.push(req.body.ration);
     if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
     if (action === 'inviteBarter') fields.push(req.body.first, req.body.second);
     if (action === 'recallBarterCall' || action === 'answerBarterCall') fields.push(req.body.call);

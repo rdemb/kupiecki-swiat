@@ -120,3 +120,16 @@
 .ward-pack select { color: #302c20; background: #fff9e9; border: 1px solid #a49878; padding: .45rem .65rem; }
 .ward-record, .ward-board > div { border-top: 1px solid #ac9e80; margin-top: 1rem; padding-top: .7rem; }
 .ward-record summary { cursor: pointer; padding: .4rem 0; }
+
+.camp-kitchen { display:grid; grid-template-columns:1fr 1fr; gap:2rem; padding:clamp(1rem,4vw,3rem) max(5vw,1rem); background:#e0d5b9; color:#302917; border-bottom:1px solid #9d8a61; }
+.camp-kitchen h2,.camp-kitchen h3 { margin:0 0 .5rem; }
+.camp-kitchen button,.camp-kitchen select,.camp-kitchen input { color:#302917; background:#fbf4df; border:1px solid #93805c; border-radius:.25rem; padding:.45rem; }
+.camp-kitchen button { display:block; margin-top:.65rem; cursor:pointer; }
+.camp-kitchen button:disabled { opacity:.55; cursor:default; }
+.camp-kitchen select { display:block; margin-top:.3rem; max-width:100%; }
+.camp-delivery { display:flex; align-items:baseline; flex-wrap:wrap; gap:.5rem; }
+.camp-delivery input { width:4em; }
+@media(max-width:650px){ .camp-kitchen { grid-template-columns:1fr; gap:1.3rem; } }
+
+.camp-still { width:100%; max-width:40rem; height:auto; display:block; border-radius:.25rem; }
+.camp-kitchen { scroll-margin-top:4rem; }
