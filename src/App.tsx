@@ -219,13 +219,16 @@ function createInitialOfflineMarkets(): Record<CommodityId, CommodityMarketState
   return out;
 }
 
+const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
+
 export default function App() {
+  const startAtPort = new URLSearchParams(window.location.search).get('miejsce') === 'waga-portowa';
   const isAutostart =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>(
-    isAutostart ? 'playing' : 'title',
+    isAutostart || startAtPort ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
   const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>('all');
@@ -253,7 +256,10 @@ export default function App() {
   const [showWorldLabels, setShowWorldLabels] = useState<boolean>(true);
   const [muted, setMuted] = useState<boolean>(false);
   const [showCinematicIntro, setShowCinematicIntro] = useState<boolean>(false);
-  const [onRoad, setOnRoad] = useState(false);
+  const [onRoad, setOnRoad] = useState(startAtPort);
+  const [atPort, setAtPort] = useState(startAtPort);
+  const [portMotion, setPortMotion] = useState(() => !quietPictures());
+  const returnToPort = useRef(false);
   const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart);
   const playedIntro = useRef(false);
@@ -509,6 +515,8 @@ export default function App() {
                 if (prev.some((m) => m.id === msg.payload.id)) return prev;
                 return [...prev, msg.payload];
               });
+            } else if (msg.type === 'port:manifest') {
+              window.dispatchEvent(new Event('port:manifest'));
             } else if (msg.type === 'court:prefix') {
               gameRequest('/api/state').then(r => r.json()).then(data => setRegisteredPlayers(data.registeredPlayers)).catch(() => {});
             } else if (msg.type === 'guilds:update') {
@@ -828,6 +836,8 @@ export default function App() {
   }, [gameState, showCinematicIntro, activeTrailEvent, selectedRaceId, backendUsername, firebaseUser]);
 
   const visitStop = (stop: RoadStop) => {
+    returnToPort.current = false;
+    setAtPort(false);
     setRoadStop(stop);
     setSelectedCityId(stop.city);
     setSelectedRegionId(stop.city);
@@ -2521,11 +2531,18 @@ export default function App() {
       )}
 
       {showCinematicIntro && <OpeningFilm onClose={() => setShowCinematicIntro(false)} muted={muted} />}
-      {onRoad && gameState === 'playing' && !showCinematicIntro && (
+      {onRoad && atPort && gameState === 'playing' && (
+        <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie komory celnej…</p>}>
+          <PortWeighhouse token={backendToken} moving={portMotion} onClose={() => setAtPort(false)}
+            onAccount={() => { returnToPort.current=true; setAtPort(false); openRoadPanel('profile'); }}/>
+        </React.Suspense>
+      )}
+      {onRoad && !atPort && gameState === 'playing' && !showCinematicIntro && (
         <MerchantRoad
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
           onTravel={visitStop} onMenu={openRoadPanel}
+          onWeighhouse={moving => {setPortMotion(moving);setAtPort(true);}}
           onBuy={commodityId => void handleExecuteTrade({ commodityId, quantity: 1, side: 'buy', cityId: roadStop.city })}
           onFilm={() => setShowCinematicIntro(true)}
         />
@@ -3177,6 +3194,11 @@ export default function App() {
                       if (profile.duchy) setDuchy(profile.duchy);
                       if (profile.tradeHistory) setTradeHistory(profile.tradeHistory);
                       setSyncStatusMsg('Zalogowano i zsynchronizowano z bazą');
+                      if (returnToPort.current) {
+                        returnToPort.current = false;
+                        visitStop(roadStops[0]);
+                        setAtPort(true);
+                      }
                       pushNotification(
                         `Witaj w Księstwie, ${profile.displayName}!`,
                         'Twój profil kupiecki oraz postępy Rycerza zostały wczytane z bazy danych.',

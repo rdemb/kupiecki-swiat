@@ -1,4 +1,5 @@
 import express from 'express';
+import { installWeighhouse } from './server/weighhouse';
 import { installProvinces } from './server/provinces';
 import { installCourt } from './server/court';
 import http from 'http';
@@ -1101,7 +1102,8 @@ async function startServer() {
 
   const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
 
-  installProvinces(app, db, getAuthenticatedAccount);
+  const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
+  installProvinces(app, db, getAuthenticatedAccount, portCleared);
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {

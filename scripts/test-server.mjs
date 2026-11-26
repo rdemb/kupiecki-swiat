@@ -106,6 +106,27 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
   async function order(token,action,params={},status=200) {
     return request('/api/provinces/orders',status,{nonce:randomUUID(),action,...params},token);
   }
+  // Use the same live server routes that the scales and the provincial office use.
+  const readPort = token => request('/api/weighhouse', 200, undefined, token);
+  const seal = (token, slip, status) => request('/api/weighhouse/seal',status,slip,token);
+  const third = await request('/api/auth/register',201,{username:'kupiec_trzeci',password:randomUUID()});
+  let guest = await readPort();
+  if (guest.closes-guest.now < 5000) {
+    await new Promise(resolve => setTimeout(resolve,guest.closes-guest.now+50));
+    guest=await readPort();
+  }
+  assert.equal(guest.count,0);
+  await seal(null,{watch:guest.watch,mass:guest.sample},401);
+  async function sample(token) {
+    const {watch,sample:mass} = await readPort(token);
+    return {watch,mass};
+  }
+  const slip = await sample(logged.token);
+  await seal(logged.token,{...slip,mass:slip.mass===1?2:1},422);
+  await seal(logged.token,{...slip,watch:slip.watch-1},409);
+  await seal(logged.token,slip,201);
+  const retry = await seal(logged.token,slip,200);
+  assert.equal(retry.count,1); assert.equal(retry.signed,true);
   const registry = async token => request('/api/provinces',200,undefined,token);
   const grant = (uid,value)=>request('/api/court/decrees',201,{...decree,requestId:randomUUID(),recipient:uid,value},logged.token);
   await grant(a.profile.uid,14);
@@ -120,9 +141,28 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
   await order(logged.token,'found',{town:port},400);
   const testDb=new DatabaseSync(path.join(dir,'game.sqlite'));
   try {
+    const send = async(town,cargo,expectedSeconds) => {
+      const before = Date.now();
+      await order(renter.token,'dispatch',{town,cargo});
+      const job = (await registry(renter.token)).freight;
+      assert.ok(job.due>=before+expectedSeconds*1000 && job.due<=Date.now()+expectedSeconds*1000);
+      return job.due;
+    };
+    const initialDue = await send(port,'wood',60);
+    const secondSlip=await sample(renter.token), thirdSlip=await sample(third.token);
+    await Promise.all([seal(renter.token,secondSlip,201),seal(third.token,thirdSlip,201)]);
+    assert.equal((await registry(renter.token)).freight.due,initialDue);
+    await Promise.all([seal(renter.token,secondSlip,200),seal(third.token,thirdSlip,200)]);
+    const released=await readPort();
+    assert.equal(released.count,3);assert.equal(released.signatures.length,3);
+    const lines=(await request('/api/provinces/chronicle',200)).entries;
+    assert.equal(lines.filter(row=>row.story.includes('Trzej kupcy')).length,1);
+    assert.equal(released.signed,false);
+    testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(b.profile.uid);
+    await order(renter.token,'arrive',{town:port});
     for(const town of [port,forest]) {
-      for(const cargo of ['wood','iron','wood','iron']){
-        await order(renter.token,'dispatch',{town,cargo});
+      for(const cargo of (town===port ? ['iron','wood','iron'] : ['wood','iron','wood','iron'])){
+        await send(town,cargo,town===port?30:60);
         await order(renter.token,'arrive',{town},400);
         testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(b.profile.uid);
         await order(renter.token,'arrive',{town});
@@ -147,6 +187,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     await order(logged.token,'witness',{town:latest.id});
     assert.equal((await request('/api/provinces/chronicle',200)).entries[0].witnesses.length,1);
     await stop();await start();
+    assert.equal((await readPort()).count,3);
     assert.deepEqual((await registry()).towns.map(t=>t.treasury),[94.4,5.6]);
   } finally {testDb.close();}
 });

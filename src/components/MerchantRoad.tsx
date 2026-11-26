@@ -54,9 +54,10 @@ interface RoadProps {
   onMenu: (tab: RoadPanel, city?: string) => void;
   onBuy: (commodity: CommodityId) => void;
   onFilm: () => void;
+  onWeighhouse: (moving:boolean) => void;
 }
 const money = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm}: RoadProps) {
+export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse}: RoadProps) {
   const [moving, setMoving] = useState(() => !quietPictures());
   const [sheets, setSheets] = useState(false);
   const [receipt, setReceipt] = useState('');
@@ -118,6 +119,7 @@ export function MerchantRoad({stop, gold, held, price, towns, registerError, onT
         </div>
         <span role="status" className="road-receipt">{receipt}</span>
         <div className="road-links">
+          {stop.plate === 'rynek' && <button onClick={() => onWeighhouse(moving)}>Wejdź do wagi portowej</button>}
           {stop.plate === 'rynek' && <button onClick={() => onMenu('terminal')}>Pełny targ</button>}
           {stop.plate === 'trakt' && <button onClick={() => onMenu('caravans')}>Zorganizuj karawanę</button>}
           {stop.plate === 'kuznia' && <button onClick={() => onMenu('knight')}>Otwórz zbrojownię</button>}

@@ -10,6 +10,12 @@ Wielokontynentalna gra ekonomiczno-strategiczna i turowe RPG osadzona w uniwersu
 
 Prolog ma 20 sekund, własną ścieżkę dźwiękową i polskie opisy dźwięków. Cztery kadry źródłowe powstały w ImageGen. Przedstawiają sakwę z monetami, poranny plac handlowy, most z wozem drewna i warsztat kowala. Animowane sceny i montaż można odtworzyć z plików WebP w `public/cinema` poleceniem `python scripts/render-cinematics.py` po zainstalowaniu NumPy, OpenCV i FFmpeg. Ustawienia ograniczonego ruchu lub oszczędzania danych wyłączają automatyczne odtwarzanie na wejściu. Mapa 3D korzysta z [materiałów Poly Haven na licencji CC0](public/materials/SOURCES.txt).
 
+### Komora celna w Królewskiej Przystani
+
+[Wejdź do wagi portowej](https://rdemb.github.io/kupiecki-swiat/?miejsce=waga-portowa). Połóż odważniki na prawej szali, aż zrównoważą próbkę na lewej. Gość może ćwiczyć. Zalogowany kupiec podpisuje manifest raz w czasie półgodzinnej wachty. Trzecia pieczęć otwiera pierwszeństwo przeładunku do końca tej wachty. Nowe dostawy budowlane do okręgu przystani i konwoje handlowe księstwa zaczynające się lub kończące w tym okręgu trwają wtedy 30 zamiast 60 sekund. Już wysłany wóz zachowuje termin. Wpis w kronice pozostaje po odpłynięciu statku.
+
+Waga, odważniki i łańcuchy są geometrią Three.js. Fotograficzne tło komory powstało w ImageGen na podstawie opisu średniowiecznej bałtyckiej przystani widzianej znad pustego dębowego stołu. Komora i reguła trzech pieczęci to rozwinięcie świata na potrzeby tej wersji.
+
 ## Najważniejsze Funkcje
 
 ### 1. Sześć Kontynentów, 26 Regionów i 12 Stolic Handlowych w Świecie 3D PBR

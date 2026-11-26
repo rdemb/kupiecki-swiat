@@ -11,6 +11,7 @@ export function installProvinces(
   app: Express,
   db: DatabaseSync,
   authenticate: (req: Request) => { uid: string; displayName: string } | null,
+  portCleared: () => boolean,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS towns (
@@ -161,7 +162,9 @@ export function installProvinces(
               (cargo === 'wood' || cargo === 'iron') && Number(target[cargo]) < 2,
               'Budowa nie potrzebuje tego materiału.',
             );
-          db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + 60000);
+          const callsAtPort = target.site === 'krolewska_przystan' || (cargo === 'handel' && mine?.site === 'krolewska_przystan');
+          const duration = callsAtPort && portCleared() ? 30_000 : 60_000;
+          db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + duration);
         } else if (action === 'arrive') {
           const job = db.prepare('SELECT * FROM freight WHERE carrier=?').get(me.uid);
           requireRule(

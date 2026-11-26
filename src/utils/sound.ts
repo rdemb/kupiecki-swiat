@@ -46,6 +46,25 @@ class SoundEngine {
     osc.stop(now + 0.23);
   }
 
+  public playWeight(mass: number, placing: boolean) {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const strike = ctx.currentTime;
+    const pitch = 960 / Math.cbrt(mass);
+    for (const [ratio, level] of [[1, .055], [2.67, .020], [4.13, .010]]) {
+      const tone = ctx.createOscillator();
+      const envelope = ctx.createGain();
+      tone.frequency.value = pitch * ratio;
+      const decay = placing ? .21 : .09;
+      envelope.gain.setValueAtTime(level, strike);
+      envelope.gain.exponentialRampToValueAtTime(.0001, strike + decay);
+      tone.connect(envelope);
+      envelope.connect(ctx.destination);
+      tone.start(strike);
+      tone.stop(strike + decay);
+    }
+  }
+
   public playCaravanHorn() {
     const ctx = this.getContext();
     if (!ctx) return;
