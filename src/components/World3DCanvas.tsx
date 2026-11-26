@@ -50,6 +50,9 @@ export interface ActiveCaravan3D {
   quantity: number;
   escortLevel: number;
   progress: number; // 0..1
+  passage?: 'bridge' | 'detour';
+  departedAt?: number;
+  journeyMs?: number;
   expectedProfit: number;
 }
 
@@ -480,17 +483,18 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const routeCurves: Record<string, THREE.CatmullRomCurve3> = {};
     const landCurves = new Set<THREE.CatmullRomCurve3>();
-    const buildRoadCurve = (idA: string, idB: string, isSea: boolean) => {
+    const buildRoadCurve = (idA: string, idB: string, isSea: boolean, detour=false) => {
       const cityA = CITIES.find((c) => c.id === idA);
       const cityB = CITIES.find((c) => c.id === idB);
       if (!cityA || !cityB || idA === idB) return;
+      const suffix=detour?'_ford':'';
       const pts: THREE.Vector3[] = [];
       const steps = isSea ? 24 : Math.ceil(Math.hypot(cityB.position3D[0]-cityA.position3D[0],cityB.position3D[2]-cityA.position3D[2]));
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         let px = THREE.MathUtils.lerp(cityA.position3D[0], cityB.position3D[0], t);
         let pz = THREE.MathUtils.lerp(cityA.position3D[2], cityB.position3D[2], t);
-        const bow = Math.sin(t * Math.PI) * (isSea ? 14 : 7);
+        const bow = Math.sin(t * Math.PI) * (detour ? -15 : isSea ? 14 : 7);
         px += ((cityB.position3D[2] - cityA.position3D[2]) / 120) * bow;
         pz -= ((cityB.position3D[0] - cityA.position3D[0]) / 120) * bow;
         const py = isSea ? 0.16 : Math.max(0.35, terrain.heightAt(px, pz) + 0.065);
@@ -498,8 +502,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       }
       const fwd = new THREE.CatmullRomCurve3(pts);
       const rev = new THREE.CatmullRomCurve3([...pts].reverse());
-      routeCurves[`${idA}__${idB}`] = fwd;
-      routeCurves[`${idB}__${idA}`] = rev;
+      routeCurves[`${idA}__${idB}${suffix}`] = fwd;
+      routeCurves[`${idB}__${idA}${suffix}`] = rev;
 
       if (!isSea) {
         landCurves.add(fwd); landCurves.add(rev);
@@ -516,14 +520,14 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     scene.add(scenery.forestGroup);
 
     // On-demand fallback curve for any player-dispatched pair not pre-seeded above
-    const getOrCreateRouteCurve = (originId: string, destId: string): THREE.CatmullRomCurve3 | null => {
-      const key = `${originId}__${destId}`;
+    const getOrCreateRouteCurve = (originId: string, destId: string, detour=false): THREE.CatmullRomCurve3 | null => {
+      const key = `${originId}__${destId}${detour?'_ford':''}`;
       if (routeCurves[key]) return routeCurves[key];
       const cityA = CITIES.find((c) => c.id === originId);
       const cityB = CITIES.find((c) => c.id === destId);
       if (!cityA || !cityB) return null;
       const isSea = cityA.continentId !== cityB.continentId;
-      buildRoadCurve(originId, destId, isSea);
+      buildRoadCurve(originId, destId, isSea,detour);
       return routeCurves[key] ?? null;
     };
 
@@ -1188,7 +1192,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             mesh.visible = false;
             continue;
           }
-          const curve = getOrCreateRouteCurve(data.originCityId, data.destinationCityId);
+          const curve = getOrCreateRouteCurve(data.originCityId, data.destinationCityId,data.passage==='detour');
           if (curve) {
             mesh.visible = true;
             const clampedT = Math.max(0, Math.min(0.99, data.progress));

@@ -9,11 +9,12 @@ import {
 } from '../economy/merchantInn';
 import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
+import BridgeHouse from './BridgeHouse';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge';
 interface Props {
   city: string;
   token: string | null;
@@ -139,6 +140,7 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
+  if(tab==='bridge') return <BridgeHouse token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onSettlement={onSettlement}/>;
   return (
     <main className="merchant-inn">
       <header
@@ -173,6 +175,7 @@ export default function MerchantInn({
               Stół gildii
             </button>
             <button aria-pressed={tab==='mill'} onClick={()=>{onTab('mill');setReceipt('');}}>Kontrakty i młyn</button>
+            <button onClick={()=>onTab('bridge')}>Most w Srebrnym Gaju</button>
           </nav>
           <span>{WEATHER_CONDITIONS[weather].name}</span>
         </div>

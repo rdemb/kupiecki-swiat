@@ -2,6 +2,7 @@ import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { CITIES } from '../src/economy/economyEngine';
 
+import { bridgeSite, bridgeToll, crossing, detourSeconds, type BridgeSign } from '../src/economy/bridge';
 import { harborRules } from '../src/economy/harborWorks';
 
 class Rule extends Error {}
@@ -12,11 +13,12 @@ function requireRule(test: unknown, message: string): asserts test {
 export function installProvinces(
   app: Express,
   db: DatabaseSync,
-  authenticate: (req: Request) => { uid: string; displayName: string } | null,
+  authenticate: (req: Request) => { uid: string; displayName: string; guildId:string } | null,
   portCleared: () => boolean,
   useHarborTeam: () => boolean,
   guildTravelBonus: (uid:string) => number,
   useMillRation: (uid:string) => number,
+  bridge: {sign:()=>BridgeSign; advance:(now:number)=>void},
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS towns (
@@ -25,6 +27,7 @@ export function installProvinces(
       capital INTEGER, toll INTEGER DEFAULT 0, treasury INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS charters (town INTEGER PRIMARY KEY, capital INTEGER NOT NULL, toll INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS freight (carrier TEXT PRIMARY KEY, town INTEGER NOT NULL, cargo TEXT NOT NULL, due INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS freightPassage(carrier TEXT PRIMARY KEY, road TEXT NOT NULL, duty INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS annals (id INTEGER PRIMARY KEY, person TEXT NOT NULL, name TEXT NOT NULL, site TEXT NOT NULL, story TEXT NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS witnesses (entry INTEGER, uid TEXT, name TEXT NOT NULL, PRIMARY KEY(entry,uid));
     CREATE TABLE IF NOT EXISTS provinceRequests (actor TEXT, nonce TEXT, body TEXT NOT NULL, PRIMARY KEY(actor,nonce));
@@ -62,6 +65,7 @@ export function installProvinces(
   app.get('/api/provinces', (req, res) => {
     const me = authenticate(req);
     res.set('Cache-Control', 'no-store').json({
+      bridge: bridge.sign(), guild: me?.guildId ?? '',
       towns: db
         .prepare(
           `SELECT t.*, json_extract(p.profile,'$.displayName') governor FROM towns t JOIN players p ON json_extract(p.profile,'$.uid')=t.owner
@@ -75,7 +79,7 @@ export function installProvinces(
             .prepare('SELECT c.* FROM charters c JOIN towns t ON t.id=c.town WHERE t.owner=?')
             .all(me.uid)
         : [],
-      freight: me ? db.prepare('SELECT town,cargo,due FROM freight WHERE carrier=?').get(me.uid) : null,
+      freight: me ? db.prepare('SELECT town,cargo,due,road,duty FROM freight LEFT JOIN freightPassage USING(carrier) WHERE carrier=?').get(me.uid) : null,
     });
   });
   app.post('/api/provinces/orders', (req, res, next) => {
@@ -84,8 +88,8 @@ export function installProvinces(
       res.sendStatus(401);
       return;
     }
-    const { action, nonce, town, name, site, cargo, toll } = req.body ?? {};
-    const body = JSON.stringify([action, town, name, site, cargo, toll]);
+    const { action, nonce, town, name, site, cargo, toll, passage } = req.body ?? {};
+    const body = JSON.stringify([action, town, name, site, cargo, toll, ...(passage === undefined ? [] : [passage])]);
     try {
       requireRule(
         typeof nonce === 'string' && /^[a-f0-9-]{36}$/i.test(nonce),
@@ -170,7 +174,19 @@ export function installProvinces(
           const callsAtPort = target.site === 'krolewska_przystan' || (cargo === 'handel' && mine?.site === 'krolewska_przystan');
           const handling = callsAtPort && portCleared() ? 30_000 : 60_000;
           const duration = handling - (callsAtPort && useHarborTeam() ? harborRules.savingSeconds * 1000 : 0);
-          db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + Math.round(duration * (100 - guildTravelBonus(me.uid)) / 100) - useMillRation(me.uid));
+          let extra = 0;
+          if (cargo === 'handel' && crossing(String(mine?.site),String(target.site))) {
+            bridge.advance(Date.now());
+            const sign = bridge.sign();
+            requireRule(passage === undefined || passage === 'bridge' || passage === 'detour', 'Nieznana trasa.');
+            requireRule(passage !== 'bridge' || !sign.damaged, 'Most zamknięty. Wybierz objazd.');
+            const road = sign.damaged || passage === 'detour' ? 'detour' : 'bridge';
+            extra = road === 'detour' ? detourSeconds * 1000 : 0;
+            const duty = target.site === bridgeSite && road === 'bridge'
+              ? bridgeToll(Number(target.toll),sign,me.guildId) : Number(target.toll);
+            db.prepare('INSERT INTO freightPassage VALUES(?,?,?)').run(me.uid,road,duty);
+          }
+          db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + Math.round(duration * (100 - guildTravelBonus(me.uid)) / 100) - useMillRation(me.uid) + extra);
         } else if (action === 'arrive') {
           const job = db.prepare('SELECT * FROM freight WHERE carrier=?').get(me.uid);
           requireRule(
@@ -180,7 +196,9 @@ export function installProvinces(
           db.prepare('DELETE FROM freight WHERE carrier=?').run(me.uid);
           if (job.cargo === 'handel') {
             requireRule(mine?.capital && mine.capital === target.capital, 'Umowa szlaku wygasła.');
-            const duty = Number(target.toll);
+            const waybill = db.prepare('SELECT road,duty FROM freightPassage WHERE carrier=?').get(me.uid);
+            const duty = Number(waybill?.duty ?? target.toll);
+            db.prepare('DELETE FROM freightPassage WHERE carrier=?').run(me.uid);
             const tribute = town === target.capital ? 0 : duty * 0.2;
             const credit = db.prepare('UPDATE towns SET treasury=ROUND(treasury+?,2) WHERE id=?');
             credit.run(duty-tribute, town);
@@ -188,7 +206,7 @@ export function installProvinces(
             if(tribute) credit.run(tribute,target.capital);
             log(
               String(target.site),
-              'Konwój z ' + mine.name + ' do ' + target.name + ' rozliczył myto ' + duty + ' zł (lenno do stolicy: '+tribute.toFixed(2)+' zł).',
+              'Konwój z ' + mine.name + ' do ' + target.name + (waybill?.road === 'detour' ? ' (objazd)' : waybill?.road === 'bridge' ? ' (most)' : '') + ' rozliczył myto ' + duty + ' zł (lenno do stolicy: '+tribute.toFixed(2)+' zł).',
             );
           } else {
             const material = job.cargo === 'wood' ? 'wood' : 'iron';

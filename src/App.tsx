@@ -229,7 +229,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn';
+  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -270,10 +270,10 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const [inn,setInn]=useState<InnVisit|null>(startAtInn?{city:'krolewska_przystan',tab:place==='gildia'?'guild':place==='mlyn'?'mill':'board'}:null);
+  const [inn,setInn]=useState<InnVisit|null>(startAtInn?{city:place==='most'?'srebrny_gaj':'krolewska_przystan',tab:place==='most'?'bridge':place==='gildia'?'guild':place==='mlyn'?'mill':'board'}:null);
   const innAfterLogin=useRef<InnVisit|null>(null);
   const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
-  const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
+  const [roadStop, setRoadStop] = useState<RoadStop>(place==='most'?roadStops[1]:roadStops[0]);
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
   const [coastView,setCoastView] = useState(startAtCoast);
   const [coastTracking,setCoastTracking] = useState(false);
@@ -789,7 +789,7 @@ export default function App() {
             weatherSpeed *
             seasonSpeed *
             disasterSpeed;
-          const nextProg = c.progress + step;
+          const nextProg = c.departedAt && c.journeyMs ? Math.max(c.progress,(Date.now()-c.departedAt)/c.journeyMs) : c.progress + step;
           if (nextProg >= 1) {
             const grossPayout = Math.round(c.expectedProfit + c.quantity * (markets[c.commodityId]?.currentPrice ?? 100));
             setPlayerGold((g) => g + grossPayout);
@@ -1474,6 +1474,8 @@ export default function App() {
     quantity: number;
     escortLevel: number;
     totalUpfrontCost: number;
+    durationSeconds:number;
+    passage?:'bridge'|'detour';
     expectedProfit: number;
   }) => {
     setPlayerGold((g) => Math.max(0, Number((g - params.totalUpfrontCost).toFixed(2))));
@@ -1484,7 +1486,8 @@ export default function App() {
       commodityId: params.commodityId,
       quantity: params.quantity,
       escortLevel: params.escortLevel,
-      progress: 0.04,
+      progress: params.passage ? 0 : 0.04,
+      ...(params.passage ? {passage:params.passage,departedAt:Date.now(),journeyMs:params.durationSeconds*1000} : {}),
       expectedProfit: params.expectedProfit,
     };
     setActiveCaravans((prev) => [...prev, newCaravan]);
@@ -2625,7 +2628,7 @@ export default function App() {
         <MerchantRoad
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
-          muted={muted} onInn={()=>setInn({city:roadStop.city,tab:'board'})}
+          muted={muted} onBridge={()=>setInn({city:'srebrny_gaj',tab:'bridge'})} onInn={()=>setInn({city:roadStop.city,tab:'board'})}
           onTravel={visitStop} onMenu={openRoadPanel} onCoast={enterCoast} onWorks={()=>setAtWorks(true)}
           onWeighhouse={moving => {setPortMotion(moving);setAtPort(true);}}
           onBuy={commodityId => void handleExecuteTrade({ commodityId, quantity: 1, side: 'buy', cityId: roadStop.city })}
@@ -3153,7 +3156,7 @@ export default function App() {
                 )}
 
                 {activeTab === 'caravans' && (
-                  <CaravanRoutesView
+                  <CaravanRoutesView bridge={provinces.data.bridge} readBridge={async()=>(await provinces.refresh())?.bridge}
                     markets={markets}
                     activeSeason={macro.activeSeason}
                     activeDisaster={macro.activeDisaster}

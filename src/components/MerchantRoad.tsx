@@ -11,7 +11,7 @@ export const roadStops = [
     story: 'Kupczyni odstawia odważnik. „Jeden worek mogę ci sprzedać od ręki. Ile zabierzesz na trakt?”',
     commodity: 'zboze', goods: 'Zboże', detail: 'Waga kupiecka i wozy przy bramie miasta' },
   { city: 'srebrny_gaj', name: 'Srebrny Gaj', plate: 'trakt', place: 'Most na królewskim trakcie',
-    story: 'Woźnica z tartaku prowadzi konie po mokrym moście. Drewno można kupić tutaj albo zabrać w dalszą drogę karawaną.',
+    story: 'Woźnica z tartaku przystaje nad rzeką i sprawdza stan przeprawy. Drewno można kupić tutaj albo zabrać w dalszą drogę karawaną.',
     commodity: 'drewno_elfickie', goods: 'Drewno elfickie', detail: 'Wóz z drewnem na leśnym trakcie nad strumieniem' },
   { city: 'zelazna_kuznia', name: 'Żelazna Kuźnia', plate: 'kuznia', place: 'Warsztat płatnerza',
     story: 'Mistrz obraca żelazo w palenisku. Na skraju kowadła stygnie partia dla kupców, za drzwiami czeka zbrojownia.',
@@ -59,11 +59,12 @@ interface RoadProps {
   onWorks: () => void;
   onCoast: () => void;
   onInn:()=>void;
+  onBridge:()=>void;
   muted:boolean;
   onWeighhouse: (moving:boolean) => void;
 }
 const money = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,muted}: RoadProps) {
+export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,onBridge,muted}: RoadProps) {
   const [moving, setMoving] = useState(() => !quietPictures());
   const [sheets, setSheets] = useState(false);
   const [receipt, setReceipt] = useState('');
@@ -131,6 +132,7 @@ export function MerchantRoad({stop, gold, held, price, towns, registerError, onT
           {stop.plate === 'rynek' && <button onClick={onCoast}>Zejdź nad zatokę</button>}
           {stop.plate === 'rynek' && <button onClick={() => onWeighhouse(moving)}>Wejdź do wagi portowej</button>}
           {stop.plate === 'rynek' && <button onClick={() => onMenu('terminal')}>Pełny targ</button>}
+          {stop.plate === 'trakt' && <button onClick={onBridge}>Podejdź do przeprawy</button>}
           {stop.plate === 'trakt' && <button onClick={() => onMenu('caravans')}>Zorganizuj karawanę</button>}
           {stop.plate === 'kuznia' && <button onClick={() => onMenu('knight')}>Otwórz zbrojownię</button>}
           <button onClick={() => setSheets(true)}>Zapytaj w zajeździe o miasta</button>

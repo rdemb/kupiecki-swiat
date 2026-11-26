@@ -385,5 +385,93 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     const finalWallet=(await view(reload)).wallet;
     assert.equal(finalWallet.gold,before.gold-35);
     assert.equal(finalWallet.grain,before.grain+3);
+    // Real HTTP routes against a private game database. Advance only this fixture's waybills.
+    const carrier=(await request('/api/auth/login',200,second)).token;
+    const free=(await request('/api/auth/register',201,{username:'wolny_woznica',password:randomUUID()})).token;
+    const bridgeUrl='/api/bridge';
+    const watch=token=>request(bridgeUrl,200,undefined,token);
+    async function rainySeason() {
+      for(let i=0;i<5;i++){
+        const observed=await request('/api/world/season',200,{seasonId:'jesien'});
+        if(observed.macro.activeWeather==='ulewne_deszcze')return;
+      }
+      assert.fail('Testowy świat nie przeszedł do ulewy.');
+    }
+    await rainySeason();
+    const flood=await watch();
+    assert.ok(flood.damaged); assert.equal(flood.wallet,null);
+    const cycle=flood.cycle;
+    const cross=(token,action,params={},status=200)=>request(bridgeUrl,status,{action,nonce:randomUUID(),cycle,...params},token);
+    await cross(undefined,'fund',{material:'wood'},401);
+    await cross(free,'fund',{material:'wood'},409);
+    const founder=(await act(reload,'create',{body:'Cech Mostowy',tag:'MOST'})).membership;
+    await act(carrier,'create',{body:'Cech Hutników',tag:'HUTA'});
+    const fundedBefore=(await watch(reload)).wallet.gold;
+    const firstSlip={material:'wood',nonce:randomUUID()};
+    const one=await cross(reload,'fund',firstSlip);
+    assert.equal(one.wallet.gold,fundedBefore-48);
+    assert.equal((await cross(reload,'fund',firstSlip)).loads.length,1);
+    await cross(reload,'fund',{...firstSlip,material:'iron'},409);
+    await cross(reload,'fund',{material:'wood'});await cross(reload,'fund',{material:'wood'});
+    await cross(reload,'fund',{material:'wood'},409);
+    await cross(carrier,'fund',{material:'iron'});const five=await cross(carrier,'fund',{material:'iron'});
+    assert.equal(five.loads.length,5);
+    // Previously dispatched freight keeps its original price/time. A closed bridge offers a detour.
+    testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(a.profile.uid);
+    if((await registry(reload)).freight)await order(reload,'arrive',{town:forest});
+    await order(reload,'dispatch',{town:forest,cargo:'handel',passage:'bridge'},400);
+    await order(reload,'dispatch',{town:forest,cargo:'handel',passage:'detour'});
+    const issued=(await registry(reload)).freight;
+    assert.equal(issued.road,'detour');assert.equal(issued.duty,7);
+    const beforeWages=(await watch(free)).wallet.gold;
+    const load=five.loads[0].id;
+    const offers=await Promise.all([free,carrier].map(token=>fetch(base+bridgeUrl,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({action:'haul',cycle,load,nonce:randomUUID()})})));
+    assert.deepEqual(offers.map(r=>r.status).sort(),[200,409]);
+    const driver=offers[0].status===200?free:carrier;
+    await cross(driver,'unload',{load},409);
+    await cross(driver,'haul',{load:five.loads[1].id},409);
+    testDb.prepare('UPDATE bridgeLoads SET due=0 WHERE id=?').run(load);
+    assert.equal((await watch()).loads[0].driver,null);
+    for(const s of five.loads) {
+      await cross(free,'haul',{load:s.id});
+      await cross(reload,'unload',{load:s.id},409);
+      testDb.prepare('UPDATE bridgeLoads SET due=? WHERE id=?').run(Date.now()-20,s.id);
+      const ticket={load:s.id,nonce:randomUUID()};
+      await cross(free,'unload',ticket);
+      await cross(free,'unload',ticket);
+    }
+    const rebuilt=await watch(free);
+    assert.equal(rebuilt.damaged,false);assert.equal(rebuilt.flag,founder);assert.equal(rebuilt.tag,'MOST');
+    assert.equal(rebuilt.wallet.gold,beforeWages+102);
+    assert.equal((await watch(reload)).wallet.gold,fundedBefore-144);
+    assert.equal(rebuilt.openings.length,1);
+    assert.equal(rebuilt.openings[0].builders,'wolny_woznica');
+    assert.equal((await registry(reload)).freight.due,issued.due);
+    testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(a.profile.uid);
+    await order(reload,'arrive',{town:forest});
+    const dispatchAndRead=async (expectedDuty)=>{
+      await order(reload,'dispatch',{town:forest,cargo:'handel',passage:'bridge'});
+      const way=(await registry(reload)).freight;
+      assert.equal(way.duty,expectedDuty);assert.equal(way.road,'bridge');
+      testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(a.profile.uid);
+      await order(reload,'arrive',{town:forest});
+    };
+    await dispatchAndRead(0);
+    assert.match((await request('/api/provinces/chronicle',200)).entries[0].story,/myto 0 zł/);
+    testDb.prepare('UPDATE towns SET toll=10 WHERE id=?').run(forest);
+    await dispatchAndRead(10);
+    await act(reload,'leave');
+    testDb.prepare('UPDATE towns SET toll=7 WHERE id=?').run(forest);
+    await dispatchAndRead(7);
+    assert.equal((await watch()).openings[0].guildName,'Cech Mostowy');
+    await request('/api/world/season',200,{seasonId:'lato'});await watch();
+    await rainySeason();assert.equal((await watch()).damaged,false);
+    await stop();await start();
+    assert.equal((await watch()).openings.length,1);
+    // A later flood creates a fresh set of contracts but the old names remain on record.
+    testDb.exec('UPDATE bridgeState SET opened=1, wet=0');
+    await rainySeason();
+    const nextFlood=await watch();
+    assert.equal(nextFlood.cycle,cycle+1);assert.equal(nextFlood.loads.length,0);assert.equal(nextFlood.openings.length,1);
   } finally {testDb.close();}
 });

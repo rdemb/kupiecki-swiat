@@ -1,0 +1,86 @@
+.bridge-view {
+  height: clamp(250px, 43vh, 520px);
+  background-color: #24322f;
+  background-position: 50% 51%;
+}
+.bridge-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid #ad9e83;
+}
+.bridge-slip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  border-top: 1px solid #c5b69b;
+  padding: 0.55rem 0;
+  overflow-wrap: anywhere;
+}
+.bridge-house .inn-spread {
+  margin-top: 0;
+  border-top: 0;
+}
+.bridge-house aside p {
+  margin-bottom: 1rem;
+}
+.bridge-house [role='status'],
+.bridge-house [role='alert'] {
+  margin: 0.8rem 0;
+  padding: 0.65rem;
+  border-left: 3px solid #725c38;
+  background: #ded1b7;
+}
+.bridge-pennon {
+  position: absolute;
+  top: 0;
+  right: 24%;
+  display: grid;
+  place-items: center;
+  width: clamp(65px, 8vw, 106px);
+  height: clamp(105px, 17vw, 195px);
+  padding: 0 0.2rem 22px;
+  color: #ffe4a6;
+  filter: drop-shadow(2px 4px 3px #0009);
+  background:
+    repeating-linear-gradient(83deg, #ffffff06 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, #512522, #843c33 21%, #502826 45%, #8d4639 72%, #462022);
+  border-inline: 4px double #bd995b;
+  clip-path: polygon(0 0, 100% 0, 100% 98%, 50% 76%, 0 100%);
+  transform-origin: top;
+  animation: river-flag 6.2s ease-in-out infinite;
+}
+.bridge-pennon span {
+  font:
+    bold clamp(0.78rem, 1.25vw, 1.15rem) Georgia,
+    serif;
+  letter-spacing: 0.07em;
+}
+@keyframes river-flag {
+  0%,
+  100% {
+    transform: skew(-2deg) rotate(1deg);
+  }
+  55% {
+    transform: skew(4deg) rotate(-1deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bridge-pennon {
+    animation: none;
+  }
+}
+@media (max-width: 650px) {
+  .bridge-view {
+    background-position: 52% center;
+  }
+  .bridge-pennon {
+    right: 45%;
+  }
+  .bridge-nav {
+    flex-wrap: wrap;
+  }
+}

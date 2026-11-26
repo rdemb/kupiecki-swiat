@@ -17,6 +17,7 @@ import {
   TechNode,
 } from '../economy/gameData';
 import { ActiveCaravan3D } from './World3DCanvas';
+import { crossing, detourSeconds, type Passage, type BridgeSign } from '../economy/bridge';
 import { GuildTreasuryRankingChart } from './GuildTreasuryRankingChart';
 
 // --- 1. CARAVAN ARBITRAGE & FEAR EXPEDITIONS VIEW ---
@@ -24,6 +25,8 @@ interface CaravanRoutesViewProps {
   markets: Record<CommodityId, CommodityMarketState>;
   activeSeason?: 'wiosna' | 'lato' | 'jesien' | 'zima';
   activeDisaster?: ActiveWorldDisaster | null;
+  bridge?: BridgeSign;
+  readBridge:()=>Promise<BridgeSign|undefined>;
   selectedCityId: string;
   onSelectCity: (id: string) => void;
   playerGold: number;
@@ -41,12 +44,13 @@ interface CaravanRoutesViewProps {
     grossRevenue: number;
     ambushRiskPct: number;
     durationSeconds: number;
+    passage?: Passage;
   }) => void;
   onLaunchFearExpedition: (cost: number, dungeonName: string) => void;
 }
 
 export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
-  markets,
+  markets, bridge, readBridge,
   activeSeason = 'lato',
   activeDisaster = null,
   selectedCityId,
@@ -87,6 +91,11 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
       ? CITIES.find((c) => c.id !== selectedCityId)?.id ?? 'zelazna_kuznia'
       : destCityId;
 
+  const onTract = crossing(selectedCityId,effectiveDestId) &&
+    currentOriginCity.continentId === CITIES.find(c=>c.id===effectiveDestId)?.continentId;
+  const [chooseDetour,setChooseDetour] = useState(false);
+  const [checking,setChecking] = useState(false);
+  const passage:Passage|undefined = onTract ? bridge?.damaged || chooseDetour ? 'detour' : 'bridge' : undefined;
   const market = markets[commodityId];
   const cityPrices = market?.cityPrices ?? {};
 
@@ -107,11 +116,22 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
   );
   const totalUpfrontCost = Number((quote.cargoPurchaseCost + quote.transportFee).toFixed(2));
 
-  const handleSend = () => {
+  const duration = quote.durationSeconds + (passage==='detour' ? detourSeconds : 0);
+  const handleSend = async () => {
     setErrorMsg('');
     if (totalUpfrontCost > playerGold) {
       setErrorMsg(`Brak złota na zakup ładunku i eskorty (wymagane ${Math.round(totalUpfrontCost)} zł).`);
       return;
+    }
+    if (onTract) {
+      if(checking)return;
+      setChecking(true);
+      const sign=await readBridge();
+      setChecking(false);
+      if(!sign || (sign.damaged && passage==='bridge')){
+        setErrorMsg(sign?'Straż zamknęła most. Sprawdź czas objazdu i potwierdź trasę.':'Nie udało się potwierdzić przejazdu. Spróbuj ponownie.');
+        return;
+      }
     }
     onDispatchCaravan({
       originCityId: selectedCityId,
@@ -123,7 +143,7 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
       expectedProfit: quote.expectedNetProfit,
       grossRevenue: quote.grossRevenue,
       ambushRiskPct: adjustedRiskPct,
-      durationSeconds: quote.durationSeconds,
+      durationSeconds: duration, passage,
     });
   };
 
@@ -243,6 +263,12 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
             </div>
           </div>
 
+          {onTract && <label className="block text-sm text-amber-100">Przeprawa w Srebrnym Gaju
+            <select className="block w-full bg-slate-900 p-2" value={passage} disabled={!bridge || bridge.damaged || checking}
+              onChange={e=>setChooseDetour(e.target.value==='detour')}>
+              {!bridge?.damaged && <option value="bridge">Traktem przez most</option>}
+              <option value="detour">{bridge?.damaged?'Most zerwany · ':''}Górnym brodem · +{detourSeconds} s</option>
+            </select></label>}
           {/* World Physics & Route Calculation */}
           <div className="bg-[#080b10] border border-slate-800 rounded p-2.5 font-mono-tabular text-xs space-y-1">
             <div className="flex justify-between text-slate-400">
@@ -260,7 +286,7 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
             <div className="flex justify-between text-slate-400">
               <span>Prędkość sezonowa ({SEASONS[activeSeason].shortName}):</span>
               <span className={quote.caravanSpeedMultiplier < 0.85 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
-                {quote.caravanSpeedMultiplier.toFixed(2)}x · Czas: {quote.durationSeconds}s
+                {quote.caravanSpeedMultiplier.toFixed(2)}x · Czas: {duration}s
               </span>
             </div>
             <div className="flex justify-between text-slate-400">
@@ -272,7 +298,7 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
             <div className="flex justify-between text-slate-400">
               <span>Zagrożenie Rebeliantami na szlaku:</span>
               <span className={adjustedRiskPct < 5 ? 'text-emerald-400' : 'text-amber-400'}>
-                {adjustedRiskPct}% · Czas: {quote.durationSeconds}s
+                {adjustedRiskPct}% · Czas: {duration}s
               </span>
             </div>
             <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
@@ -293,7 +319,7 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
 
         <button
           type="button"
-          onClick={handleSend}
+          onClick={handleSend} disabled={checking || (onTract && !bridge)}
           className="min-h-[44px] w-full py-2.5 px-4 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors"
         >
           Wyślij Karawanę 3D na Szlak ({Math.round(totalUpfrontCost)} zł)
@@ -319,7 +345,7 @@ export const CaravanRoutesView: React.FC<CaravanRoutesViewProps> = ({
                 return (
                   <div key={c.id} className="bg-[#080b10] border border-slate-800 rounded p-2 text-xs">
                     <div className="flex justify-between font-medium text-white">
-                      <span className="truncate">{orig} → {dest}</span>
+                      <span className="truncate">{orig} → {dest}{c.passage==='detour'?' · bród':c.passage==='bridge'?' · most':''}</span>
                       <span className="font-mono-tabular text-amber-400">{pct}%</span>
                     </div>
                     <div className="w-full bg-slate-800 h-1.5 rounded-full mt-1 overflow-hidden">

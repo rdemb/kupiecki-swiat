@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { bridgeSite, bridgeToll, crossing, detourSeconds, type BridgeSign } from '../economy/bridge';
 import { CITIES } from '../economy/economyEngine';
 import { gameRequest } from '../utils/gameServer';
 
@@ -26,10 +27,12 @@ type Entry = {
 };
 type Register = {
   towns: Town[];
+  bridge?: BridgeSign;
+  guild?: string;
   uid?: string;
   admin: boolean;
   invitations: { town: number; capital: number; toll: number }[];
-  freight?: { town: number; due: number; cargo: string };
+  freight?: { town: number; due: number; cargo: string; road?: string; duty?: number };
 };
 const empty: Register = { towns: [], admin: false, invitations: [] };
 export function useProvinceRegister(token: string | null) {
@@ -47,6 +50,7 @@ export function useProvinceRegister(token: string | null) {
       if (id === seq.current) {
         setData(result);
         setError('');
+        return result;
       }
     } catch {
       if (id === seq.current) setError('Nie udało się odczytać rejestru.');
@@ -207,7 +211,7 @@ export function ProvinceHall({
             disabled={now < data.freight.due}
             onClick={() => act('arrive', { town: data.freight!.town })}
           >
-            Rozładuj konwój · {cityName(data.freight.town)} ·{' '}
+            {data.freight.road && (data.freight.road === 'bridge' ? 'Most · ' : 'Objazd · ')}Rozładuj konwój · {cityName(data.freight.town)} ·{' '}
             {Math.max(0, Math.ceil((data.freight.due - now) / 1000))} s
           </button>
         )}
@@ -291,7 +295,10 @@ export function ProvinceHall({
                 mine.capital &&
                 mine.capital === t.capital &&
                 !data.freight && (
-                  <button
+                  crossing(mine.site,t.site) && data.bridge ? <>
+                    {!data.bridge.damaged && <button className={button} onClick={()=>act('dispatch',{town:t.id,cargo:'handel',passage:'bridge'})}>Przez most · myto {t.site === bridgeSite ? bridgeToll(t.toll,data.bridge,data.guild??'') : t.toll}%</button>}
+                    <button className={button} onClick={()=>act('dispatch',{town:t.id,cargo:'handel',passage:'detour'})}>Objazd · +{detourSeconds} s · myto miejskie {t.toll}%</button>
+                  </> : <button
                     className={button}
                     onClick={() => act('dispatch', { town: t.id, cargo: 'handel' })}
                   >

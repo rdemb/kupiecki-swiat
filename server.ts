@@ -1,4 +1,5 @@
 import express from 'express';
+import { installBridge } from './server/bridge';
 import { installMill } from './server/mill';
 import {emptyMark,type MillMark} from './src/economy/mill';
 import { installMerchantInn } from './server/merchantInn';
@@ -907,6 +908,9 @@ async function startServer() {
   setInterval(() => {
     advanceEconomyTick();
     mill.advanceTowns();
+    db.exec('BEGIN IMMEDIATE');
+    try { bridge.advance(Date.now()); db.exec('COMMIT'); }
+    catch(e) { db.exec('ROLLBACK'); throw e; }
   }, 4500);
 
   // --- AUTHENTICATION & PLAYER PROFILE BACKEND ROUTES ---
@@ -1143,7 +1147,8 @@ async function startServer() {
   const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds);
   const mill = installMill(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex]);
   mill.advanceTowns();
-  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation);
+  const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],mill.settleGold);
+  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation, bridge);
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {
