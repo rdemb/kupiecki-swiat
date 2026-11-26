@@ -1,0 +1,208 @@
+{
+  "entities": {
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Persistent merchant profile and portfolio state for an authenticated Kupiecki Swiat 3D player (zero PII stored).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public merchant name in the realm.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "title": {
+          "type": "string",
+          "description": "Merchant rank or specialization title.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "raceId": {
+          "type": "string",
+          "description": "Chosen faction from the 5 original races.",
+          "enum": ["ludzie", "krasnoludy", "elfy", "gobliny", "orkowie"],
+          "minLength": 4,
+          "maxLength": 20
+        },
+        "guildId": {
+          "type": "string",
+          "description": "Current merchant guild ID.",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "gold": {
+          "type": "number",
+          "description": "Liquid gold balance."
+        },
+        "bondsGold": {
+          "type": "number",
+          "description": "Gold locked in Royal Mint anti-inflation bonds."
+        },
+        "netWorth": {
+          "type": "number",
+          "description": "Calculated total net worth in gold."
+        },
+        "tradesExecutedCount": {
+          "type": "number",
+          "description": "Total number of trades and caravans completed."
+        },
+        "profitableTradesCount": {
+          "type": "number",
+          "description": "Total number of profitable trades completed."
+        },
+        "inv_zboze": {
+          "type": "number",
+          "description": "Units of Zboze Krolewskie in warehouse."
+        },
+        "inv_zelazo": {
+          "type": "number",
+          "description": "Units of Ruda Zelaza in warehouse."
+        },
+        "inv_drewno_elfickie": {
+          "type": "number",
+          "description": "Units of Drewno Elfickie in warehouse."
+        },
+        "inv_przyprawy": {
+          "type": "number",
+          "description": "Units of Przyprawy Wschodnie in warehouse."
+        },
+        "inv_runiczny_pergamin": {
+          "type": "number",
+          "description": "Units of Runiczny Pergamin in warehouse."
+        },
+        "inv_krysztaly_many": {
+          "type": "number",
+          "description": "Units of Krysztaly Many in warehouse."
+        },
+        "inv_mithril": {
+          "type": "number",
+          "description": "Units of Sztaby Mithrilu in warehouse."
+        },
+        "inv_smocza_luska": {
+          "type": "number",
+          "description": "Units of Smocza Luska in warehouse."
+        },
+        "unlockedTechCsv": {
+          "type": "string",
+          "description": "Comma-separated list of unlocked technology node IDs.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the merchant profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the merchant profile was last updated."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "title",
+        "raceId",
+        "guildId",
+        "gold",
+        "bondsGold",
+        "netWorth",
+        "tradesExecutedCount",
+        "profitableTradesCount",
+        "inv_zboze",
+        "inv_zelazo",
+        "inv_drewno_elfickie",
+        "inv_przyprawy",
+        "inv_runiczny_pergamin",
+        "inv_krysztaly_many",
+        "inv_mithril",
+        "inv_smocza_luska",
+        "unlockedTechCsv",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TradeRecord": {
+      "title": "TradeRecord",
+      "description": "Audit log entry of a trade or caravan transaction belonging to a player.",
+      "type": "object",
+      "properties": {
+        "tradeId": {
+          "type": "string",
+          "description": "Unique trade identifier.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "playerId": {
+          "type": "string",
+          "description": "UID of the player who executed the trade.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "commodityId": {
+          "type": "string",
+          "description": "Traded commodity identifier.",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "side": {
+          "type": "string",
+          "description": "Trade direction.",
+          "enum": ["buy", "sell"],
+          "minLength": 3,
+          "maxLength": 4
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Number of commodity units traded."
+        },
+        "price": {
+          "type": "number",
+          "description": "Execution unit price in gold."
+        },
+        "cityId": {
+          "type": "string",
+          "description": "City exchange where the order was filled.",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of trade execution."
+        }
+      },
+      "required": [
+        "tradeId",
+        "playerId",
+        "commodityId",
+        "side",
+        "quantity",
+        "price",
+        "cityId",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Stores each authenticated player's persistent merchant profile, gold, bonds, tech unlocks, and warehouse inventory."
+    },
+    "/players/{playerId}/trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/TradeRecord" },
+      "description": "Subcollection storing trade execution history for a specific player."
+    }
+  }
+}

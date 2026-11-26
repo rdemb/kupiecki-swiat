@@ -1,0 +1,6 @@
+{
+  "name": "Kupiecki Świat 3D: Odrodzenie",
+  "description": "Nowoczesna reaktywacja kultowej gry strategiczno-ekonomicznej Kupiecki Świat w 3D z zaawansowanym silnikiem mikrostruktury rynku, modelem antyinflacyjnym, aukcjami live, gildiami i drzewkiem technologicznym.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

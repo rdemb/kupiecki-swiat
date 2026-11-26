@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+coverage/
+.playwright-cli/
+server.js
+.vscode/
+.DS_Store
+*.log
+*.local
+.env*
+!.env.example

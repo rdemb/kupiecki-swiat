@@ -1,0 +1,205 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1: Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isNonNegativeNumber(val) {
+      return (val is int || val is float) && val >= 0 && val <= 1000000000;
+    }
+
+    // Pillar 2: Validation Blueprint for PlayerProfile
+    function isValidPlayerProfile(data) {
+      return data.keys().hasAll([
+        'uid',
+        'displayName',
+        'title',
+        'raceId',
+        'guildId',
+        'gold',
+        'bondsGold',
+        'netWorth',
+        'tradesExecutedCount',
+        'profitableTradesCount',
+        'inv_zboze',
+        'inv_zelazo',
+        'inv_drewno_elfickie',
+        'inv_przyprawy',
+        'inv_runiczny_pergamin',
+        'inv_krysztaly_many',
+        'inv_mithril',
+        'inv_smocza_luska',
+        'unlockedTechCsv',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid',
+        'displayName',
+        'title',
+        'raceId',
+        'guildId',
+        'gold',
+        'bondsGold',
+        'netWorth',
+        'tradesExecutedCount',
+        'profitableTradesCount',
+        'inv_zboze',
+        'inv_zelazo',
+        'inv_drewno_elfickie',
+        'inv_przyprawy',
+        'inv_runiczny_pergamin',
+        'inv_krysztaly_many',
+        'inv_mithril',
+        'inv_smocza_luska',
+        'unlockedTechCsv',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.uid == request.auth.uid &&
+      isValidId(data.uid) &&
+      data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 60 &&
+      data.title is string && data.title.size() >= 2 && data.title.size() <= 60 &&
+      data.raceId is string && data.raceId.size() >= 4 && data.raceId.size() <= 20 &&
+      (data.raceId == 'ludzie' || data.raceId == 'krasnoludy' || data.raceId == 'elfy' || data.raceId == 'gobliny' || data.raceId == 'orkowie') &&
+      isValidId(data.guildId) && data.guildId.size() >= 2 && data.guildId.size() <= 64 &&
+      isNonNegativeNumber(data.gold) &&
+      isNonNegativeNumber(data.bondsGold) &&
+      isNonNegativeNumber(data.netWorth) &&
+      isNonNegativeNumber(data.tradesExecutedCount) &&
+      isNonNegativeNumber(data.profitableTradesCount) &&
+      isNonNegativeNumber(data.inv_zboze) &&
+      isNonNegativeNumber(data.inv_zelazo) &&
+      isNonNegativeNumber(data.inv_drewno_elfickie) &&
+      isNonNegativeNumber(data.inv_przyprawy) &&
+      isNonNegativeNumber(data.inv_runiczny_pergamin) &&
+      isNonNegativeNumber(data.inv_krysztaly_many) &&
+      isNonNegativeNumber(data.inv_mithril) &&
+      isNonNegativeNumber(data.inv_smocza_luska) &&
+      data.unlockedTechCsv is string && data.unlockedTechCsv.size() <= 300 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Pillar 2: Validation Blueprint for TradeRecord
+    function isValidTradeRecord(data, playerId) {
+      return data.keys().hasAll([
+        'tradeId',
+        'playerId',
+        'commodityId',
+        'side',
+        'quantity',
+        'price',
+        'cityId',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'tradeId',
+        'playerId',
+        'commodityId',
+        'side',
+        'quantity',
+        'price',
+        'cityId',
+        'createdAt'
+      ]) &&
+      isValidId(data.tradeId) &&
+      data.playerId == request.auth.uid &&
+      data.playerId == playerId &&
+      data.commodityId is string && data.commodityId.size() >= 2 && data.commodityId.size() <= 40 &&
+      data.side is string && data.side.size() >= 3 && data.side.size() <= 4 &&
+      (data.side == 'buy' || data.side == 'sell') &&
+      isNonNegativeNumber(data.quantity) && data.quantity > 0 &&
+      isNonNegativeNumber(data.price) &&
+      data.cityId is string && data.cityId.size() >= 2 && data.cityId.size() <= 64 &&
+      data.createdAt is timestamp;
+    }
+
+    // Collection 1: /players/{playerId}
+    match /players/{playerId} {
+      allow get: if isSignedIn() && isValidId(playerId) && request.auth.uid == playerId;
+
+      allow create: if isSignedIn() &&
+        isValidId(playerId) &&
+        request.auth.uid == playerId &&
+        isValidPlayerProfile(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() &&
+        isValidId(playerId) &&
+        request.auth.uid == playerId &&
+        isValidPlayerProfile(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'title',
+          'raceId',
+          'guildId',
+          'gold',
+          'bondsGold',
+          'netWorth',
+          'tradesExecutedCount',
+          'profitableTradesCount',
+          'inv_zboze',
+          'inv_zelazo',
+          'inv_drewno_elfickie',
+          'inv_przyprawy',
+          'inv_runiczny_pergamin',
+          'inv_krysztaly_many',
+          'inv_mithril',
+          'inv_smocza_luska',
+          'unlockedTechCsv',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+
+      // Subcollection 2: /players/{playerId}/trades/{tradeId}
+      match /trades/{tradeId} {
+        allow get: if isSignedIn() &&
+          isValidId(playerId) &&
+          isValidId(tradeId) &&
+          request.auth.uid == playerId &&
+          get(/databases/$(database)/documents/players/$(playerId)).data.uid == request.auth.uid;
+
+        allow list: if isSignedIn() &&
+          request.auth.uid == playerId &&
+          resource.data.playerId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+          isValidId(playerId) &&
+          isValidId(tradeId) &&
+          request.auth.uid == playerId &&
+          isValidTradeRecord(incoming(), playerId) &&
+          incoming().tradeId == tradeId &&
+          incoming().createdAt == request.time &&
+          get(/databases/$(database)/documents/players/$(playerId)).data.uid == request.auth.uid;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}
