@@ -70,6 +70,7 @@ export const SeasonalMarketBanner: React.FC<SeasonalMarketBannerProps> = ({
                 key={sid}
                 type="button"
                 data-testid={`season-btn-${sid}`}
+                disabled={!onAdvanceSeason}
                 onClick={() => onAdvanceSeason?.(sid)}
                 className={`relative px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
                   isActive

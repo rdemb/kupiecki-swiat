@@ -82,3 +82,32 @@
     transition: none;
   }
 }
+
+.mutual-terms {
+  max-width: 78ch;
+  margin: 1rem 0;
+}
+.carrier-mutual h2,
+.mutual-charter h3 {
+  margin-top: 1rem;
+}
+.carrier-mutual .inn-primary,
+.mutual-charter button {
+  margin: 0.6rem 0.5rem 0.2rem 0;
+}
+.insurance-receipt {
+  margin: 0.7rem 0;
+  padding: 0.35rem 0.75rem;
+  border-left: 2px solid #716437;
+  background: #dacfaf44;
+}
+.cover-choice {
+  display: block;
+  margin: 0.65rem 0;
+  max-width: 100%;
+}
+.cover-choice select {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+}

@@ -5,5 +5,6 @@
   "pola": "Zanim odbierzesz ziarno, zerknij na pola. Ulewa niszczy część zbioru, a mróz szkodzi jeszcze bardziej. Gdy ziarna brakuje, w karczmie możesz poszukać dostawcy.",
   "mlyn": "Młynarz waży każdy worek osobno. Sprawdź cenę i dostarcz tyle zboża, ile chcesz. Jeśli wystawiasz własne zamówienie, wybierz, czy ziarno ma trafić do twojego magazynu, czy na chleb dla miasta.",
   "most": "Przyjrzyj się przęsłom. Gdy wezbrana rzeka porwie most, woźnice ruszają objazdem. Członek gildii może z własnej sakwy opłacić wóz z tartaku lub kuźni. Każdy kupiec może podjąć kurs i odebrać zapłatę po rozładunku.",
-  "przewozy": "Zajrzyj do listu. Kupiec zostawia złoto, dostawca przywozi ziarno, a woźnica wybiera przeprawę. Gdy woda zabierze most, pozostaje górny bród. Młynarz wypłaci obu należność dopiero po przyjeździe."
+  "przewozy": "Zajrzyj do listu. Kupiec zostawia złoto, dostawca przywozi ziarno, a woźnica wybiera przeprawę. Gdy woda zabierze most, pozostaje górny bród. Młynarz wypłaci obu należność dopiero po przyjeździe.",
+  "kasa": "Zanim chwycisz za lejce, zajrzyj do kasy gildii. Sprawdź, ile złota odłożono na twój wóz. Gdy woda porwie most, zanim do niego dojedziesz, gildia zapłaci za przymusowy objazd."
 }

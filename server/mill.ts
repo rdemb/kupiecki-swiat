@@ -3,7 +3,8 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
-import { installWaybills, WaybillRule } from './waybills';
+import { installWaybills } from './waybills';
+import { WaybillRule } from './waybillRules';
 import { waybillTown } from '../src/economy/waybills';
 
 type Actor = { uid: string; displayName: string; guildId: string };
@@ -207,8 +208,12 @@ export function installMill(
       return;
     }
     const { action, nonce, quantity, price, order, purpose } = req.body ?? {};
-    const isFreight = ['commission', 'withdraw', 'depart', 'seal'].includes(action);
+    const isFreight = ['commission', 'withdraw', 'depart', 'seal', 'tariff', 'suspendCover', 'pledge', 'redeem'].includes(action);
     const fields = isFreight ? [req.body.wage, req.body.road, req.body.bill] : [];
+    // Keep previously signed documents valid after the upgrade.
+    if (isFreight && (req.body.quote !== undefined || req.body.guild !== undefined || req.body.amount !== undefined || req.body.cover !== undefined || req.body.fee !== undefined)) {
+      fields.push(req.body.quote, req.body.guild, req.body.amount, req.body.cover, req.body.fee);
+    }
     const payload = JSON.stringify([city, action, quantity, price, order, purpose, ...fields]);
     const now = Date.now();
     try {

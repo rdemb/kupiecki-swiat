@@ -1,3 +1,4 @@
+import { divertCarts } from './carrierMutual';
 import { wagonHaulingGrain } from './waybills';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, Request } from 'express';
@@ -56,6 +57,7 @@ export function installBridge(
       db.prepare('UPDATE bridgeState SET wet=? WHERE id=1').run(wet);
       if (wet && !b.damaged && now - Number(b.opened) >= protection) {
         db.exec("UPDATE bridgeState SET damaged=1, cycle=cycle+1, flag='' WHERE id=1");
+        divertCarts(db, Number(b.cycle) + 1, now);
         record(
           '',
           'Straż przeprawy',

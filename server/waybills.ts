@@ -6,15 +6,8 @@ import {
   waybillTown,
 } from '../src/economy/waybills';
 
-export class WaybillRule extends Error {}
-function check(ok: unknown, message: string): asserts ok {
-  if (!ok) throw new WaybillRule(message);
-}
-function positive(n: unknown, limit: number): n is number {
-  return (
-    typeof n === 'number' && Number.isSafeInteger(n) && n > 0 && n <= limit
-  );
-}
+import { WaybillRule, check, positive } from './waybillRules';
+import { installCarrierMutual } from './carrierMutual';
 type Row = Record<string, SQLOutputValue>;
 export function wagonHaulingGrain(db: DatabaseSync, uid: string) {
   return !!db
@@ -40,17 +33,18 @@ export function installWaybills(
     CREATE INDEX IF NOT EXISTS waybillExpiry ON grainWaybills(status,expires);
     CREATE UNIQUE INDEX IF NOT EXISTS waybillCart ON grainWaybills(driver) WHERE status='rolling';
   `);
-  const columns =
-    'id,buyerName,growerName,driverName,quantity,price,wage,status,expires,road,departed,due,coalesce(buyer=?,0) AS mine';
+  const mutual = installCarrierMutual(db, transfer);
+  const register = `SELECT b.id,b.buyerName,b.growerName,b.driverName,b.quantity,b.price,b.wage,b.status,b.expires,b.road,b.departed,b.due,
+    coalesce(b.buyer=?,0) AS mine,c.crosses,c.floodAt,g.name AS insurer,q.cover,q.fee,p.paid FROM grainWaybills b
+    LEFT JOIN grainCrossings c ON c.bill=b.id LEFT JOIN mutualPolicies p ON p.bill=b.id
+    LEFT JOIN mutualQuotes q ON q.id=p.quote LEFT JOIN innGuilds g ON g.id=q.guild`;
   const active = db.prepare(
-    'SELECT ' +
-      columns +
-      " FROM grainWaybills WHERE status IN ('open','sealed','rolling') ORDER BY id DESC",
+    register +
+      " WHERE b.status IN ('open','sealed','rolling') ORDER BY b.id DESC",
   );
   const receipts = db.prepare(
-    'SELECT ' +
-      columns +
-      " FROM grainWaybills WHERE status='delivered' ORDER BY due DESC,id DESC LIMIT 20",
+    register +
+      " WHERE b.status='delivered' ORDER BY b.due DESC,b.id DESC LIMIT 20",
   );
   function refund(b: Row, state: 'cancelled' | 'expired') {
     transfer(
@@ -79,6 +73,7 @@ export function installWaybills(
       grind(waybillTown, Number(b.quantity));
       transfer(String(b.grower), Number(b.quantity) * Number(b.price), 0);
       transfer(String(b.driver), Number(b.wage), 0);
+      mutual.settle(Number(b.id), String(b.driver), Number(b.due));
       db.prepare("UPDATE grainWaybills SET status='delivered' WHERE id=?").run(
         b.id,
       );
@@ -90,6 +85,15 @@ export function installWaybills(
     now: number,
   ) {
     const { action, quantity, price, wage, road, bill } = body;
+    if (
+      action === 'pledge' ||
+      action === 'redeem' ||
+      action === 'tariff' ||
+      action === 'suspendCover'
+    ) {
+      mutual.manage(me.uid, body);
+      return;
+    }
     if (action === 'commission') {
       check(
         positive(quantity, wagonLimit) &&
@@ -153,6 +157,16 @@ export function installWaybills(
       );
       const due =
         now + journeySeconds(Number(b.quantity), weather(), road) * 1000;
+      if (body.quote !== undefined) {
+        check(road === 'bridge', 'Ochrona dotyczy wyjazdu przez otwarty most.');
+        mutual.insure(bill, me.uid, body.quote);
+      }
+      if (road === 'bridge') {
+        db.prepare('INSERT INTO grainCrossings(bill,crosses) VALUES(?,?)').run(
+          bill,
+          now + Math.floor((due - now) / 2),
+        );
+      }
       db.prepare(
         "UPDATE grainWaybills SET status='rolling',driver=?,driverName=?,road=?,departed=?,due=? WHERE id=?",
       ).run(me.uid, me.displayName, road, now, due, bill);
@@ -166,6 +180,7 @@ export function installWaybills(
         now,
         weather: weather(),
         closed: bridgeClosed(now),
+        insurance: mutual.book(uid),
         bills: active.all(uid),
         receipts: receipts.all(uid),
       };

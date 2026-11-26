@@ -229,7 +229,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy';
+  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -270,8 +270,8 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const atRiver = place === 'most' || place === 'przewozy';
-  const innArrival: Record<string, InnTab> = { most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight' };
+  const atRiver = place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
+  const innArrival: Record<string, InnTab> = { most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
   const [inn,setInn] = useState<InnVisit|null>(startAtInn ? {
     city: atRiver ? 'srebrny_gaj' : 'krolewska_przystan',
     tab: innArrival[place ?? ''] ?? 'board',
@@ -1987,7 +1987,7 @@ export default function App() {
     try {
       const res = await gameRequest('/api/world/season', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(backendToken ? {Authorization: 'Bearer ' + backendToken} : {}) },
         body: JSON.stringify({ seasonId: nextSeasonId }),
       });
       if (res.ok) {
@@ -2625,7 +2625,7 @@ export default function App() {
         </React.Suspense>
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
-        <MerchantInn onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({city:tab==='freight'?'srebrny_gaj':inn.city,tab})}
+        <MerchantInn onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({city:tab==='freight'||tab==='mutual'?'srebrny_gaj':inn.city,tab})}
           muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>setInn(null)}
           onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
       </React.Suspense>}
@@ -3151,7 +3151,7 @@ export default function App() {
                     onExecuteTrade={handleExecuteTrade}
                     onBuyExchangeOffer={handleBuyExchangeOffer}
                     onCreateExchangeOffer={handleCreateExchangeOffer}
-                    onAdvanceSeason={handleAdvanceSeason}
+                    onAdvanceSeason={provinces.data.admin || !!provinces.error ? handleAdvanceSeason : undefined}
                     onTriggerDisaster={handleTriggerDisaster}
                     onOpenDisasterModal={() => {
                       setLastDisasterResult(null);

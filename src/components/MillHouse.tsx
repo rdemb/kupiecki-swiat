@@ -8,6 +8,7 @@ import {
   type MillOrder,
 } from '../economy/mill';
 import type { FreightCommand } from '../economy/waybills';
+import CarrierMutual from './CarrierMutual';
 import WaybillDesk from './WaybillDesk';
 const number = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
 type Command = FreightCommand
@@ -16,7 +17,7 @@ type Command = FreightCommand
   | { action: 'cancel'; order: number }
   | { action: 'ration' };
 interface Props {
-  isFreight?: boolean;
+  room?: 'mill' | 'freight' | 'mutual';
   city: string;
   token: string | null;
   onAccount: () => void;
@@ -106,7 +107,7 @@ function OrderLine({
     </article>
   );
 }
-export function MillHouse({ city, token, onSettlement, onAccount, isFreight = false }: Props) {
+export function MillHouse({ city, token, onSettlement, onAccount, room = 'mill' }: Props) {
   const [book, setBook] = useState<MillBook | null>(null),
     [loadError, setLoadError] = useState(false),
     [error, setError] = useState(''),
@@ -202,7 +203,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, isFreight = fa
     +price < 1 ||
     +price > rules.maxPrice;
   return (
-    <section className="mill-house" aria-label={isFreight ? "Listy przewozowe" : "Kontrakty na zboże"}>
+    <section className="mill-house" aria-label={room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
       {loadError && (
         <p role="alert">
           Księga młyna jest chwilowo niedostępna. <button onClick={refresh}>Odśwież</button>
@@ -211,8 +212,9 @@ export function MillHouse({ city, token, onSettlement, onAccount, isFreight = fa
       {note && <p role="status">{note}</p>}
       {error && <p role="alert">{error}</p>}
       {!book && !loadError && <p>Młynarz otwiera księgę…</p>}
-      {book && isFreight && (book.freight ? <WaybillDesk book={book} desk={book.freight} busy={busy} onAccount={onAccount} onAction={action}/> : <p role="alert">Kantor czeka na połączenie z księgą przewozów.</p>)}
-      {book && !isFreight && (
+      {book && room==='mutual' && (book.freight?.insurance ? <CarrierMutual funds={book.freight.insurance} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Kasa czeka na połączenie z księgą.</p>)}
+      {book && room==='freight' && (book.freight ? <WaybillDesk book={book} desk={book.freight} busy={busy} onAccount={onAccount} onAction={action}/> : <p role="alert">Kantor czeka na połączenie z księgą przewozów.</p>)}
+      {book && room==='mill' && (
         <>
           <dl className="mill-stocks">
             <div>

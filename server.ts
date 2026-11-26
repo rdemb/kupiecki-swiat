@@ -660,15 +660,15 @@ async function startServer() {
     inventoryDelta?: number;
     moneySupplyDelta?: number;
     eventIndex?: number;
-  }) {
-    tickCounter++;
+  }, advanceCalendar = false) {
+    if (advanceCalendar) tickCounter++;
 
-    if (tickCounter % 4 === 0) {
+    if (advanceCalendar && tickCounter % 4 === 0) {
       worldDayNumber++;
     }
 
     // Rotate Season every 16 ticks (simulating real seasonal progression)
-    if (tickCounter % 16 === 0) {
+    if (advanceCalendar && tickCounter % 16 === 0) {
       activeSeasonIndex = (activeSeasonIndex + 1) % SEASON_ORDER.length;
       const newSeason = SEASONS[SEASON_ORDER[activeSeasonIndex]];
 
@@ -714,13 +714,13 @@ async function startServer() {
         category: 'event',
         timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       });
-    } else if (tickCounter % 9 === 0) {
+    } else if (advanceCalendar && tickCounter % 9 === 0) {
       activeWeatherIndex = (activeWeatherIndex + 1) % WEATHER_ORDER.length;
     }
 
     if (customShock?.eventIndex !== undefined) {
       activeEventIndex = customShock.eventIndex % WORLD_EVENTS.length;
-    } else if (tickCounter % 22 === 0) {
+    } else if (advanceCalendar && tickCounter % 22 === 0) {
       activeEventIndex = (activeEventIndex + 1) % WORLD_EVENTS.length;
       const ev = WORLD_EVENTS[activeEventIndex];
       broadcast('notification:push', {
@@ -742,7 +742,7 @@ async function startServer() {
     }
 
     // Tick down or randomly trigger seasonal World Disasters
-    if (activeDisaster) {
+    if (advanceCalendar && activeDisaster) {
       if (activeDisaster.remainingTicks <= 1) {
         const clearedName = activeDisaster.shortLabel;
         activeDisaster = null;
@@ -759,7 +759,7 @@ async function startServer() {
           remainingTicks: activeDisaster.remainingTicks - 1,
         };
       }
-    } else if (tickCounter % 26 === 0) {
+    } else if (advanceCalendar && tickCounter % 26 === 0) {
       activeDisaster = pickRandomDisaster(SEASON_ORDER[activeSeasonIndex], worldDayNumber, tickCounter * 17);
       broadcast('notification:push', {
         id: `dis_new_${Date.now()}`,
@@ -905,12 +905,15 @@ async function startServer() {
     });
   }
 
-  setInterval(() => {
-    advanceEconomyTick();
-    mill.advanceTowns();
+  function observeBridgeWeather() {
     db.exec('BEGIN IMMEDIATE');
     try { bridge.advance(Date.now()); db.exec('COMMIT'); }
     catch(e) { db.exec('ROLLBACK'); throw e; }
+  }
+  setInterval(() => {
+    advanceEconomyTick(undefined, true);
+    observeBridgeWeather();
+    mill.advanceTowns();
   }, 4500);
 
   // --- AUTHENTICATION & PLAYER PROFILE BACKEND ROUTES ---
@@ -1315,6 +1318,11 @@ async function startServer() {
 
   // --- Dynamic 4-Season Transition & World Disaster Endpoints ---
   app.post('/api/world/season', (req, res) => {
+    const actor = getAuthenticatedAccount(req);
+    if (!actor || !db.prepare('SELECT 1 FROM emperor WHERE uid=?').get(actor.uid)) {
+      res.status(actor ? 403 : 401).json({error:'Porę roku wspólnego świata może zmienić Imperator.'});
+      return;
+    }
     const { seasonId } = (req.body ?? {}) as { seasonId?: SeasonId };
     if (seasonId && SEASON_ORDER.includes(seasonId)) {
       activeSeasonIndex = SEASON_ORDER.indexOf(seasonId);
@@ -1357,6 +1365,7 @@ async function startServer() {
     if (exchangeOffers.length > 14) exchangeOffers.pop();
 
     advanceEconomyTick();
+    observeBridgeWeather();
 
     res.json({
       success: true,

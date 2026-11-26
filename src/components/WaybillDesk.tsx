@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CoverChoice, InsuranceReceipt } from './CarrierMutual';
 import { Wheat } from 'lucide-react';
 import type { MillBook } from '../economy/mill';
 import {
@@ -43,11 +44,19 @@ function Passage({ bill, now }: { bill: Waybill; now: number }) {
     return () => window.clearInterval(tick);
   }, [now]);
   if (!bill.road || bill.departed === null || bill.due === null) return null;
-  const duration = Math.max(1, bill.due - bill.departed);
-  const progress = Math.min(
-    100,
-    Math.max(0, (100 * (now + elapsed - bill.departed)) / duration),
-  );
+  const current = now + elapsed;
+  let fraction =
+    (current - bill.departed) / Math.max(1, bill.due - bill.departed);
+  if (bill.floodAt != null && bill.crosses != null) {
+    const beforeFlood =
+      (bill.floodAt - bill.departed) /
+      Math.max(1, 2 * (bill.crosses - bill.departed));
+    fraction =
+      beforeFlood +
+      ((1 - beforeFlood) * Math.max(0, current - bill.floodAt)) /
+        Math.max(1, bill.due - bill.floodAt);
+  }
+  const progress = Math.max(0, Math.min(100, 100 * fraction));
   return (
     <div className="load-route">
       <div
@@ -74,6 +83,69 @@ function Passage({ bill, now }: { bill: Waybill; now: number }) {
             Math.ceil((bill.due - now - elapsed) / 1000) +
             ' s.'}
       </p>
+    </div>
+  );
+}
+function Departure({
+  bill,
+  desk,
+  busy,
+  gold,
+  onAction,
+}: Pick<Props, 'desk' | 'busy' | 'onAction'> & {
+  bill: Waybill;
+  gold: number;
+}) {
+  const [selected, choose] = useState('');
+  const offers = desk.insurance?.guilds ?? [];
+  const tariff = selected
+    ? offers.find((g) => String(g.quote) === selected)
+    : undefined;
+  const unavailable =
+    !!selected &&
+    (!tariff || tariff.free < tariff.cover! || gold < tariff.fee!);
+  return (
+    <div>
+      {!desk.closed && (
+        <CoverChoice offers={offers} selected={selected} choose={choose} />
+      )}
+      <div className="freight-routes">
+        <button
+          disabled={busy || desk.closed || unavailable}
+          onClick={() =>
+            onAction(
+              {
+                action: 'depart',
+                bill: bill.id,
+                road: 'bridge',
+                ...(selected ? { quote: Number(selected) } : {}),
+              },
+              tariff
+                ? 'Polisa podpisana. Wóz ruszył przez most.'
+                : 'Wóz ruszył przez most bez polisy.',
+            )
+          }
+        >
+          {desk.closed
+            ? 'Most zamknięty'
+            : 'Przez most · ' +
+              journeySeconds(bill.quantity, desk.weather, 'bridge') +
+              ' s' +
+              (tariff ? ' · składka ' + tariff.fee + ' zł' : '')}
+        </button>
+        <button
+          disabled={busy}
+          onClick={() =>
+            onAction(
+              { action: 'depart', bill: bill.id, road: 'detour' },
+              'Wóz ruszył górnym brodem bez polisy.',
+            )
+          }
+        >
+          Górnym brodem ·{' '}
+          {journeySeconds(bill.quantity, desk.weather, 'detour')} s · bez polisy
+        </button>
+      </div>
     </div>
   );
 }
@@ -147,6 +219,7 @@ export default function WaybillDesk({
                 <>
                   <p>Wóz prowadzi {b.driverName}.</p>
                   <Passage bill={b} now={desk.now} />
+                  <InsuranceReceipt b={b} />
                 </>
               )}
               {b.status !== 'rolling' && (
@@ -177,25 +250,13 @@ export default function WaybillDesk({
                 </button>
               )}
               {wallet && b.status === 'sealed' && (
-                <div className="freight-routes">
-                  {(['bridge', 'detour'] as const).map((road) => (
-                    <button
-                      key={road}
-                      disabled={busy || (road === 'bridge' && desk.closed)}
-                      onClick={() =>
-                        onAction(
-                          { action: 'depart', bill: b.id, road },
-                          'Wóz jest w drodze. Młyn rozliczy list po przyjeździe.',
-                        )
-                      }
-                    >
-                      {road === 'bridge' ? 'Przez most' : 'Górnym brodem'} ·{' '}
-                      {road === 'bridge' && desk.closed
-                        ? 'zamknięty'
-                        : journeySeconds(b.quantity, desk.weather, road) + ' s'}
-                    </button>
-                  ))}
-                </div>
+                <Departure
+                  bill={b}
+                  desk={desk}
+                  gold={wallet.gold}
+                  busy={busy}
+                  onAction={onAction}
+                />
               )}
               {!!b.mine && b.status !== 'rolling' && (
                 <button
@@ -232,6 +293,7 @@ export default function WaybillDesk({
                     wypłacono {b.quantity * b.price} zł ({b.growerName}), za
                     przewóz {b.wage} zł ({b.driverName}).
                   </p>
+                  <InsuranceReceipt b={b} />
                 </li>
               ))}
             </ol>

@@ -352,8 +352,8 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     const bread=await view();assert.equal(bread.flour,bought.flour-2);assert.equal(bread.baked,bought.baked+2);
 
     const secondTown='srebrny_gaj';
-    let winter=await request('/api/world/season',200,{seasonId:'zima'});
-    if(winter.macro.activeWeather!=='zamiec_i_mroz')winter=await request('/api/world/season',200,{seasonId:'zima'});
+    let winter=await request('/api/world/season',200,{seasonId:'zima'},clientA);
+    if(winter.macro.activeWeather!=='zamiec_i_mroz')winter=await request('/api/world/season',200,{seasonId:'zima'},clientA);
     assert.equal(winter.macro.activeWeather,'zamiec_i_mroz');
     const afterFrost=await request('/api/mill/'+secondTown,200);
     const citySlip=afterFrost.orders.filter(o=>o.issuer===null);
@@ -390,9 +390,9 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     const free=(await request('/api/auth/register',201,{username:'wolny_woznica',password:randomUUID()})).token;
     const bridgeUrl='/api/bridge';
     const watch=token=>request(bridgeUrl,200,undefined,token);
-    async function rainySeason() {
+    async function rainySeason(imperator=reload) {
       for(let i=0;i<5;i++){
-        const observed=await request('/api/world/season',200,{seasonId:'jesien'});
+        const observed=await request('/api/world/season',200,{seasonId:'jesien'},imperator);
         if(observed.macro.activeWeather==='ulewne_deszcze')return;
       }
       assert.fail('Testowy świat nie przeszedł do ulewy.');
@@ -464,13 +464,13 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     testDb.prepare('UPDATE towns SET toll=7 WHERE id=?').run(forest);
     await dispatchAndRead(7);
     assert.equal((await watch()).openings[0].guildName,'Cech Mostowy');
-    await request('/api/world/season',200,{seasonId:'lato'});await watch();
+    await request('/api/world/season',200,{seasonId:'lato'},reload);await watch();
     await rainySeason();assert.equal((await watch()).damaged,false);
     await stop();await start();
     assert.equal((await watch()).openings.length,1);
     // A later flood creates a fresh set of contracts but the old names remain on record.
     testDb.exec('UPDATE bridgeState SET opened=1, wet=0');
-    await rainySeason();
+    await rainySeason((await request('/api/auth/login',200,first)).token);
     const nextFlood=await watch();
     assert.equal(nextFlood.cycle,cycle+1);assert.equal(nextFlood.loads.length,0);assert.equal(nextFlood.openings.length,1);
 
@@ -555,6 +555,102 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
         body:JSON.stringify({action:'depart',nonce:randomUUID(),bill:lastId,road:'bridge'})})));
       assert.deepEqual(claims.map(r=>r.status).sort(),[200,409]);
       assert.equal((await desk()).freight.bills[0].road,'bridge');
+      // A guild of two backs one insured cart. Use only this disposable world's clock and bridge.
+      testDb.prepare('UPDATE grainWaybills SET due=? WHERE id=?').run(Date.now()-1,lastId);
+      await desk();
+      const mutualGuild=(await act(buyer2,'create',{body:'Kasa nad Rzeką',tag:'KASA'})).membership;
+      await act(grower2,'apply',{groupId:mutualGuild});
+      await act(buyer2,'accept',{who:(await desk(grower2)).wallet.uid});
+      const fund=(page)=>page.freight.insurance.guilds.find(g=>g.id===mutualGuild);
+      const capital=(page)=>page.freight.insurance.holdings.find(g=>g.guild===mutualGuild);
+      const manager=(token,op,options={},status=200)=>job(token,op,{guild:mutualGuild,...options},status);
+      const quoteTerms={fee:4,cover:30};
+      await manager(grower2,'tariff',quoteTerms,409);
+      await manager(driver2,'pledge',{amount:30},409);
+      const pledge={amount:18,nonce:randomUUID()};
+      const wealth=(await desk(buyer2)).wallet.gold;
+      assert.equal((await manager(buyer2,'pledge',pledge)).wallet.gold,wealth-18);
+      assert.equal((await manager(buyer2,'pledge',pledge)).wallet.gold,wealth-18);
+      await manager(buyer2,'pledge',{...pledge,amount:19},409);
+      await manager(grower2,'pledge',{amount:12});
+      const quoted=await manager(buyer2,'tariff',quoteTerms);
+      const quote=fund(quoted).quote;
+      assert.equal(fund(quoted).free,30);
+      const loadBill=async()=>{
+        const bill=(await job(buyer2,'commission',{quantity:2,price:5,wage:7})).freight.bills[0].id;
+        await job(grower2,'seal',{bill});
+        return bill;
+      };
+      await request('/api/world/season',401,{seasonId:'lato'});
+      await request('/api/world/season',403,{seasonId:'lato'},driver2);
+      await request('/api/world/season',200,{seasonId:'lato'},buyer2);
+      testDb.exec('UPDATE bridgeState SET damaged=0,wet=0,opened=0');
+      const insured=await loadBill();
+      const coins=(await desk(driver2)).wallet.gold;
+      const departure={bill:insured,road:'bridge',quote,nonce:randomUUID()};
+      await job(driver2,'depart',{bill:insured,road:'detour',quote},409);
+      const underway=await job(driver2,'depart',departure);
+      assert.equal(underway.wallet.gold,coins-4);
+      const beforeRoute=underway.freight.bills.find(row=>row.id===insured);
+      assert.equal(beforeRoute.cover,30);assert.equal(beforeRoute.fee,4);
+      assert.equal(beforeRoute.crosses,beforeRoute.departed+(beforeRoute.due-beforeRoute.departed)/2);
+      assert.equal(fund(underway).free,0);assert.equal(fund(underway).locked,30);
+      assert.equal((await job(driver2,'depart',departure)).wallet.gold,coins-4);
+      await job(driver2,'depart',{...departure,quote:quote+1},409);
+      assert.equal(capital(await desk(buyer2)).locked,18);
+      await manager(buyer2,'redeem',{amount:1},409);
+      const uncovered=await loadBill();
+      await job(grower2,'depart',{bill:uncovered,road:'bridge',quote},409);
+      await job(grower2,'depart',{bill:uncovered,road:'bridge'});
+      await manager(buyer2,'suspendCover');
+      const rain=await request('/api/world/season',200,{seasonId:'jesien'},buyer2);
+      assert.equal(rain.macro.activeWeather,'ulewne_deszcze');
+      const during=await desk(driver2);
+      const reroute=during.freight.bills.find(row=>row.id===insured);
+      assert.equal(reroute.road,'detour');assert.ok(reroute.floodAt>=beforeRoute.departed && reroute.floodAt<reroute.crosses);
+      assert.equal(reroute.due,beforeRoute.due+25000);assert.equal(reroute.paid,null);
+      assert.equal(during.wallet.gold,coins-4);
+      assert.equal(during.freight.bills.find(row=>row.id===uncovered).road,'detour');
+      assert.equal(during.freight.bills.find(row=>row.id===uncovered).insurer,null);
+      assert.equal((await desk()).freight.bills.find(row=>row.id===insured).due,reroute.due);
+      await stop();
+      testDb.prepare('UPDATE grainWaybills SET due=? WHERE id IN (?,?)').run(Date.now()-1,insured,uncovered);
+      await start();
+      const [master3,grower3,driver3]=await Promise.all([first,growerProfile,driverProfile].map(login));
+      const after=await desk(driver3);
+      assert.equal(after.wallet.gold,coins-4+7+30);
+      assert.equal(after.freight.receipts.find(row=>row.id===insured).paid,30);
+      assert.equal(fund(after).trips,1);assert.equal(fund(after).claims,1);assert.equal(fund(after).paid,30);
+      assert.equal(fund(after).locked,0);assert.equal(fund(after).free,4);
+      assert.equal((await desk(driver3)).wallet.gold,after.wallet.gold);
+      assert.equal(capital(await desk(master3)).free,2);
+      assert.equal(capital(await desk(grower3)).free,2);
+      await manager(master3,'pledge',{amount:26});
+      await request('/api/world/season',200,{seasonId:'lato'},master3);
+      testDb.exec('UPDATE bridgeState SET damaged=0,wet=0,opened=0');
+      const later=(await job(master3,'commission',{quantity:1,price:2,wage:6})).freight.bills[0].id;
+      await job(grower3,'seal',{bill:later});
+      const revised=fund(await manager(master3,'tariff',{fee:3,cover:30})).quote;
+      await job(driver3,'depart',{bill:later,road:'bridge',quote},409);
+      const safe=(await job(driver3,'depart',{bill:later,road:'bridge',quote:revised})).freight.bills[0];
+      // The far bank has already been reached when the next flood is observed.
+      testDb.prepare('UPDATE grainCrossings SET crosses=? WHERE bill=?').run(Date.now()-1,later);
+      await request('/api/world/season',200,{seasonId:'jesien'},master3);
+      const past=(await desk()).freight.bills[0];
+      assert.equal(past.road,'bridge');assert.equal(past.floodAt,null);assert.equal(past.due,safe.due);
+      testDb.prepare('UPDATE grainWaybills SET due=? WHERE id=?').run(Date.now()-1,later);
+      const clean=await desk(driver3);
+      assert.equal(clean.freight.receipts.find(row=>row.id===later).paid,0);
+      assert.equal(fund(clean).free,33);assert.equal(fund(clean).locked,0);
+      assert.equal(fund(clean).trips,2);assert.equal(fund(clean).claims,1);
+      assert.deepEqual((await desk()).freight.insurance.holdings,[]);
+      // Contributors keep their free coin after leaving and after the guild is dissolved.
+      await act(grower3,'leave');
+      await act(master3,'leave');
+      const funds=capital(await desk(grower3)).free;
+      const oldGold=(await desk(grower3)).wallet.gold;
+      assert.equal((await manager(grower3,'redeem',{amount:funds})).wallet.gold,oldGold+funds);
+      assert.equal(fund(await desk()).quote,null);
     }
   } finally {testDb.close();}
 });
