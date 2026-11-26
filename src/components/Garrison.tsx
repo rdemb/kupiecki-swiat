@@ -19,6 +19,7 @@ import {
 import type { FeastTown } from '../economy/harvestLoaf';
 import type { MillBook } from '../economy/mill';
 import { cinemaFile } from './MerchantRoad';
+import { StandardSchool } from './StandardSchool';
 import './garrison.css';
 
 const countLabel = (n: number, forms: [string,string,string]) =>
@@ -77,12 +78,13 @@ export function NewsBoard({ letters, now }: { letters: Dispatch[]; now: number }
 type Props = {
   town: FeastTown;
   book: GarrisonBook;
+  knightAway?: boolean;
   wallet: MillBook['wallet'];
   busy: boolean;
   sign: (c: GarrisonCommand, note: string) => Promise<boolean>;
   login: () => void;
 };
-export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
+export function Garrison({ town, book, wallet, busy, sign, login, knightAway = false }: Props) {
   const [qty, setQty] = useState('1');
   const [ration, setRation] = useState<Ration>('pack');
   const [sacks, setSacks] = useState('1');
@@ -90,16 +92,16 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
   const m = book.mine,
     rank = roadRank(m?.marks ?? 0),
     n = Number(qty);
-  const canEscort = !!m && !m.duty && m.counts.guards > 0;
+  const canEscort = !!m && !knightAway && !m.duty && m.counts.guards > 0;
   const withEscort = canEscort && escort;
   const kitchen = book.kitchen;
   useEffect(()=>{
-    if(kitchen && location.hash === '#kuchnia') document.getElementById('kuchnia')?.scrollIntoView();
+    if (kitchen && ['#kuchnia','#szkola'].includes(location.hash)) document.getElementById(location.hash.slice(1))?.scrollIntoView();
   },[town, !!kitchen]);
   const fatigue = m?.fatigue ?? 0;
   const escortMeal = rationPlan(ration, 1, fatigue);
   const sackCount = Number(sacks);
-  const soldiers = m ? Object.values(m.counts).reduce((a, b) => a + b, 0) : 0;
+  const soldiers = m ? Object.values(m.counts).reduce((a, b) => a + b, 0) + Number(!!book.school?.guides.some(g=>g.own)) : 0;
   return (
     <article className="garrison">
       <header className="field-hero garrison-cover">
@@ -129,6 +131,8 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
           <small>Połowa racji pogłębia głód o jeden stopień. Pełna racja utrzymuje siły, a wzmocniona odrabia jeden stopień. Każdy stopień wydłuża służbę o 10 s.</small>
         </div>
       </section>}
+      <StandardSchool key={town} town={town} book={book} knightAway={knightAway} wallet={wallet} busy={busy} ration={ration} onAccount={login} sign={sign}
+        canProvision={!!wallet && wallet.grain>=1+escortMeal.grain && (kitchen?.portions ?? 0)>=escortMeal.portions}/>
       <div className="garrison-pages">
         <section>
           <h2>Księga załogi</h2>
@@ -245,7 +249,7 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
                       </button>
                       <button
                         disabled={
-                          busy || !!m.duty || m.counts[unit] < u.crew || wallet.grain < meal.grain || (kitchen?.portions ?? 0) < meal.portions
+                          busy || knightAway || !!m.duty || m.counts[unit] < u.crew || wallet.grain < meal.grain || (kitchen?.portions ?? 0) < meal.portions
                         }
                         onClick={() =>
                           sign({ action: 'knightDuty', unit, ration }, 'Rycerz objął służbę z załogą.')
@@ -274,7 +278,7 @@ export function Garrison({ town, book, wallet, busy, sign, login }: Props) {
           </p>
           {m?.wagon && (
             <p role="status">
-              Wóz w drodze · {townNames[m.wagon.destination]} · {left(m.wagon.arrival, book.now)}
+              {m.wagon.returning ? 'Wóz wraca' : 'Wóz w drodze'} · {townNames[m.wagon.destination]} · {left(m.wagon.arrival, book.now)}
             </p>
           )}
           {!book.documents.length && (

@@ -13,6 +13,7 @@ import { Infirmary, SupplyBoard } from './Infirmary';
 import type { WardCommand,WardSnapshot } from '../economy/infirmary';
 import { Garrison } from './Garrison';
 import { isFairTown } from '../economy/harvestFair';
+import { waitingForCare } from '../economy/infirmary';
 import type { GarrisonCommand } from '../economy/garrison';
 import { BarterMarket } from './BarterMarket';
 import type { BarterCommand } from '../economy/barter';
@@ -228,7 +229,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, visit, room = 
       {error && <p role="alert">{error}</p>}
       {!book && !loadError && <p>{room === 'garrison' ? 'Pisarz otwiera księgę garnizonu…' : 'Młynarz otwiera księgę…'}</p>}
       {book && (room==='ward' || room==='relief') && (book.infirmary && isFairTown(city) ? (room==='ward' ? <Infirmary visitWard={town=>visit('ward',town)} town={city} book={book.infirmary} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/> : <SupplyBoard town={city} book={book.infirmary} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/>) : <p role="alert">Księga lazaretu jest chwilowo niedostępna.</p>)}
-      {book && room==='garrison' && (book.garrison && isFairTown(city) ? <Garrison town={city} book={book.garrison} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/> : <p role="alert">Księga garnizonu jest chwilowo niedostępna.</p>)}
+      {book && room==='garrison' && (book.garrison && isFairTown(city) ? <Garrison town={city} book={book.garrison} knightAway={book.infirmary?.mine?.last?.state==='march' || waitingForCare(book.infirmary?.mine?.last,book.garrison.now)} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/> : <p role="alert">Księga garnizonu jest chwilowo niedostępna.</p>)}
       {book && room==='barter' && (book.barter ? <BarterMarket key={city} city={city} book={book.barter} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/> : <p role="alert">Księga targu jest chwilowo niedostępna.</p>)}
       {book && room==='fair' && (book.fair ? <HarvestFair city={city} fair={book.fair} wallet={book.wallet} busy={busy} login={onAccount} sign={action} visit={visit}/> : <p role="alert">Księga jarmarku jest chwilowo niedostępna.</p>)}
       {book && room==='feast' && (book.feast ? <HarvestFeast visit={visit} feast={book.feast} book={book} busy={busy} login={onAccount} sign={action}/> : <p role="alert">Księga wypieków jest chwilowo niedostępna.</p>)}

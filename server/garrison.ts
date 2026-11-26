@@ -14,6 +14,8 @@ import {
   type Dispatch,
   type GarrisonBook,
 } from '../src/economy/garrison';
+import { openStandardSchool } from './standardSchool';
+import { mentorMarks, schoolLegSeconds } from '../src/economy/standardSchool';
 import { journeySeconds } from '../src/economy/waybills';
 import { FeastRule } from './harvestLoaf';
 
@@ -35,6 +37,7 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     CREATE INDEX IF NOT EXISTS newsAtInn ON marketNews(destination,arrival);
     CREATE INDEX IF NOT EXISTS newsWagon ON marketNews(uid,arrival);
   `);
+  const school = openStandardSchool(db);
   const terms = db.prepare(
     'SELECT give,giveQty,want,wantQty FROM barterOffers WHERE circle=? ORDER BY id',
   );
@@ -79,9 +82,12 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     );
     const wagon = db
       .prepare(
-        'SELECT destination,arrival FROM marketNews WHERE uid=? AND arrival>? ORDER BY arrival LIMIT 1',
+        `SELECT destination,arrival,0 AS "returning" FROM marketNews WHERE uid=? AND arrival>?
+         UNION ALL SELECT CASE WHEN arrival<=? THEN origin ELSE destination END,
+           CASE WHEN arrival<=? THEN returns ELSE arrival END, arrival<=?
+           FROM schoolWagons WHERE driver=? AND returns>? ORDER BY arrival LIMIT 1`,
       )
-      .get(uid, now) as unknown as Member['wagon'];
+      .get(uid, now, now, now, now, uid, now) as unknown as Member['wagon'];
     return {
       name: String(hero?.name || 'Rycerz'),
       level,
@@ -89,7 +95,7 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
       fatigue: Number(db.prepare('SELECT fatigue FROM garrisonMorale WHERE town=? AND uid=?').get(town,uid)?.fatigue ?? 0),
       available: Math.min(
         level * hallRules.hourly - Number(spent.hired ?? 0),
-        level * hallRules.beds - Object.values(counts).reduce((a, b) => a + b, 0),
+        level * hallRules.beds - rolls.reduce((total, row) => total + Number(row.qty), 0),
       ),
       refill: spent.earliest === null ? null : Number(spent.earliest) + hour,
       marks,
@@ -97,7 +103,7 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
       wagon: wagon ?? null,
     };
   }
-  function book(town: FeastTown, uid: string | null, now: number): GarrisonBook {
+  function book(town: FeastTown, uid: string | null, now: number, closed: boolean, weather: WeatherConditionId): GarrisonBook {
     const rows = db
       .prepare(
         'SELECT c.id,c.completed signed,n.circle sent FROM barterCircles c LEFT JOIN marketNews n ON n.circle=c.id WHERE c.town=? AND c.completed IS NOT NULL ORDER BY c.completed DESC,c.id DESC LIMIT 5',
@@ -105,6 +111,7 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
       .all(town);
     const kitchen = db.prepare('SELECT portions,carrier,sacks FROM garrisonKitchens WHERE town=?').get(town);
     return {
+      school: { closed, weather, guides: uid ? school.guides(town,uid,now) : [] },
       kitchen: {portions:Number(kitchen?.portions ?? 0), lastDelivery:kitchen ? {carrier:String(kitchen.carrier), sacks:Number(kitchen.sacks)} : null},
       now,
       documents: rows.map((r) => ({
@@ -149,6 +156,34 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
       if (plan.fatigue !== m.fatigue)
         db.prepare('INSERT INTO garrisonMorale VALUES(?,?,?) ON CONFLICT(town,uid) DO UPDATE SET fatigue=excluded.fatigue').run(town,uid,plan.fatigue);
       return plan.delay;
+    }
+    if (cmd.action === 'enrolSquire') {
+      requireRule(m.level > 0 && m.available > 0, 'Potrzebujesz miejsca w koszarach i wolnego poboru.');
+      school.enrol(town,uid,cmd.name);
+      transfer(uid,-units.guards.price,-1);
+      db.prepare("INSERT INTO garrisonMusters(uid,town,unit,qty,at) VALUES(?,?,'squire',1,?)").run(uid,town,now);
+      return;
+    }
+    if (cmd.action === 'guideWagon') {
+      const { road, lesson } = cmd;
+      requireRule((road === 'bridge' || road === 'detour') && typeof lesson === 'boolean', 'Wybierz drogę i obsadę wozu.');
+      requireRule(road !== 'bridge' || !closed, 'Most jest zamknięty. Wybierz górny bród.');
+      requireRule(!m.wagon, 'Twój wóz jest jeszcze na trakcie.');
+      const guide = school.guides(town,uid,now).find(g => g.id === cmd.guide);
+      requireRule(guide && !guide.trip, 'Ten przewodnik jest w drodze lub poza twoją chorągwią.');
+      const trained = guide.learned.find(entry => entry.road === road);
+      if (lesson) {
+        requireRule(guide.own && !trained && !m.duty && m.marks >= mentorMarks,
+          'Nauka wymaga własnego ucznia, nowej drogi i wolnego rycerza z trzema punktami służby.');
+      } else {
+        requireRule(trained, 'Samodzielny przewóz wymaga powrotu z nauki dokładnie tą drogą.');
+      }
+      const delay = provision(1);
+      transfer(uid,0,-1);
+      const seconds = schoolLegSeconds(road, weather, delay);
+      const returns = school.depart(town,uid,guide.id,road,lesson ? m.name : trained!.mentor,lesson,now,seconds);
+      if (lesson) duty.run(uid,town,'Nauka traktu · ' + guide.name,returns,2);
+      return;
     }
     if (cmd.action === 'fundGarrison') {
       requireRule(
@@ -232,5 +267,5 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     const delay = provision(rules.crew);
     duty.run(uid, town, rules.duty, now + (rules.time + delay) * 1000, rules.marks);
   }
-  return { book, letters, command };
+  return { book, letters, command, school };
 }

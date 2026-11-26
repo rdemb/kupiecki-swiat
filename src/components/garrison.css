@@ -133,3 +133,31 @@
 
 .camp-still { width:100%; max-width:40rem; height:auto; display:block; border-radius:.25rem; }
 .camp-kitchen { scroll-margin-top:4rem; }
+
+.standard-school {
+  scroll-margin-top: 4rem;
+  margin: 0 auto;
+  padding: clamp(1.4rem, 4vw, 3rem) max(5vw,1rem);
+  color: #f1ebdf;
+  background: #253831;
+  border-bottom: 4px solid #a98f58;
+}
+.standard-school h2 { font: normal clamp(1.8rem, 4vw, 2.5rem)/1.1 Georgia,serif; color: #fff6df; }
+.standard-school header p { max-width: 64ch; margin: .7rem 0 1rem; }
+.standard-school form, .standard-school li { margin: .8rem 0; }
+.standard-school input, .standard-school select, .standard-school button {
+  max-width: 100%; padding: .45rem .75rem; border-radius: .25rem;
+  color: #2a241b; background: #fff6df; border: 1px solid #b19e76;
+}
+.standard-school label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-right: .7rem; }
+.standard-school small { display: block; margin: .4rem 0; color: #d4d4bd; }
+.standard-school button:disabled { opacity: .55; }
+.standard-school ul { display: flex; flex-wrap: wrap; gap: 1.2rem 2rem; list-style: none; padding: 0; }
+.standard-school li { border-left: 2px solid #b19e76; padding-left: 1rem; }
+.standard-school h3 { font: normal 1.35rem/1.2 Georgia,serif; color:#fff6df; }
+.school-itinerary { margin: 1rem 0 .4rem; font: normal 1.15rem/1.3 Georgia,serif; }
+.school-trip progress { width: min(16rem,100%); accent-color: #e2c277; }
+
+.school-cover { display:grid; grid-template-columns: minmax(15rem,.8fr) minmax(0,1.2fr); align-items:center; gap:clamp(1rem,4vw,4rem); margin-bottom:1.2rem; }
+.school-cover img { width:100%; height:auto; border-radius:.2rem; }
+@media(max-width:650px) { .school-cover { grid-template-columns:1fr; gap:.3rem; } }

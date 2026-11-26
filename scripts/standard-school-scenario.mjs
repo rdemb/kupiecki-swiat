@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+
+export async function exerciseSchool({read,send,request,db,start,stop,buyers,town,other}) {
+  const owner=3, mate=1;
+  const inn = () => request('/api/inn/'+other,200);
+  const guild = async (i,cmd) => request('/api/inn/'+town,200,{nonce:randomUUID(),...cmd},buyers[i].token);
+  async function relog() {
+    for (const buyer of buyers) buyer.token=(await request('/api/auth/login',200,buyer.credentials)).token;
+  }
+  await relog();
+  const uid = (await read(owner)).wallet.uid;
+  // Only the disposable world clock is advanced between journeys.
+  db.prepare('UPDATE knightDuties SET due=0 WHERE uid=?').run(uid);
+  const before=await read(owner);
+  const enrol={action:'enrolSquire',name:'Jagoda',nonce:randomUUID()};
+  await send(-1,enrol,401);
+  await send(mate,enrol,409);
+  await send(owner,{...enrol,name:' '},409);
+  const [enrolled]=await Promise.all([send(owner,enrol),send(owner,enrol)]);
+  assert.equal(enrolled.wallet.gold,before.wallet.gold-18);
+  assert.equal(enrolled.garrison.mine.available,before.garrison.mine.available-1);
+  await send(owner,{...enrol,name:'Iwo'},409);
+  await send(owner,{...enrol,nonce:randomUUID()},409);
+  const [guide]=enrolled.garrison.school.guides;
+  const trip={action:'guideWagon',guide:guide.id,road:'detour',lesson:true,ration:'pack',nonce:randomUUID()};
+  await send(mate,trip,409);
+  await send(owner,{...trip,lesson:false},409);
+  const beforeKitchen=(await read(undefined,other)).garrison.kitchen.portions;
+  const [out]=await Promise.all([send(owner,trip),send(owner,trip)]);
+  assert.equal(out.wallet.grain,enrolled.wallet.grain-2);
+  assert.equal(out.garrison.school.guides[0].trip.returns,out.garrison.mine.duty.due);
+  assert.deepEqual(out.garrison.school.guides[0].learned,[]);
+  await send(owner,{action:'knightDuty',unit:'guards'},409);
+  const moveTime=(col,id)=>db.prepare('UPDATE schoolWagons SET '+col+'=? WHERE id=?').run(Date.now()-1000,id);
+  const tripId=()=>db.prepare('SELECT max(id) AS id FROM schoolWagons WHERE guide=?').get(guide.id).id;
+  const first=tripId();
+  moveTime('arrival',first);
+  assert.deepEqual((await read(owner)).garrison.school.guides[0].learned,[]);
+  assert.equal((await read(owner)).garrison.mine.wagon.returning,1);
+  assert.equal((await read(undefined,other)).garrison.kitchen.portions,beforeKitchen+2);
+  const record=(await inn()).roadRecords[0];
+  assert.equal(record.name,'Jagoda');
+  assert.equal(record.mentor,before.garrison.mine.name);
+  assert.equal(record.lesson,true);
+  assert.ok(!('uid' in record));
+  await stop(); await start(); await relog();
+  assert.equal((await read(undefined,other)).garrison.kitchen.portions,beforeKitchen+2);
+  moveTime('returns',first);
+  db.prepare('UPDATE knightDuties SET due=0 WHERE uid=?').run(uid);
+  const ready=(await read(owner)).garrison.school.guides[0];
+  assert.deepEqual(ready.learned,[{road:'detour',mentor:record.mentor}]);
+  const guildId=(await inn()).groups.find(g=>!g.privateHall).id;
+  for (const i of [owner,mate]) await guild(i,{action:'apply',groupId:guildId});
+  assert.equal((await read(mate)).garrison.school.guides[0].own,false);
+  const independent={...trip,lesson:false,nonce:randomUUID()};
+  await send(mate,{...independent,road:'bridge'},409);
+  await send(mate,independent,409,other);
+  await send(2,independent,409);
+  await send(owner,{action:'knightDuty',unit:'guards'});
+  const [solo]=await Promise.all([send(mate,independent),send(mate,independent)]);
+  assert.equal(solo.garrison.mine.duty,null);
+  assert.equal(solo.garrison.school.guides[0].trip.road,'detour');
+  await send(owner,{...independent,nonce:randomUUID()},409);
+  const second=tripId();
+  moveTime('arrival',second); moveTime('returns',second);
+  assert.equal((await read(undefined,other)).garrison.kitchen.portions,beforeKitchen+4);
+  assert.equal((await inn()).roadRecords[0].lesson,false);
+  assert.equal((await inn()).roadRecords[0].mentor,record.mentor);
+  await guild(mate,{action:'leave'});
+  assert.deepEqual((await read(mate)).garrison.school.guides,[]);
+  await send(mate,{...independent,nonce:randomUUID()},409);
+}

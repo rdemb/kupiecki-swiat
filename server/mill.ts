@@ -135,6 +135,7 @@ export function installMill(
   const freight = installWaybills(db, transfer, grind, bakeUntil, weather, bridgeClosed);
   // Advance a city's bakery using elapsed real time, including time while the server was offline.
   function advance(city: string, now: number) {
+    if (isFairTown(city)) garrison.school.advance(now);
     if (city === waybillTown) {
       freight.advance(now);
       field.advance(worldDay(), weather(), transfer);
@@ -187,7 +188,7 @@ export function installMill(
     const m = getMill.get(city)!;
     const purse = uid ? wallet(uid) : null;
     return {
-      ...(isFairTown(city) ? { infirmary: ward.book(city,uid,Date.now()), fair: fair.book(city, Date.now()), barter: barter.book(city, uid), garrison: garrison.book(city, uid, Date.now()) } : {}),
+      ...(isFairTown(city) ? { infirmary: ward.book(city,uid,Date.now()), fair: fair.book(city, Date.now()), barter: barter.book(city, uid), garrison: garrison.book(city, uid, Date.now(), bridgeClosed(Date.now()), weather()) } : {}),
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
@@ -251,11 +252,13 @@ export function installMill(
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
     const isBarter = ['postBarter','withdrawBarter','sealBarter','inviteBarter','recallBarterCall','answerBarterCall'].includes(action);
-    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews','stockKitchen'].includes(action);
+    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews','stockKitchen','enrolSquire','guideWagon'].includes(action);
     const isWard=wardActions.includes(action);
     if(isWard) fields.push(req.body.revision,req.body.sortie,req.body.step,req.body.stance);
     if (isGarrison) fields.push(req.body.level, req.body.unit, req.body.circle, req.body.escort);
     if (isGarrison && req.body.ration !== undefined) fields.push(req.body.ration);
+    if (action === 'guideWagon') fields.push(req.body.guide,req.body.road,req.body.lesson);
+    if (action === 'enrolSquire') fields.push(req.body.name);
     if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
     if (action === 'inviteBarter') fields.push(req.body.first, req.body.second);
     if (action === 'recallBarterCall' || action === 'answerBarterCall') fields.push(req.body.call);
@@ -284,7 +287,7 @@ export function installMill(
           check(isFairTown(city),'Lazaret stoi przy koszarach w Przystani i Kuźni.');
           ward.command(city,me,req.body,now);
         } else if (isGarrison) {
-          if(action==='knightDuty' || (action==='carryNews' && req.body.escort))check(!ward.occupied(me.uid,now),'Rycerz jest na wyprawie lub leczy rany w lazarecie.');
+          if(action==='knightDuty' || (action==='carryNews' && req.body.escort) || (action==='guideWagon' && req.body.lesson))check(!ward.occupied(me.uid,now),'Rycerz jest na wyprawie lub leczy rany w lazarecie.');
           check(isFairTown(city), 'Koszary traktowe stoją przy dwóch targach bez monety.');
           garrison.command(city, me, req.body, now, weather(), bridgeClosed(now));
         } else if (isBarter) {
@@ -385,7 +388,7 @@ export function installMill(
     }
   });
   return {
-    ward, newsLetters: garrison.letters,
+    ward, newsLetters: garrison.letters, roadRecords: garrison.school.records,
     fairBook: fair.book,
     barterCalls: barter.calls,
     transfer,

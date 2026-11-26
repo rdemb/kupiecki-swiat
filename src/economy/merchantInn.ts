@@ -28,6 +28,7 @@ export interface InnBook {
   boardAt: number;
   fair?: import('./harvestFair').FairBook;
   reliefCalls?: import('./infirmary').ReliefCall[];
+  roadRecords?: import('./standardSchool').RoadRecord[];
   newsLetters?: import('./garrison').Dispatch[];
   barterCalls?: import('./barter').BarterCall[];
   harvestTable?: import('./harvestLoaf').Loaf[];
