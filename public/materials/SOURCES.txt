@@ -28,3 +28,8 @@ https://registry.opendata.aws/terrain-tiles/
 
 tynk.webp — Rough Plaster 03, Rob Tuytel, Poly Haven, CC0.
 https://polyhaven.com/a/rough_plaster_03
+
+galaz-portowa.webp — wachlarz gałązek ułożony ze zdjęcia titusa, wycięcie qubodup („Leafy tree/plant branch”, CC0).
+https://opengameart.org/content/leafy-treeplant-branch
+kora-nadwodna.webp — Bark Willow, Poly Haven, CC0.
+https://polyhaven.com/a/bark_willow

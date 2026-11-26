@@ -50,7 +50,8 @@ export function shoreTrees(trees: Tree[]) {
   mesh.visible = false;
   return {
     mesh,
-    update(height: number, time: number) {
+    update(height: number, time: number, replaced: number) {
+      mesh.count=trees.length-replaced;
       wind.value = time;
       mesh.visible = ready && height < 48;
       return mesh.visible;

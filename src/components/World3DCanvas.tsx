@@ -399,10 +399,6 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     scene.add(landmarks.group);
     clickableProxies.push(...landmarks.clickableProxies);
 
-    // 8. Build Multi-Biome Forests (460 trees), Desert Palms, Floating Icebergs & Boulders
-    const scenery = buildOrganicForestsAndBoulders(materials);
-    scene.add(scenery.forestGroup);
-
     // 9. Soft Volumetric-Style Feathered Sprite Smoke Plume above Ignis's Caldera (82, y, -20)
     const smokeTexCanvas = document.createElement('canvas');
     smokeTexCanvas.width = 128;
@@ -513,6 +509,11 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     for (const [a, b] of landRoutePairs) buildRoadCurve(a, b, false);
     for (const [a, b] of seaRoutePairs) buildRoadCurve(a, b, true);
+
+    // Plant against the same ground and road mask used by the wagons.
+    const reduceLandscapeMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const scenery = buildOrganicForestsAndBoulders(materials, terrain);
+    scene.add(scenery.forestGroup);
 
     // On-demand fallback curve for any player-dispatched pair not pre-seeded above
     const getOrCreateRouteCurve = (originId: string, destId: string): THREE.CatmullRomCurve3 | null => {
@@ -1441,7 +1442,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const seconds = (performance.now()-bellStrikeRef.current) / 1000;
         mintBell.rotation.z = seconds < 4 ? .49*Math.exp(-seconds*1.13)*Math.sin(7.6*seconds) : 0;
       }
-      scenery.update(camera.position.y, elapsed);
+      scenery.update(camera.position.y, reduceLandscapeMotion.matches ? 0 : elapsed, getPbrWeatherParams(pbrWeatherRef.current).windSpeed,
+        terrain.uniforms.uSeasonAutumn.value, terrain.uniforms.uSeasonSnow.value);
       ocean.updateReflection(renderer, scene, camera, performance.now());
       if (composer && !isSoftwareGl) {
         composer.render();

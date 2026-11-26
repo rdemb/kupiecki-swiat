@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { nearPort, portGroves, portWoodland, type WoodlandGround } from './portWoodland';
 import { royalMint } from './royalMint';
 import { buildGalleonMesh } from './merchantShip';
 export { buildGalleonMesh } from './merchantShip';
@@ -373,7 +374,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
     const isMintGate = city.id === 'krolewska_przystan' && i === 2;
     if (isMintGate) {
       const bearing = (a1 + a2) * .5;
-      group.add(royalMint(materials, [(x1+x2)/2,0,(z1+z2)/2], Math.PI/2-bearing));
+      group.add(royalMint(materials, [(x1+x2)/2,0,(z1+z2)/2], Math.PI/2-bearing, wallRadius, wallSides));
     }
     if (!isHarborOpening && !isMintGate) {
       const segLen = Math.hypot(x2 - x1, z2 - z1);
@@ -393,6 +394,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
       }
     }
 
+    if (city.id === 'krolewska_przystan') continue; // All eight mint defences are batched with its masonry.
     const towerH = i % 2 === 0 ? 4.6 : 3.7;
     const tower = new THREE.Mesh(
       isDesertSultanate ? new THREE.CylinderGeometry(0.92, 1.08, towerH, 10) : new THREE.BoxGeometry(1.78, towerH, 1.78),
@@ -402,10 +404,6 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
     tower.rotation.y = -a1;
     tower.castShadow = true;
     group.add(tower);
-    if (city.id === 'krolewska_przystan') {
-      tower.updateMatrix();
-      craft.watchTower(tower.matrix, towerH);
-    }
 
     if (isDesertSultanate && domeGeo) {
       const dCap = new THREE.Mesh(domeGeo, i % 2 === 0 ? materials.gildedBrass : materials.emeraldRoof);
@@ -662,7 +660,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
  * - 36 Sculpted Crystalline Floating Icebergs in Frostheim's Arctic Strait
  * - 140+ Firmly Grounded Coastal Boulders & Karst Sea Stacks
  */
-export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials) {
+export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials, ground: WoodlandGround) {
   const forestGroup = new THREE.Group();
 
   const createClumpGeo = (radius: number, seed: number): THREE.BufferGeometry => {
@@ -713,9 +711,17 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials) 
 
     const biomeType = bw.jade > 0.45 ? 'jade' : bw.glacier > 0.35 || z < -28 ? 'pine' : 'oak';
     const scale = 0.72 + ((i * 19) % 58) / 100;
-    treePoints.push({ x, y, z, s: scale, biomeType });
+    if (ground.nearRoad(x,z)) continue;
+    treePoints.push({ x, y:ground.heightAt(x,z), z, s: scale, biomeType });
   }
 
+  for(const tree of portGroves(ground,treePoints)) treePoints.push({...tree,biomeType:'oak'});
+  // Port trees form a contiguous tail in each broadleaf batch. Switch the
+  // whole tail to 3D with one count change, including during an atlas load failure.
+  treePoints.sort((a,b)=>Number(nearPort(a))-Number(nearPort(b)));
+  const nearTrees=treePoints.filter(t=>nearPort(t) && t.biomeType!=='pine');
+  const groves=portWoodland(nearTrees,ground);
+  forestGroup.add(groves.group);
   const count = treePoints.length;
   const pineCount=treePoints.filter(t=>t.biomeType==='pine').length;
   const needles=new THREE.InstancedMesh(new THREE.ConeGeometry(1,2,9),materials.foliageCanopy,pineCount*3);
@@ -898,11 +904,14 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials) 
   const releaseRocks = scannedRocks(forestGroup, instBoulders);
   return {
     forestGroup,
-    update(height: number, time: number) {
-      const close = leafTrees.update(height,time);
+    update(height: number, time: number, wind:number, autumn:number, snow:number) {
+      const detailed=groves.update(height,time,wind,autumn,snow);
+      const replaced=detailed ? nearTrees.length : 0;
+      const close=leafTrees.update(height,time,replaced);
+      instTrunks.count=instLower.count=instUpper.count=broadleafIndex-replaced;
       instTrunks.visible = instLower.visible = instUpper.visible = !close;
     },
-    dispose() { leafTrees.dispose(); releaseRocks(); },
+    dispose() { groves.dispose(); leafTrees.dispose(); releaseRocks(); },
   };
 }
 

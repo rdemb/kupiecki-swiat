@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/economy/economyEngine.test.ts src/economy/trailEvents.test.ts src/economy/heroProgression.test.ts src/economy/worldDisasters.test.ts src/economy/dragonBreeding.test.ts src/economy/priceTickTracker.test.ts src/economy/guildRankings.test.ts src/economy/cityAndArenaEngine.test.ts src/world3d/weatherParticleShaders.test.ts src/world3d/cameraPresets.test.ts firestore.rules.test.ts",
+    "test": "tsx --test src/economy/economyEngine.test.ts src/economy/trailEvents.test.ts src/economy/heroProgression.test.ts src/economy/worldDisasters.test.ts src/economy/dragonBreeding.test.ts src/economy/priceTickTracker.test.ts src/economy/guildRankings.test.ts src/economy/cityAndArenaEngine.test.ts src/world3d/weatherParticleShaders.test.ts src/world3d/cameraPresets.test.ts src/world3d/portWoodland.test.ts firestore.rules.test.ts",
     "build:server": "node scripts/build-server.mjs",
     "build:web": "vite build"
   },

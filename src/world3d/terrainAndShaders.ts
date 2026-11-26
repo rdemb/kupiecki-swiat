@@ -172,6 +172,8 @@ function surveyAxis(t: number, near: number, far: number): number {
 
 export function buildSculptedTerrain(textures: WorldTexturePack): {
   heightAt: (x: number, z: number) => number;
+  nearRoad: (x:number,z:number) => boolean;
+  paintUnderTree: (x:number,z:number,radius:number) => void;
   addRoad: (points: THREE.Vector3[]) => void;
   dispose: () => void;
   mesh: THREE.Mesh;
@@ -269,8 +271,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   // A single channel paints the actual carriageways onto the terrain. It
   // shares the mountain lighting, snow and wetness and can never hover.
   const maskSize = 1536, pixelsPerUnit = maskSize / size;
-  const ink = new Uint8Array(maskSize * maskSize);
-  const roadMask = new THREE.DataTexture(ink, maskSize, maskSize, THREE.RedFormat);
+  const ink = new Uint8Array(maskSize * maskSize * 2);
+  const roadMask = new THREE.DataTexture(ink, maskSize, maskSize, THREE.RGFormat);
   roadMask.generateMipmaps = true;
   roadMask.minFilter = THREE.LinearMipmapLinearFilter;
   roadMask.magFilter = THREE.LinearFilter;
@@ -290,10 +292,28 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         const t=THREE.MathUtils.clamp((px*dx+pz*dz)/Math.max(length2,.0001),0,1);
         const distance=Math.hypot(px-t*dx,pz-t*dz);
         const coverage=1-THREE.MathUtils.smoothstep(distance,.48,1.8);
-        const index=z*maskSize+x;
+        const index=2*(z*maskSize+x);
         ink[index]=Math.max(ink[index],Math.round(coverage*255));
       }
     }
+    roadMask.needsUpdate=true;
+  }
+
+  function nearRoad(x:number,z:number) {
+    const col=Math.floor((x+size/2)*pixelsPerUnit),row=Math.floor((z+size/2)*pixelsPerUnit);
+    for(let j=-3;j<=3;j++) for(let i=-3;i<=3;i++) {
+      if(ink[2*((row+j)*maskSize+col+i)]>32) return true;
+    }
+    return false;
+  }
+  function paintUnderTree(x:number,z:number,radius:number) {
+    const cx=(x+size/2)*pixelsPerUnit,cz=(z+size/2)*pixelsPerUnit,r=radius*pixelsPerUnit;
+    for(let j=Math.max(0,Math.floor(cz-r));j<Math.min(maskSize,cz+r);j++)
+      for(let i=Math.max(0,Math.floor(cx-r));i<Math.min(maskSize,cx+r);i++) {
+        const t=Math.min(1,Math.hypot(i+.5-cx,j+.5-cz)/r);
+        const index=2*(j*maskSize+i)+1;
+        ink[index]=Math.max(ink[index],Math.round(255*(1-t*t*(3-2*t))));
+      }
     roadMask.needsUpdate=true;
   }
 
@@ -488,7 +508,9 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         vec3 basaltCol = rockCol * vec3(0.42, 0.37, 0.39);
         terrainCol = mix(terrainCol, basaltCol, volc * 0.90);
 
-        float carriageway = texture2D(uRoadMask, vWorldPos.xz / 620. + .5).r;
+        vec2 groundUse = texture2D(uRoadMask, vWorldPos.xz / 620. + .5).rg;
+        terrainCol *= mix(vec3(1.),vec3(.68,.58,.47),groundUse.g);
+        float carriageway = groundUse.r;
         float wear = carriageway * smoothstep(.15,.5,h) * (1.-cityPlaza*.75);
         vec3 gravel = mix(cobbleCol*.80,vec3(.29,.21,.14),.48);
         terrainCol = mix(terrainCol,gravel,wear*(.61+.30*exposed.a));
@@ -630,7 +652,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
     if (u+v<=1) return (1-u-v)*posAttr.getY(i)+v*b+u*d;
     return (u+v-1)*posAttr.getY(i+rowLength+1)+(1-u)*b+(1-v)*d;
   }
-  return { mesh, uniforms, heightAt, addRoad, dispose() { roadMask.dispose(); geo.dispose(); mat.dispose(); } };
+  return { mesh, uniforms, heightAt, addRoad, nearRoad, paintUnderTree, dispose() { roadMask.dispose(); geo.dispose(); mat.dispose(); } };
 }
 
 /** Water mesh with more shoreline samples in the central trading archipelago. */

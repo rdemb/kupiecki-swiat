@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mintRamparts } from './mintRamparts';
 import type { SharedWorldMaterials } from './architectureAndProps';
 
 type Point = [number, number, number];
 const pi = Math.PI;
 
 // The mint, the sea gate and the bell tower share the same stone courses.
-export function royalMint(m: SharedWorldMaterials, gateCenter: Point, gateHeading: number) {
+export function royalMint(m: SharedWorldMaterials, gateCenter: Point, gateHeading: number, wallRadius: number, wallSides: number) {
   const group = new THREE.Group();
   group.name = 'mennica-krolewska';
   const pieces = new Map<THREE.Material, THREE.BufferGeometry[]>();
@@ -122,6 +123,8 @@ export function royalMint(m: SharedWorldMaterials, gateCenter: Point, gateHeadin
     put(new THREE.ExtrudeGeometry(outline,{depth,bevelEnabled:false,curveSegments:10}),stone,[0,0,-depth],0,parent);
   }
 
+  mintRamparts(m, wallRadius, wallSides, put);
+
   // Great hall: windows on all four sides sit inside deep stone reveals.
   const cx=-.65, cz=-.75, width=4.9, length=6.2, eaves=6.18;
   for (let side=0; side<4; side++) {
@@ -214,6 +217,7 @@ export function royalMint(m: SharedWorldMaterials, gateCenter: Point, gateHeadin
   bell.add(bellShell,tongue);
   group.add(bell);
   box(wood,[tx,8.82,tz],[2,.24,.28]);
+  box(wood,[tx,9.59,tz],[2.21,.15,2.21]);
   lathe(slate,[tx,9.57,tz],[[1.70,0],[1.70,.11],[1.1,.46],[.66,1.02],[.50,1.73],[.30,2.12],[.15,2.89],[.035,3.54]],8);
   lathe(bronze,[tx,13.10,tz],[[.10,0],[.13,.15],[.05,.28],[.038,1.26]],12);
   // The passage is clear through the curtain and aligned with the octagonal wall.

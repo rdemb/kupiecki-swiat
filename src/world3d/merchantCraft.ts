@@ -52,26 +52,6 @@ export function merchantCraft(materials: SharedWorldMaterials) {
     );
   }
   return {
-    watchTower(parent: THREE.Matrix4, height: number) {
-      // Recessed arrow loops, stone sills and timber hoardings break up the broad faces.
-      for (let side=0; side<4; side++) {
-        const face = parent.clone().multiply(new THREE.Matrix4().makeRotationY(side*Math.PI/2));
-        const top = height/2;
-        for (const y of [top-.60, top-1.65]) {
-          piece(block, materials.darkBasaltStone, face, [0,y,.907], [.13,.49,.042]);
-          piece(block, materials.castleStone, face, [0,y-.28,.93], [.36,.08,.12]);
-        }
-        piece(block, materials.timberWood, face, [0,top-.05,.93], [1.94,.14,.14]);
-        for(const x of [-.66,-.21,.22,.68]) {
-          beam(face, [x,top-.36,.88], [x,top-.08,1.09], .083);
-        }
-        for(const x of [-.82,.82]) {
-          for(let tier=0; tier<5; tier++) {
-            piece(block, materials.castleStone, face, [x,top-.47-tier*.56,.91], [.27,.19,.09]);
-          }
-        }
-      }
-    },
     facade(parent: THREE.Matrix4, w: number, h: number, d: number) {
       const z = d / 2 + 0.04;
       for (const side of [-1, 1]) {
