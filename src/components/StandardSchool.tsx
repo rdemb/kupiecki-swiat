@@ -53,7 +53,7 @@ export function StandardSchool({town,book,wallet,busy,ration,canProvision,knight
           return <li key={guide.id}>
             <h3>{guide.name}</h3><small>{guide.own ? 'Twoja chorągiew' : 'Chorągiew kupca '+guide.captain}</small>
             {guide.learned.length ? <p>{guide.learned.map(l=>roadNames[l.road]+' · mentor '+l.mentor).join(' / ')}</p> : <p>Czeka na pierwszą lekcję na trakcie.</p>}
-            {guide.trip ? <div className="school-trip">
+            {guide.relayDue ? <p>Na sztafecie gildii · zaprzęg wolny o {time.format(guide.relayDue)}.</p> : guide.trip ? <div className="school-trip">
               <p role="status">{guide.trip.arrival > book.now ? 'Z ładunkiem do kuchni' : 'Powrót do koszar'} · {roadNames[guide.trip.road]}</p>
               <progress aria-label="Przebieg kursu w obie strony" max={1} value={Math.max(0,1-(guide.trip.returns-book.now)/(2*(guide.trip.returns-guide.trip.arrival)))}/>
               <small>Powrót o {time.format(guide.trip.returns)}.</small>

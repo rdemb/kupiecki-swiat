@@ -1,0 +1,77 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+
+export async function exerciseRelay({read,send,request,db,start,stop,buyers,town,other}) {
+  const sender=3, receiver=1;
+  const inn=async (i,cmd)=>request('/api/inn/'+town,200,{...cmd,nonce:randomUUID()},buyers[i].token);
+  const group=(await request('/api/inn/'+town,200)).groups.find(g=>!g.privateHall).id;
+  const originGuide=(await read(sender)).garrison.school.guides.find(g=>g.own).id;
+  await inn(receiver,{action:'apply',groupId:group});
+  await send(receiver,{action:'fundGarrison',level:0},200,other);
+  const enrolled=await send(receiver,{action:'enrolSquire',name:'Lech'},200,other);
+  const changeGuide=enrolled.garrison.school.guides.find(g=>g.own).id;
+  // A completed watch record in the disposable fixture qualifies this knight to teach.
+  db.prepare("INSERT INTO knightDuties(uid,town,label,due,marks) VALUES(?,?,'Dawna służba',0,3)").run(enrolled.wallet.uid,other);
+  await send(receiver,{action:'guideWagon',guide:changeGuide,lesson:true,road:'detour',ration:'pack'},200,other);
+  db.prepare('UPDATE schoolWagons SET arrival=0,returns=0 WHERE guide=?').run(changeGuide);
+  const before=(await read(sender)).wallet;
+  const receiverBefore=await read(receiver,other);
+  const first={action:'startRelay',guide:originGuide,ration:'pack',nonce:randomUUID()};
+  await send(-1,first,401);
+  await send(0,first,409);
+  const [sent]=await Promise.all([send(sender,first),send(sender,first)]);
+  const [load]=sent.garrison.relay.loads;
+  assert.equal(sent.wallet.grain,before.grain-2);
+  assert.equal(load.firstName,'Jagoda');
+  assert.equal(sent.garrison.mine.wagon.relay,true);
+  assert.equal(sent.garrison.relay.loads.length,1);
+  assert.deepEqual((await read()).garrison.relay,{member:false,loads:[]});
+  assert.deepEqual((await read(0)).garrison.relay.loads,[]);
+  await send(sender,{action:'guideWagon',guide:originGuide,lesson:false,road:'detour',ration:'pack'},409);
+  await send(sender,{...first,nonce:randomUUID()},409);
+  const ride={action:'rideToRelay',guide:changeGuide,load:load.id,ration:'pack',nonce:randomUUID()};
+  await send(sender,ride,409,other);
+  await send(receiver,ride,409,town);
+  const [riding]=await Promise.all([send(receiver,ride,200,other),send(receiver,ride,200,other)]);
+  assert.equal(riding.wallet.grain,receiverBefore.wallet.grain-1);
+  assert.equal(riding.garrison.relay.loads[0].secondName,'Lech');
+  const take={action:'takeRelay',load:load.id,road:'detour',nonce:randomUUID()};
+  await send(receiver,take,409,other);
+  db.prepare('UPDATE relayLoads SET atPost=?,ready=? WHERE id=?').run(Date.now()-1000,Date.now()-500,load.id);
+  // At the station the river has closed the bridge since the original booking.
+  db.exec('UPDATE bridgeState SET damaged=1');
+  assert.equal((await read(receiver,other)).garrison.school.closed,true);
+  await send(receiver,{...take,road:'bridge'},409,other);
+  await inn(receiver,{action:'leave'});
+  await send(receiver,take,409,other);
+  await inn(receiver,{action:'apply',groupId:group});
+  const [rolling]=await Promise.all([send(receiver,take,200,other),send(receiver,take,200,other)]);
+  const docket=rolling.garrison.relay.loads[0];
+  assert.equal(docket.id,load.id);
+  assert.equal(docket.road,'detour');
+  assert.equal(docket.state,'carrying');
+  assert.equal(rolling.wallet.grain,riding.wallet.grain);
+  assert.equal(rolling.garrison.kitchen.portions,receiverBefore.garrison.kitchen.portions);
+  await send(receiver,{...take,road:'bridge'},409,other);
+  await send(receiver,{...take,nonce:randomUUID()},409,other);
+  await stop(); await start();
+  for(const buyer of buyers) buyer.token=(await request('/api/auth/login',200,buyer.credentials)).token;
+  db.prepare('UPDATE relayLoads SET due=?,firstHome=?,secondHome=? WHERE id=?').run(0,0,0,load.id);
+  const done=await read(receiver,other);
+  assert.equal(done.garrison.relay.loads[0].state,'delivered');
+  assert.equal(done.garrison.kitchen.portions,receiverBefore.garrison.kitchen.portions+2);
+  assert.equal(done.garrison.kitchen.lastDelivery.carrier,'Lech');
+  assert.equal((await read(receiver,other)).garrison.kitchen.portions,done.garrison.kitchen.portions);
+  // Run the return leg in the opposite direction. An unclaimed sack goes back even if its buyer leaves.
+  const reverse=await send(receiver,{action:'startRelay',guide:changeGuide,ration:'pack'},200,other);
+  const missing=reverse.garrison.relay.loads.find(l=>l.state==='open');
+  const wall=Date.now();
+  db.prepare('UPDATE relayLoads SET started=?,atPost=?,expires=? WHERE id=?').run(wall-21000,wall-1000,wall-100,missing.id);
+  assert.equal((await read(sender)).garrison.relay.loads.find(l=>l.id===missing.id).state,'returning');
+  await inn(receiver,{action:'leave'});
+  db.prepare('UPDATE relayLoads SET due=0 WHERE id=?').run(missing.id);
+  assert.equal((await read(receiver,other)).wallet.grain,reverse.wallet.grain+1);
+  assert.equal((await read(receiver,other)).wallet.grain,reverse.wallet.grain+1);
+  assert.equal((await read(sender)).garrison.relay.loads.find(l=>l.id===missing.id).state,'returned');
+  assert.equal((await read(receiver,other)).garrison.kitchen.portions,done.garrison.kitchen.portions);
+}

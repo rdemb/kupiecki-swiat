@@ -15,6 +15,7 @@ export interface RoadGuide {
   name: string;
   own: boolean;
   captain: string;
+  relayDue?: number | null;
   learned: { road: Passage; mentor: string }[];
   trip: { road: Passage; arrival: number; returns: number } | null;
 }

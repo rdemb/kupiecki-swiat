@@ -19,6 +19,7 @@ import {
 import type { FeastTown } from '../economy/harvestLoaf';
 import type { MillBook } from '../economy/mill';
 import { cinemaFile } from './MerchantRoad';
+import { GuildRelay } from './GuildRelay';
 import { StandardSchool } from './StandardSchool';
 import './garrison.css';
 
@@ -77,6 +78,7 @@ export function NewsBoard({ letters, now }: { letters: Dispatch[]; now: number }
 }
 type Props = {
   town: FeastTown;
+  visit: (tab: 'garrison' | 'guild', city: FeastTown) => void;
   book: GarrisonBook;
   knightAway?: boolean;
   wallet: MillBook['wallet'];
@@ -84,7 +86,7 @@ type Props = {
   sign: (c: GarrisonCommand, note: string) => Promise<boolean>;
   login: () => void;
 };
-export function Garrison({ town, book, wallet, busy, sign, login, knightAway = false }: Props) {
+export function Garrison({ town, book, wallet, busy, sign, login, visit, knightAway = false }: Props) {
   const [qty, setQty] = useState('1');
   const [ration, setRation] = useState<Ration>('pack');
   const [sacks, setSacks] = useState('1');
@@ -96,7 +98,7 @@ export function Garrison({ town, book, wallet, busy, sign, login, knightAway = f
   const withEscort = canEscort && escort;
   const kitchen = book.kitchen;
   useEffect(()=>{
-    if (kitchen && ['#kuchnia','#szkola'].includes(location.hash)) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+    if (kitchen && ['#kuchnia','#szkola','#sztafeta'].includes(location.hash)) document.getElementById(location.hash.slice(1))?.scrollIntoView();
   },[town, !!kitchen]);
   const fatigue = m?.fatigue ?? 0;
   const escortMeal = rationPlan(ration, 1, fatigue);
@@ -133,6 +135,8 @@ export function Garrison({ town, book, wallet, busy, sign, login, knightAway = f
       </section>}
       <StandardSchool key={town} town={town} book={book} knightAway={knightAway} wallet={wallet} busy={busy} ration={ration} onAccount={login} sign={sign}
         canProvision={!!wallet && wallet.grain>=1+escortMeal.grain && (kitchen?.portions ?? 0)>=escortMeal.portions}/>
+      {book.relay && book.school && <GuildRelay visit={visit} town={town} book={book} ration={ration} wallet={wallet}
+        busy={busy} sign={sign} login={login}/>}
       <div className="garrison-pages">
         <section>
           <h2>Księga załogi</h2>
@@ -278,7 +282,7 @@ export function Garrison({ town, book, wallet, busy, sign, login, knightAway = f
           </p>
           {m?.wagon && (
             <p role="status">
-              {m.wagon.returning ? 'Wóz wraca' : 'Wóz w drodze'} · {townNames[m.wagon.destination]} · {left(m.wagon.arrival, book.now)}
+              {m.wagon.relay ? 'Zaprzęg na sztafecie' : m.wagon.returning ? 'Wóz wraca' : 'Wóz w drodze'} · {townNames[m.wagon.destination]} · {left(m.wagon.arrival, book.now)}
             </p>
           )}
           {!book.documents.length && (

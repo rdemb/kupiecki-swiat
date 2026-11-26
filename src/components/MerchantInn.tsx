@@ -330,6 +330,7 @@ export default function MerchantInn({
               ) : mine ? (
                 <>
                   <h2>{mine.name}</h2>
+                  <PortLink href={garrisonHref(isFairTown(city)?city:'zelazna_kuznia')+'#sztafeta'} go={()=>onTab('garrison',isFairTown(city)?city:'zelazna_kuznia')}>Do stacji przeprzęgowej gildii</PortLink>
                   <p className="inn-meta">
                     {book.members.length} przy stole · czas nowych konwojów kancelarii krótszy o{' '}
                     {convoyReduction(mine.count)}%

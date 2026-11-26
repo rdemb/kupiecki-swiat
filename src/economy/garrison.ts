@@ -66,6 +66,7 @@ export interface KitchenBook {
   lastDelivery: null | { carrier: string; sacks: number };
 }
 export interface GarrisonBook {
+  relay?: import('./guildRelay').RelayBook;
   school?: import('./standardSchool').SchoolBook;
   kitchen: KitchenBook;
   now: number;
@@ -80,10 +81,11 @@ export interface GarrisonBook {
     refill: number | null;
     marks: number;
     duty: null | { town: FeastTown; label: string; due: number };
-    wagon: null | { returning?: number; destination: FeastTown; arrival: number };
+    wagon: null | { relay?: boolean; returning?: number; destination: FeastTown; arrival: number };
   };
 }
 export type GarrisonCommand =
+  | import('./guildRelay').RelayCommand
   | import('./standardSchool').SchoolCommand
   | { action: 'fundGarrison'; level: number }
   | { action: 'recruitUnit'; unit: Unit; quantity: number }

@@ -161,3 +161,22 @@
 .school-cover { display:grid; grid-template-columns: minmax(15rem,.8fr) minmax(0,1.2fr); align-items:center; gap:clamp(1rem,4vw,4rem); margin-bottom:1.2rem; }
 .school-cover img { width:100%; height:auto; border-radius:.2rem; }
 @media(max-width:650px) { .school-cover { grid-template-columns:1fr; gap:.3rem; } }
+
+.guild-relay { background:#232a26; }
+.guild-relay > p { margin:1rem 0; max-width:76ch; }
+.relay-cover { position:relative; overflow:hidden; border-radius:.25rem; isolation:isolate; }
+.relay-cover img { width:100%; height:clamp(12rem,30vw,24rem); display:block; object-fit:cover; object-position:50% 46%; }
+.relay-cover::after { position:absolute; inset:0; content:''; background:linear-gradient(transparent 50%,#141915cf); z-index:1; }
+.relay-cover h2 { position:absolute; bottom:.65rem; left:clamp(.8rem,3vw,2rem); z-index:2; }
+.relay-docket { max-width:58rem; border-top:1px solid #8e7852; padding-top:1rem; }
+.relay-docket p { margin:.5rem 0; }
+.relay-load { margin-top:1rem; padding:1rem; border:1px solid #786b50; background:#19201d; }
+.relay-load h4 { font:normal 1.25rem Georgia,serif; color:#f6e3b2; }
+.relay-track { margin:1.25rem .5rem .55rem; height:2px; background:#857856; position:relative; }
+.relay-track i { position:absolute; width:10px; height:10px; border:2px solid #e8d09c; background:#35372b; transform:translate(-50%,-42%) rotate(45deg); transition:left 1s linear; }
+.relay-stops { display:grid; grid-template-columns:1fr 1fr 1fr; color:#d5ccb4; font-size:.85rem; }
+.relay-stops span:nth-child(2) { text-align:center; }
+.relay-stops span:last-child { text-align:right; }
+.relay-load a { color:#f4d996; text-decoration:underline; }
+.relay-load button { margin:.35rem .5rem .1rem 0; }
+@media(prefers-reduced-motion:reduce) { .relay-track i { transition:none; } }
