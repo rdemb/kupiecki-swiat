@@ -127,3 +127,13 @@ Skopiuj `.env.example` do `.env` i opcjonalnie uzupełnij własne klucze, jeśli
 ## Licencja
 
 Projekt udostępniany na licencji **MIT** — szczegóły w pliku [LICENSE](./LICENSE).
+
+### Dwór Imperatora
+
+Po zalogowaniu zakładka **Konto** pokazuje skarbiec oraz nadany przedrostek. Imperator może tam wybrać istniejącego gracza, przyznać sztabki albo nadać lub cofnąć przedrostek. Uzasadnienie trafia do księgi dekretów. Sztabki są osobnym dobrem od złota handlowego. Pierwsze wydanie obsługuje ich nadawanie i przechowywanie.
+
+Operator VPS przypisuje tron do już zarejestrowanego, potwierdzonego konta. Uruchamia poniższe polecenie z katalogu kodu, podając faktyczną lokalizację bazy, login i odpowiadający mu UID. Polecenie nie zastępuje istniejącego właściciela.
+
+```sh
+GAME_DATA_DIR=/ścieżka/do/danych node scripts/seat-emperor.mjs LOGIN UID
+```

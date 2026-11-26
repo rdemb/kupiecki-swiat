@@ -82,6 +82,7 @@ import { DayTraderTerminal } from './components/DayTraderTerminal';
 import { KnightAndMissionsPanel } from './components/KnightAndMissionsPanel';
 import { DuchyAndStoryCampaignPanel } from './components/DuchyAndStoryCampaignPanel';
 import { WorldMapAtlasPanel } from './components/WorldMapAtlasPanel';
+import { ImperialCourt } from './components/ImperialCourt';
 import { AuthAndProfilePanel, TradeRecordItem } from './components/AuthAndProfilePanel';
 import { CityInteriorModal } from './components/CityInteriorModal';
 import type { ArenaOpponentSpec } from './economy/cityAndArenaEngine';
@@ -259,6 +260,7 @@ export default function App() {
 
   // Account & Authentication State (Token strictly in React memory, never in localStorage)
   const [backendToken, setBackendToken] = useState<string | null>(null);
+  const [backendUid, setBackendUid] = useState<string | null>(null);
   const [backendUsername, setBackendUsername] = useState<string | null>(null);
   const [playerDisplayName, setPlayerDisplayName] = useState<string>('Lord Kupiecki');
   const [playerTitle, setPlayerTitle] = useState<string>('Kupiec i Dowódca Szlaku');
@@ -360,6 +362,7 @@ export default function App() {
   const [registeredPlayers, setRegisteredPlayers] = useState<
     Array<{
       uid: string;
+      prefix?: string;
       displayName: string;
       title: string;
       raceId: string;
@@ -500,6 +503,8 @@ export default function App() {
                 if (prev.some((m) => m.id === msg.payload.id)) return prev;
                 return [...prev, msg.payload];
               });
+            } else if (msg.type === 'court:prefix') {
+              gameRequest('/api/state').then(r => r.json()).then(data => setRegisteredPlayers(data.registeredPlayers)).catch(() => {});
             } else if (msg.type === 'guilds:update') {
               setGuilds(msg.payload);
             } else if (msg.type === 'notification:push') {
@@ -2298,7 +2303,7 @@ export default function App() {
       },
       {
         rank: 4,
-        name: playerDisplayName,
+        name: [registeredPlayers.find(p=>p.uid===backendUid)?.prefix, playerDisplayName].filter(Boolean).join(' '),
         race: selectedRace.name.split(' ')[0],
         guildTag: `[${playerGuild?.tag ?? 'ZŁOTO'}]`,
         netWorth,
@@ -2322,10 +2327,10 @@ export default function App() {
     ];
 
     for (const reg of registeredPlayers) {
-      if (reg.displayName !== playerDisplayName && !baseEntries.some((b) => b.name === reg.displayName)) {
+      if (reg.uid !== backendUid) {
         baseEntries.push({
           rank: 99,
-          name: reg.displayName,
+          name: [reg.prefix, reg.displayName].filter(Boolean).join(' '),
           race: RACES.find((r) => r.id === reg.raceId)?.name.split(' ')[0] ?? 'Ludzie',
           guildTag: '[GRACZ]',
           netWorth: reg.netWorth,
@@ -2351,6 +2356,7 @@ export default function App() {
     tradesExecutedCount,
     profitableTradesCount,
     registeredPlayers,
+    backendUid,
   ]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -3180,6 +3186,7 @@ export default function App() {
                   />
                 )}
 
+                {activeTab === 'profile' && backendToken && <ImperialCourt key={backendToken} token={backendToken} />}
                 {activeTab === 'profile' && (
                   <AuthAndProfilePanel
                     backendUsername={backendUsername}
@@ -3200,6 +3207,7 @@ export default function App() {
                     syncStatusMsg={syncStatusMsg}
                     onBackendAuthSuccess={({ token, profile }) => {
                       setBackendToken(token);
+                      setBackendUid(profile.uid);
                       setBackendUsername(profile.username);
                       setPlayerDisplayName(profile.displayName);
                       setPlayerTitle(profile.title);
@@ -3234,6 +3242,7 @@ export default function App() {
                         }).catch(() => {});
                       }
                       setBackendToken(null);
+                      setBackendUid(null);
                       setBackendUsername(null);
                       setSyncStatusMsg('Wylogowano');
                     }}

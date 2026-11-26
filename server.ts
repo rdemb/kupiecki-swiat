@@ -1,4 +1,5 @@
 import express from 'express';
+import { installCourt } from './server/court';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -1097,10 +1098,13 @@ async function startServer() {
     res.json({ profile: sanitizeAccountForClient(acc) });
   });
 
+  const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
+
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {
     const registeredPlayers = db.prepare('SELECT profile FROM players').all().map((row) => JSON.parse(String(row.profile)) as ServerPlayerAccount).map((acc) => ({
       uid: acc.uid,
+      prefix: insignia(acc.uid).prefix,
       displayName: acc.displayName,
       title: acc.title,
       raceId: acc.raceId,
