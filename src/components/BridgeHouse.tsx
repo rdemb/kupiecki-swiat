@@ -8,10 +8,13 @@ import {
 import type { MillMark } from '../economy/mill';
 import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
+import { RiverMarks } from './RiverMarks';
 import { InnGuide } from './InnGuide';
 import './bridgeHouse.css';
 
 type Action =
+  | { action: 'measure' }
+  | { action: 'publishReading'; reading: number }
   | { action: 'fund'; material: BridgeMaterial }
   | { action: 'haul' | 'unload'; load: number };
 interface Props {
@@ -20,6 +23,7 @@ interface Props {
   onClose: () => void;
   onAccount: () => void;
   onGuild: () => void;
+  onBoard: () => void;
   onSettlement: (uid: string, mark: MillMark) => void;
 }
 export default function BridgeHouse({
@@ -28,6 +32,7 @@ export default function BridgeHouse({
   onClose,
   onAccount,
   onGuild,
+  onBoard,
   onSettlement,
 }: Props) {
   const [page, setPage] = useState<BridgeBook | null>(null);
@@ -81,10 +86,10 @@ export default function BridgeHouse({
   }, [refresh]);
   const mine = page?.loads.find((s) => s.myWagon);
   useEffect(() => {
-    if (!mine) return;
+    if (!mine && !page?.reading) return;
     const t = setInterval(() => setNow(Date.now() + clockOffset.current), 500);
     return () => clearInterval(t);
-  }, [mine?.id]);
+  }, [mine?.id, page?.reading?.id]);
   async function act(command: Action) {
     if (!token || !page || lock.current) return;
     lock.current = true;
@@ -92,7 +97,7 @@ export default function BridgeHouse({
     setError('');
     setNote('');
     const id = ++sequence.current,
-      key = JSON.stringify({ cycle: page.cycle, ...command });
+      key = JSON.stringify(command.action === 'measure' || command.action === 'publishReading' ? command : { cycle: page.cycle, ...command });
     if (retry.current?.key !== key) retry.current = { key, nonce: crypto.randomUUID() };
     try {
       const r = await gameRequest('/api/bridge', {
@@ -110,7 +115,11 @@ export default function BridgeHouse({
       retry.current = null;
       commit(result);
       setNote(
-        command.action === 'fund'
+        command.action === 'measure'
+          ? 'Pomiar zapisany w twoim notesie.'
+          : command.action === 'publishReading'
+            ? 'Podpisany meldunek wisi w karczmie w Srebrnym Gaju.'
+            : command.action === 'fund'
           ? 'Opłacony list przewozowy czeka na woźnicę.'
           : command.action === 'haul'
             ? 'Wóz w drodze. Po dojechaniu odbierz zapłatę przy rozładunku.'
@@ -163,6 +172,10 @@ export default function BridgeHouse({
         {!page && !error && <p role="status">Strażnik przynosi księgę przeprawy…</p>}
         {page && (
           <>
+            <RiverMarks reading={page.reading} now={now} signedIn={!!page.wallet} busy={busy}
+              measure={()=>act({action:'measure'})} publish={reading=>act({action:'publishReading',reading})}
+              board={onBoard} login={onAccount}/>
+            {note && <p role="status">{note}</p>}
             <div className="inn-spread">
               <article>
                 <h2>{page.damaged ? 'Rzeka zabrała przęsło' : 'Trakt przez most otwarty'}</h2>
@@ -262,7 +275,7 @@ export default function BridgeHouse({
                     </small>
                   </>
                 )}
-                {note && <p role="status">{note}</p>}
+
               </article>
               <aside>
                 <h2>Prawo przeprawy</h2>

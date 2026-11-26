@@ -390,13 +390,51 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     const free=(await request('/api/auth/register',201,{username:'wolny_woznica',password:randomUUID()})).token;
     const bridgeUrl='/api/bridge';
     const watch=token=>request(bridgeUrl,200,undefined,token);
+    const placeWater = (level, sky='sloneczna_pogoda') =>
+      testDb.prepare('UPDATE riverGauge SET level=?,sampled=?,sky=?').run(level,Date.now(),sky);
     async function rainySeason(imperator=reload) {
-      for(let i=0;i<5;i++){
-        const observed=await request('/api/world/season',200,{seasonId:'jesien'},imperator);
-        if(observed.macro.activeWeather==='ulewne_deszcze')return;
-      }
-      assert.fail('Testowy świat nie przeszedł do ulewy.');
+      await request('/api/world/season',200,{seasonId:'jesien'},imperator);
+      // Fast-forward only this disposable river to just before the crest.
+      placeWater(169_980,'ulewne_deszcze');
+      await watch();
+      await new Promise(resolve=>setTimeout(resolve,20));
+      await watch();
     }
+    const gauge=(token,action,params={},status=200)=>request(bridgeUrl,status,{action,nonce:randomUUID(),...params},token);
+    const innAtRiver=()=>request('/api/inn/srebrny_gaj',200);
+    await gauge(undefined,'measure',{},401);
+    assert.equal((await watch()).reading,null);
+    const firstNote=(await gauge(free,'measure',{cm:999,name:'Podszyty'})).reading;
+    assert.notEqual(firstNote.cm,999);assert.notEqual(firstNote.name,'Podszyty');
+    assert.equal(firstNote.previousCm,null);
+    assert.equal((await gauge(free,'measure')).reading.id,firstNote.id);
+    assert.equal((await watch(carrier)).reading,null);
+    assert.deepEqual((await innAtRiver()).riverReports,[]);
+    // Preserve a genuinely private previous mark even after the next is published.
+    testDb.prepare('UPDATE riverReadings SET at=at-11000 WHERE id=?').run(firstNote.id);
+    await request('/api/world/season',200,{seasonId:'lato'},reload);
+    placeWater(145_500);
+    const note=(await gauge(free,'measure')).reading;
+    assert.ok(note.cm>=144 && note.cm<=145);
+    assert.equal(note.previousCm,firstNote.cm);
+    await gauge(carrier,'publishReading',{reading:note.id},409);
+    await gauge(free,'publishReading',{reading:firstNote.id},409);
+    const paper={reading:note.id,nonce:randomUUID()};
+    await gauge(free,'publishReading',paper);await gauge(free,'publishReading',paper);
+    let reports=(await innAtRiver()).riverReports;
+    assert.equal(reports.length,1);assert.equal(reports[0].at,note.at);
+    assert.equal(reports[0].previousCm,null);assert.equal(reports[0].name,firstNote.name);
+    assert.deepEqual((await request('/api/inn/krolewska_przystan',200)).riverReports,[]);
+    const secondNote=(await gauge(carrier,'measure')).reading;
+    await gauge(carrier,'publishReading',{reading:secondNote.id});
+    reports=(await innAtRiver()).riverReports;
+    assert.equal(reports[0].previousCm,note.cm);assert.equal(reports[0].previousAt,note.at);
+    const stale=(await gauge(reload,'measure')).reading;
+    testDb.prepare('UPDATE riverReadings SET at=at-45001 WHERE id=?').run(stale.id);
+    await gauge(reload,'publishReading',{reading:stale.id},409);
+    testDb.prepare('UPDATE riverReadings SET at=at-600001 WHERE id=?').run(note.id);
+    assert.equal((await innAtRiver()).riverReports.length,1);
+    assert.equal((await innAtRiver()).riverReports[0].previousCm,null);
     await rainySeason();
     const flood=await watch();
     assert.ok(flood.damaged); assert.equal(flood.wallet,null);
@@ -468,6 +506,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     await rainySeason();assert.equal((await watch()).damaged,false);
     await stop();await start();
     assert.equal((await watch()).openings.length,1);
+    assert.equal((await innAtRiver()).riverReports[0].id,secondNote.id);
     // A later flood creates a fresh set of contracts but the old names remain on record.
     testDb.exec('UPDATE bridgeState SET opened=1, wet=0');
     await rainySeason((await request('/api/auth/login',200,first)).token);
@@ -585,6 +624,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
       await request('/api/world/season',403,{seasonId:'lato'},driver2);
       await request('/api/world/season',200,{seasonId:'lato'},buyer2);
       testDb.exec('UPDATE bridgeState SET damaged=0,wet=0,opened=0');
+      placeWater(100_000);
       const insured=await loadBill();
       const coins=(await desk(driver2)).wallet.gold;
       const departure={bill:insured,road:'bridge',quote,nonce:randomUUID()};
@@ -605,6 +645,8 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
       await manager(buyer2,'suspendCover');
       const rain=await request('/api/world/season',200,{seasonId:'jesien'},buyer2);
       assert.equal(rain.macro.activeWeather,'ulewne_deszcze');
+      assert.equal((await watch()).damaged,false);
+      await rainySeason(buyer2);
       const during=await desk(driver2);
       const reroute=during.freight.bills.find(row=>row.id===insured);
       assert.equal(reroute.road,'detour');assert.ok(reroute.floodAt>=beforeRoute.departed && reroute.floodAt<reroute.crosses);
@@ -628,6 +670,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
       await manager(master3,'pledge',{amount:26});
       await request('/api/world/season',200,{seasonId:'lato'},master3);
       testDb.exec('UPDATE bridgeState SET damaged=0,wet=0,opened=0');
+      placeWater(100_000);
       const later=(await job(master3,'commission',{quantity:1,price:2,wage:6})).freight.bills[0].id;
       await job(grower3,'seal',{bill:later});
       const revised=fund(await manager(master3,'tariff',{fee:3,cover:30})).quote;
@@ -635,7 +678,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
       const safe=(await job(driver3,'depart',{bill:later,road:'bridge',quote:revised})).freight.bills[0];
       // The far bank has already been reached when the next flood is observed.
       testDb.prepare('UPDATE grainCrossings SET crosses=? WHERE bill=?').run(Date.now()-1,later);
-      await request('/api/world/season',200,{seasonId:'jesien'},master3);
+      await rainySeason(master3);
       const past=(await desk()).freight.bills[0];
       assert.equal(past.road,'bridge');assert.equal(past.floodAt,null);assert.equal(past.due,safe.due);
       testDb.prepare('UPDATE grainWaybills SET due=? WHERE id=?').run(Date.now()-1,later);

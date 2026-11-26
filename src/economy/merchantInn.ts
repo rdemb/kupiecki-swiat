@@ -1,3 +1,4 @@
+import type { RiverReading } from './river';
 import type { SeasonId, WeatherConditionId } from './economyEngine';
 import type { ActiveWorldDisaster } from './worldDisasters';
 
@@ -20,6 +21,8 @@ export interface InnBook {
   members: { uid: string; name: string }[];
   applicants: { uid: string; name: string }[];
   letters: { id: number; name: string; body: string; at: number }[];
+  boardAt: number;
+  riverReports: RiverReading[];
   notices: {
     id: number;
     owner: string;

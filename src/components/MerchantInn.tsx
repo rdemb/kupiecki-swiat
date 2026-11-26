@@ -9,6 +9,7 @@ import {
 } from '../economy/merchantInn';
 import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
+import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
@@ -140,7 +141,7 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
-  if(tab==='bridge') return <BridgeHouse token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onSettlement={onSettlement}/>;
+  if(tab==='bridge') return <BridgeHouse token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
   return (
     <main className="merchant-inn">
       <header
@@ -196,6 +197,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {city === 'srebrny_gaj' && <RiverReports reports={book.riverReports} now={book.boardAt} go={()=>onTab('bridge')}/>}
                   <div className="inn-subhead">
                     <h2>Ogłoszenia kupców</h2>
                     <select

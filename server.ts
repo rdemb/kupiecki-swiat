@@ -1,4 +1,5 @@
 import express from 'express';
+import { installRiverGauge } from './server/riverGauge';
 import { installBridge } from './server/bridge';
 import { installMill } from './server/mill';
 import {emptyMark,type MillMark} from './src/economy/mill';
@@ -907,7 +908,7 @@ async function startServer() {
 
   function observeBridgeWeather() {
     db.exec('BEGIN IMMEDIATE');
-    try { bridge.advance(Date.now()); db.exec('COMMIT'); }
+    try { bridge.advance(Date.now(), true); db.exec('COMMIT'); }
     catch(e) { db.exec('ROLLBACK'); throw e; }
   }
   setInterval(() => {
@@ -1147,12 +1148,13 @@ async function startServer() {
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount);
-  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds);
+  const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports);
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;
   });
-  const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],mill.settleGold);
+  const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold);
   installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation, bridge);
 
   mill.advanceTowns();

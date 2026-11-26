@@ -1,3 +1,6 @@
+import type { installRiverGauge } from './riverGauge';
+import { floodMark } from '../src/economy/river';
+import type { WeatherConditionId } from '../src/economy/economyEngine';
 import { divertCarts } from './carrierMutual';
 import { wagonHaulingGrain } from './waybills';
 import type { DatabaseSync } from 'node:sqlite';
@@ -29,7 +32,8 @@ export function installBridge(
   app: Express,
   db: DatabaseSync,
   authenticate: (req: Request) => Actor | null,
-  weather: () => string,
+  weather: () => WeatherConditionId,
+  river: ReturnType<typeof installRiverGauge>,
   settleGold: (uid: string, change: number) => void,
 ) {
   db.exec(`
@@ -50,14 +54,16 @@ export function installBridge(
       .prepare('INSERT INTO annals(person,name,site,story) VALUES(?,?,?,?)')
       .run(uid, name, bridgeSite, story);
   // Invoked inside the same transaction as a dispatch or a bridge action.
-  function advance(now: number) {
+  function advance(now: number, checkpoint = false) {
     const b = state.get()!;
-    const wet = Number(weather() === 'ulewne_deszcze');
+    const water = river.advance(now, weather(), checkpoint);
+    const wet = Number(water.level >= floodMark * 1000);
+    const floodedAt = water.crossedAt ?? now;
     if (wet !== b.wet) {
       db.prepare('UPDATE bridgeState SET wet=? WHERE id=1').run(wet);
-      if (wet && !b.damaged && now - Number(b.opened) >= protection) {
+      if (wet && !b.damaged && floodedAt - Number(b.opened) >= protection) {
         db.exec("UPDATE bridgeState SET damaged=1, cycle=cycle+1, flag='' WHERE id=1");
-        divertCarts(db, Number(b.cycle) + 1, now);
+        divertCarts(db, Number(b.cycle) + 1, floodedAt);
         record(
           '',
           'Straż przeprawy',
@@ -68,6 +74,7 @@ export function installBridge(
     db.prepare(
       'UPDATE bridgeLoads SET driver=NULL, driverName=NULL, due=NULL WHERE delivered IS NULL AND due<=?',
     ).run(now - unloadWindow);
+    return water.level;
   }
   function sign(): BridgeSign {
     const b = state.get()!;
@@ -115,6 +122,7 @@ export function installBridge(
       ...sign(),
       cycle,
       now,
+      reading: river.personal(me?.uid ?? null),
       loads: slips.all(cycle).map((r) => ({
         id: r.id,
         material: r.material,
@@ -153,11 +161,12 @@ export function installBridge(
     res.set('Cache-Control', 'private, no-store');
     const me = authenticate(req);
     if (!me) {
-      res.status(401).json({ error: 'Zaloguj się, aby podpisać list przewozowy.' });
+      res.status(401).json({ error: 'Zaloguj się, aby działać przy przeprawie.' });
       return;
     }
-    const { action, nonce, cycle, material, load } = req.body ?? {};
-    const payload = JSON.stringify([action, cycle, material, load]);
+    const { action, nonce, cycle, material, load, reading } = req.body ?? {};
+    const observation = action === 'measure' || action === 'publishReading';
+    const payload = JSON.stringify(observation ? [action, reading] : [action, cycle, material, load]);
     try {
       requireRule(
         typeof nonce === 'string' && /^[a-f0-9-]{36}$/i.test(nonce),
@@ -165,12 +174,19 @@ export function installBridge(
       );
       db.exec('BEGIN IMMEDIATE');
       const now = Date.now();
-      advance(now);
+      const level = advance(now);
       const prior = db
         .prepare('SELECT payload FROM bridgeReceipts WHERE uid=? AND nonce=?')
         .get(me.uid, nonce);
       if (prior) requireRule(prior.payload === payload, 'Ten dokument ma inną treść.');
-      else {
+      else if (observation) {
+        if (action === 'measure') river.measure(me.uid, me.displayName, level, now);
+        else requireRule(
+          Number.isSafeInteger(reading) && river.publish(me.uid, reading, now),
+          'Do karczmy możesz wysłać własny najnowszy odczyt przez 45 sekund od pomiaru.',
+        );
+        db.prepare('INSERT INTO bridgeReceipts VALUES(?,?,?)').run(me.uid, nonce, payload);
+      } else {
         const b = state.get()!;
         requireRule(b.damaged && b.cycle === cycle, 'To wezwanie do odbudowy już wygasło.');
         if (action === 'fund') {

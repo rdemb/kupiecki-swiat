@@ -1,3 +1,5 @@
+import type { RiverReading } from '../src/economy/river';
+import { bridgeSite } from '../src/economy/bridge';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, Request } from 'express';
@@ -16,6 +18,7 @@ export function installMerchantInn(
   db: DatabaseSync,
   authenticate: (req: Request) => { uid: string; displayName: string; guildId: string } | null,
   companies: GuildInfo[],
+  riverReports: (now: number) => RiverReading[],
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -45,6 +48,7 @@ export function installMerchantInn(
   function read(uid: string | null, city: string) {
     const membership = uid ? String(current.get(uid)?.guild ?? '') : '';
     const mine = group.get(membership);
+    const boardAt = Date.now();
     return {
       uid,
       membership: mine ? membership : '',
@@ -77,6 +81,8 @@ export function installMerchantInn(
             .all(membership)
             .reverse()
         : [],
+      boardAt,
+      riverReports: city === bridgeSite ? riverReports(boardAt) : [],
       notices: db
         .prepare(
           `SELECT n.id,n.owner,n.name,n.kind,n.body,n.at,(SELECT json_group_array(s.name) FROM innSigns s WHERE s.notice=n.id) AS signed,EXISTS(SELECT 1 FROM innSigns s WHERE s.notice=n.id AND s.uid=?) AS volunteered FROM innNotices n WHERE n.city=? AND n.closed=0 AND n.at>? ORDER BY n.id DESC LIMIT 60`,
