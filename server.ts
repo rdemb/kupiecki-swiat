@@ -100,11 +100,13 @@ const activeSessions = new Map<string, string>();
 
 // Each live tab reports cumulative changes from ordinary play, excluding mill settlements
 // and changes already attributed to another tab. A delayed save can then be replayed safely.
-interface WalletCursor {sequence:number; gold:number; grain:number}
-const walletCursors = new Map<string,WalletCursor>();
+interface WalletCursor {sequence:number; gold:number; grain:number; iron:number}
+type SessionWallet = WalletCursor & { displayedIron: number };
+const walletCursors = new Map<string,SessionWallet>();
 function openWallet(token:string, acc:ServerPlayerAccount) {
   const mark=acc.millMark??emptyMark;
-  walletCursors.set(token,{sequence:0,gold:acc.gold-mark.gold,grain:acc.inventory.zboze-mark.grain});
+  walletCursors.set(token,{sequence:0,gold:acc.gold-mark.gold,grain:acc.inventory.zboze-mark.grain,
+    iron:(acc.inventory.zelazo ?? 0)-(mark.iron ?? 0), displayedIron:acc.inventory.zelazo ?? 0});
 }
 function readAccount(username: string): ServerPlayerAccount | null {
   const row = selectPlayer.get(username);
@@ -1073,21 +1075,28 @@ async function startServer() {
     const entry = req.body.walletSave;
     const alignedMill = entry===undefined && (req.body.millRevision ?? 0) === mark.revision;
     let walletAdjustment:WalletCursor|undefined;
-    let acceptedSave:WalletCursor|undefined;
+    let acceptedSave:SessionWallet|undefined;
     if(entry!==undefined){
       let cursor=walletCursors.get(req.headers.authorization!.slice(7).trim());
       if(!cursor || !entry || !Number.isSafeInteger(entry.sequence) || entry.sequence<1 ||
-        !Number.isSafeInteger(Math.round(entry.gold*100)) || typeof entry.gold!=='number' || !Number.isSafeInteger(entry.grain)){
+        !Number.isSafeInteger(Math.round(entry.gold*100)) || typeof entry.gold!=='number' || !Number.isSafeInteger(entry.grain) ||
+        (entry.iron !== undefined && !Number.isSafeInteger(entry.iron))){
         res.status(400).json({error:'Niepoprawny zapis sakwy.'});return;
       }
       if(entry.sequence>cursor.sequence){
         const cash=Math.round((acc.gold+entry.gold-cursor.gold)*100)/100;
         const grain=acc.inventory.zboze+entry.grain-cursor.grain;
-        if(cash>=0 && grain>=0){acc.gold=cash;acc.inventory.zboze=grain;}
-        cursor=acceptedSave={sequence:entry.sequence,gold:entry.gold,grain:entry.grain};
+        // Older tabs submit a displayed inventory. Use its delta from that tab's
+        // previous display so a delayed save cannot restore a dispatched wagon.
+        const displayedIron = Number.isSafeInteger(inventory?.zelazo) && inventory.zelazo >= 0
+          ? inventory.zelazo : cursor.displayedIron;
+        const ironEntry = entry.iron ?? (cursor.iron + displayedIron - cursor.displayedIron);
+        const iron = (acc.inventory.zelazo ?? 0) + ironEntry - cursor.iron;
+        if(cash>=0 && grain>=0 && iron>=0){acc.gold=cash;acc.inventory.zboze=grain;acc.inventory.zelazo=iron;}
+        cursor=acceptedSave={sequence:entry.sequence,gold:entry.gold,grain:entry.grain,iron:ironEntry,displayedIron};
       }
       walletAdjustment={sequence:cursor.sequence,gold:Math.round((acc.gold-mark.gold-cursor.gold)*100)/100,
-        grain:acc.inventory.zboze-mark.grain-cursor.grain};
+        grain:acc.inventory.zboze-mark.grain-cursor.grain,iron:(acc.inventory.zelazo??0)-(mark.iron??0)-cursor.iron};
     }
     if (alignedMill && typeof gold === 'number' && Number.isFinite(gold) && gold >= 0) {
       acc.gold = Number(gold.toFixed(2));
@@ -1106,7 +1115,7 @@ async function startServer() {
     }
     if (inventory && typeof inventory === 'object') {
       for (const spec of COMMODITIES) {
-        if (spec.id === 'zboze' && !alignedMill) continue;
+        if ((spec.id === 'zboze' || spec.id === 'zelazo') && !alignedMill) continue;
         const val = Number(inventory[spec.id]);
         if (Number.isFinite(val) && val >= 0) {
           acc.inventory[spec.id] = Math.round(val);
@@ -1155,7 +1164,7 @@ async function startServer() {
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
-  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table);
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table, (city,now)=>mill.fairBook(city,now));
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { fairHref } from '../economy/harvestFair';
+import { PortLink } from './PortLink';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
 import { CITIES, type CommodityId } from '../economy/economyEngine';
@@ -61,11 +63,12 @@ interface RoadProps {
   onInn:()=>void;
   onBridge:()=>void;
   onField:()=>void;
+  onFair:()=>void;
   muted:boolean;
   onWeighhouse: (moving:boolean) => void;
 }
 const money = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,onBridge,onField,muted}: RoadProps) {
+export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,onBridge,onField,onFair,muted}: RoadProps) {
   const [moving, setMoving] = useState(() => !quietPictures());
   const [sheets, setSheets] = useState(false);
   const [receipt, setReceipt] = useState('');
@@ -129,6 +132,7 @@ export function MerchantRoad({stop, gold, held, price, towns, registerError, onT
         <InnGuide cue="trakt" muted={muted}/>
         <div className="road-links">
           <button onClick={onInn}>Wejdź do karczmy</button>
+          {stop.plate !== 'trakt' && <PortLink href={fairHref(stop.city)} go={onFair}>Wejdź na plac dożynkowy</PortLink>}
           {stop.plate === 'rynek' && <button onClick={onWorks}>Warzelnia nad zatoką</button>}
           {stop.plate === 'rynek' && <button onClick={onCoast}>Zejdź nad zatokę</button>}
           {stop.plate === 'rynek' && <button onClick={() => onWeighhouse(moving)}>Wejdź do wagi portowej</button>}

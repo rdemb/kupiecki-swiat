@@ -229,7 +229,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
+  const startAtInn = place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -270,9 +270,9 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const innTown = place === 'karczma' && new URLSearchParams(window.location.search).get('miasto') === 'zelazna_kuznia' ? 'zelazna_kuznia' : 'krolewska_przystan';
+  const innTown = (place === 'karczma' || place === 'jarmark') && new URLSearchParams(window.location.search).get('miasto') === 'zelazna_kuznia' ? 'zelazna_kuznia' : 'krolewska_przystan';
   const atRiver = place === 'dozynki' || place === 'pole' || place === 'flisacy' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
-  const innArrival: Record<string, InnTab> = { dozynki:'feast', pole:'field', piloci:'pilots', stocznia:'shipyard', flisacy:'rafting', most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
+  const innArrival: Record<string, InnTab> = { jarmark:'fair', dozynki:'feast', pole:'field', piloci:'pilots', stocznia:'shipyard', flisacy:'rafting', most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
   const [inn,setInn] = useState<InnVisit|null>(startAtInn ? {
     city: atRiver ? 'srebrny_gaj' : innTown,
     tab: innArrival[place ?? ''] ?? 'board',
@@ -327,7 +327,7 @@ export default function App() {
 
   const millLedger = useRef({uid:'',mark:emptyMark});
   const [settledMark,setSettledMark]=useState<MillMark>(emptyMark);
-  const zeroElsewhere={sequence:0,gold:0,grain:0};
+  const zeroElsewhere={sequence:0,gold:0,grain:0,iron:0};
   const [elsewhere,setElsewhere]=useState(zeroElsewhere);
   const acknowledged=useRef(zeroElsewhere);
   const walletSaveNumber=useRef(0);
@@ -338,7 +338,7 @@ export default function App() {
     millLedger.current={uid,mark:next};
     setSettledMark(next);
     setPlayerGold(g=>Math.round((g+next.gold-prior.mark.gold)*100)/100);
-    setPlayerInventory(i=>({...i,zboze:i.zboze+next.grain-prior.mark.grain}));
+    setPlayerInventory(i=>({...i,zboze:i.zboze+next.grain-prior.mark.grain,zelazo:(i.zelazo??0)+(next.iron??0)-(prior.mark.iron??0)}));
   },[]);
   const [knight, setKnight] = useState<KnightState>(() => createInitialKnightState('ludzie'));
   const [duchy, setDuchy] = useState<DuchyState>(() => createInitialDuchyState('ludzie'));
@@ -673,7 +673,8 @@ export default function App() {
             millRevision:settledMark.revision,
             walletSave:{sequence:++walletSaveNumber.current,
               gold:Math.round((playerGold-settledMark.gold-elsewhere.gold)*100)/100,
-              grain:playerInventory.zboze-settledMark.grain-elsewhere.grain},
+              grain:playerInventory.zboze-settledMark.grain-elsewhere.grain,
+              iron:(playerInventory.zelazo??0)-(settledMark.iron??0)-elsewhere.iron},
             bondsGold: playerBondsGold,
             netWorth,
             tradesExecutedCount,
@@ -687,13 +688,13 @@ export default function App() {
         if (res.ok) {
           const saved=await res.json();
           if(sessionToken.current!==activeToken)return;
-          const adjustment=saved.walletAdjustment;
+          const adjustment=saved.walletAdjustment && {...saved.walletAdjustment,iron:saved.walletAdjustment.iron??0};
           if(adjustment && adjustment.sequence>acknowledged.current.sequence){
             const previous=acknowledged.current;acknowledged.current=adjustment;
-            if(adjustment.gold!==previous.gold || adjustment.grain!==previous.grain){
+            if(adjustment.gold!==previous.gold || adjustment.grain!==previous.grain || adjustment.iron!==previous.iron){
               setElsewhere(adjustment);
               setPlayerGold(g=>Math.round((g+adjustment.gold-previous.gold)*100)/100);
-              setPlayerInventory(i=>({...i,zboze:i.zboze+adjustment.grain-previous.grain}));
+              setPlayerInventory(i=>({...i,zboze:i.zboze+adjustment.grain-previous.grain,zelazo:(i.zelazo??0)+adjustment.iron-previous.iron}));
             }
           }
           if(saved.profile?.millMark)applyMillMark(saved.profile.uid,saved.profile.millMark);
@@ -2628,7 +2629,10 @@ export default function App() {
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
         <MerchantInn onHarbor={()=>{setInn(null);visitStop(roadStops[0]);setAtWorks(true);}} onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={(tab,town)=>setInn({city:town ?? (tab==='shipyard'||tab==='pilots'?'krolewska_przystan':tab==='rafting'||tab==='freight'||tab==='mutual'||tab==='field'||tab==='feast'||tab==='bridge'?'srebrny_gaj':inn.city),tab})}
-          muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>setInn(null)}
+          muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>{
+            if (inn.tab==='fair') visitStop(roadStops.find(s=>s.city===inn.city)??roadStops[0]);
+            setInn(null);
+          }}
           onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
       </React.Suspense>}
       {onRoad && !inn && !atPort && !atWorks && gameState === 'playing' && !showCinematicIntro && (
@@ -2636,6 +2640,7 @@ export default function App() {
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
           onField={()=>setInn({city:'srebrny_gaj',tab:'field'})}
+          onFair={()=>setInn({city:roadStop.city,tab:'fair'})}
           muted={muted} onBridge={()=>setInn({city:'srebrny_gaj',tab:'bridge'})} onInn={()=>setInn({city:roadStop.city,tab:'board'})}
           onTravel={visitStop} onMenu={openRoadPanel} onCoast={enterCoast} onWorks={()=>setAtWorks(true)}
           onWeighhouse={moving => {setPortMotion(moving);setAtPort(true);}}

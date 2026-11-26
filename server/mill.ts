@@ -3,6 +3,8 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { openHarvestFair } from './harvestFair';
+import { isFairTown } from '../src/economy/harvestFair';
 import { FeastRule } from './harvestLoaf';
 import { seedActions } from '../src/economy/commonField';
 import { FieldRule, type openCommonField } from './commonField';
@@ -38,15 +40,16 @@ export function installMill(
     CREATE TABLE IF NOT EXISTS millRations(uid TEXT PRIMARY KEY);
     CREATE TABLE IF NOT EXISTS millCommands(uid TEXT NOT NULL, nonce TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(uid,nonce));
   `);
+  const fair = openHarvestFair(db);
   const newMill = db.prepare('INSERT OR IGNORE INTO mills(city,treasury,bakeryAt) VALUES(?,?,?)');
   for (const c of CITIES) newMill.run(c.id, rules.openingTreasury, Date.now());
   const towns = new Set(CITIES.map((c) => c.id));
   const getMill = db.prepare('SELECT * FROM mills WHERE city=?');
   const accounts = db.prepare(
-    `SELECT username,json_extract(profile,'$.gold') gold,json_extract(profile,'$.inventory.zboze') grain,json_extract(profile,'$.millMark') mark FROM players WHERE json_extract(profile,'$.uid')=?`,
+    `SELECT username,json_extract(profile,'$.gold') gold,json_extract(profile,'$.inventory.zboze') grain,json_extract(profile,'$.inventory.zelazo') iron,json_extract(profile,'$.millMark') mark FROM players WHERE json_extract(profile,'$.uid')=?`,
   );
   const setBalance = db.prepare(
-    `UPDATE players SET profile=json_set(profile,'$.gold',?,'$.inventory.zboze',?,'$.millMark',json(?)) WHERE username=?`,
+    `UPDATE players SET profile=json_set(profile,'$.gold',?,'$.inventory.zboze',?,'$.inventory.zelazo',?,'$.millMark',json(?)) WHERE username=?`,
   );
   const orders = db.prepare(
     "SELECT id,issuer,name,purpose,quantity,remaining,price,expires FROM millOrders WHERE city=? AND state='open' ORDER BY id DESC",
@@ -64,19 +67,23 @@ export function installMill(
       username: String(p.username),
       gold: Number(p.gold),
       grain: Number(p.grain ?? 0),
+      iron: Number(p.iron ?? 0),
       mark,
     };
   }
-  function transfer(uid: string, gold: number, grain: number) {
+  function transfer(uid: string, gold: number, grain: number, iron = 0) {
     const b = wallet(uid);
     const cash = Math.round((b.gold + gold) * 100) / 100,
       stock = b.grain + grain;
     check(cash >= 0, 'W zapisanej sakwie brakuje złota.');
     check(stock >= 0, 'W zapisanym magazynie brakuje zboża.');
+    check(b.iron + iron >= 0, 'W zapisanym magazynie brakuje rudy żelaza.');
     setBalance.run(
       cash,
       stock,
+      b.iron + iron,
       JSON.stringify({
+        ...(b.mark.iron || iron ? {iron:(b.mark.iron ?? 0) + iron} : {}),
         revision: b.mark.revision + 1,
         gold: b.mark.gold + gold,
         grain: b.mark.grain + grain,
@@ -167,6 +174,7 @@ export function installMill(
     const m = getMill.get(city)!;
     const purse = uid ? wallet(uid) : null;
     return {
+      ...(isFairTown(city) ? { fair: fair.book(city, Date.now()) } : {}),
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
@@ -183,6 +191,7 @@ export function installMill(
             uid,
             gold: purse.gold,
             grain: purse.grain,
+            iron: purse.iron,
             mark: purse.mark,
             ration: !!hasRation.get(uid!),
           }
@@ -227,6 +236,7 @@ export function installMill(
     const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow', ...seedActions].includes(action);
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
+    if (action === 'supplyFair') fields.push(req.body.loaf, req.body.good);
     if (isFeast) fields.push(req.body.loaf, req.body.town);
     if (action === 'recallHarvestSeed' || action === 'acceptHarvestSeed') fields.push(req.body.lot);
     // Keep previously signed documents valid after the upgrade.
@@ -247,7 +257,10 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (action === 'millHarvestLoaf' || isFeast) {
+        if (action === 'supplyFair') {
+          fair.dispatch(city, req.body, me.displayName, now, weather(), bridgeClosed, good =>
+            transfer(me.uid, 0, good === 'zboze' ? -1 : 0, good === 'zelazo' ? -1 : 0));
+        } else if (action === 'millHarvestLoaf' || isFeast) {
           check(city === waybillTown, 'Młyn dożynkowy leży w Srebrnym Gaju.');
           if (action === 'millHarvestLoaf') field.millForFeast(me.uid,me.displayName,req.body.round,now,transfer);
           else field.feast.command(me.uid,me.displayName,req.body,now,weather(),bridgeClosed);
@@ -339,6 +352,7 @@ export function installMill(
     }
   });
   return {
+    fairBook: fair.book,
     transfer,
     settleGold: (uid: string, change: number) => transfer(uid, change, 0),
     useRation: (uid: string) =>

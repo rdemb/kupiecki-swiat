@@ -1,0 +1,158 @@
+.harvest-fair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, 1fr);
+  max-width: 78rem;
+  margin: auto;
+  background: #1a1713;
+  color: #f2ead8;
+  border: 1px solid #534532;
+}
+.fair-picture {
+  position: relative;
+  align-self: start;
+  margin: 0;
+  isolation: isolate;
+}
+.fair-frame {
+  width: 100%;
+  aspect-ratio: 1;
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+}
+.fair-scene-0 {
+  background-position: 0% 0%;
+}
+.fair-scene-1 {
+  background-position: 100% 0%;
+}
+.fair-scene-2 {
+  background-position: 0% 100%;
+}
+.fair-scene-3 {
+  background-position: 100% 100%;
+}
+.fair-picture figcaption {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  color: #fff6df;
+  background: #211a14ed;
+  padding: 0.4rem 0.7rem;
+  border-radius: 2px;
+  font:
+    600 0.84rem Georgia,
+    serif;
+  letter-spacing: 0.03em;
+}
+.harvest-fair .fair-pin {
+  position: absolute;
+  top: 67%;
+  z-index: 1;
+  background: #211a14eb;
+  color: #fff6df;
+  border: 1px solid #d4b578;
+  border-radius: 2px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+}
+.fair-zboze {
+  left: 5%;
+}
+.fair-zelazo {
+  right: 5%;
+}
+.fair-ledger {
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+.fair-ledger h1,
+.fair-order h2 {
+  font-family: Georgia, serif;
+  line-height: 1.1;
+  color: #f7e7c5;
+}
+.fair-ledger h1 {
+  font-size: clamp(1.9rem, 4vw, 3.5rem);
+  margin: 0 0 0.8rem;
+}
+.fair-ledger p {
+  line-height: 1.55;
+}
+.fair-ledger a {
+  color: #f4d59a;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.fair-orders {
+  margin: 1.25rem 0;
+}
+.fair-order {
+  padding: 1rem 0;
+  border-top: 1px solid #64553b;
+}
+.fair-order h2 {
+  font-size: 1.45rem;
+  margin: 0 0 0.4rem;
+}
+.fair-order h2:focus,
+.harvest-fair :focus-visible {
+  outline: 2px solid #eac37a;
+  outline-offset: 3px;
+}
+.fair-order dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 0.8rem;
+  font-size: 0.86rem;
+}
+.fair-order dt,
+.fair-order small {
+  color: #d9c9b2;
+}
+.fair-order dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.fair-order small,
+.fair-order progress {
+  display: block;
+  margin: 0.4rem 0;
+}
+.fair-order progress {
+  width: 100%;
+  height: 0.45rem;
+  accent-color: #cdb173;
+}
+.fair-order button {
+  background: #dfc59a;
+  color: #271c0d;
+  padding: 0.6rem 0.85rem;
+}
+.fair-order button:disabled {
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fair-frame {
+    animation: fair-arrival 0.65s ease-out;
+  }
+  @keyframes fair-arrival {
+    from {
+      filter: brightness(0.8);
+    }
+    to {
+      filter: brightness(1);
+    }
+  }
+}
+@media (max-width: 760px) {
+  .harvest-fair {
+    grid-template-columns: 1fr;
+  }
+  .fair-picture {
+    width: 100%;
+    max-width: 32rem;
+    justify-self: center;
+  }
+  .fair-ledger {
+    padding: 1.1rem;
+  }
+}

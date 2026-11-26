@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
+import { exerciseHarvestFair } from './harvest-fair-scenario.mjs';
+
 export async function exerciseCommonField({request, db, start, stop}) {
   const api = '/api/mill/srebrny_gaj';
   const read = token => request(api,200,undefined,token);
@@ -199,6 +201,7 @@ export async function exerciseCommonField({request, db, start, stop}) {
   assert.equal(served.carrier,'woznica_dozynkowy');
   assert.deepEqual((await request('/api/inn/'+port,200)).harvestTable,[]);
   assert.deepEqual((await request('/api/field/seed/'+served.seedLot,200)).steps.map(s=>s.id),[second.id,lot]);
+  await exerciseHarvestFair({request,db,start,stop,loaf,forge,port,marta,jan});
   // The other half measure combines with the next real harvest's contribution.
   const fourth=(await nextDay(24,0)).field.round;
   marta.token=(await request('/api/auth/login',200,marta.credentials)).token;

@@ -17,13 +17,14 @@ import { ReturnFreightDesk } from './ReturnFreight';
 import { LaunchBoard } from './LaunchBoard';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
+import { fairGoods, fairHref, isFairTown } from '../economy/harvestFair';
 import { HarvestTable } from './HarvestFeast';
 import { feastTowns, type FeastTown } from '../economy/harvestLoaf';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair';
 interface Props {
   city: string;
   token: string | null;
@@ -152,6 +153,10 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
+  if (tab === 'fair' && isFairTown(city)) return <main className="merchant-inn common-field">
+    <nav className="field-nav" aria-label="Drogi z jarmarku"><PortLink href={'?miejsce=karczma&miasto='+city+'#stol-dozynkowy'} go={()=>onTab('board',city)}>Do stołu w karczmie</PortLink><button onClick={onClose}>Na trakt</button></nav>
+    <MillHouse visit={onTab} room="fair" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
+  </main>;
   if (tab === 'feast') return <main className="merchant-inn common-field">
     <nav className="field-nav" aria-label="Drogi z piekarni"><button onClick={()=>onTab('field')}>Na wspólne pole</button><button onClick={()=>onTab('mill')}>Do młyna</button></nav>
     <MillHouse visit={onTab} room="feast" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
@@ -222,6 +227,14 @@ export default function MerchantInn({
               {tab === 'board' ? (
                 <>
                   {book.harvestTable && feastTowns.some(town=>town===city) && <HarvestTable visit={onTab} loaves={book.harvestTable}/>}
+                  {isFairTown(city) && <section className="feast-table">
+                    {book.fair?.opening && <><h3>Zamówienia przy stole</h3><ul>{fairGoods.map(good=>{
+                      const wagon = book.fair!.wagons.find(w=>w.good===good);
+                      const order = good==='zboze' ? 'Piekarz prosi o worek królewskiego zboża.' : 'Kowal prosi o partię rudy żelaza.';
+                      return <li key={good}>{order} {wagon ? (wagon.arrival<=book.boardAt ? 'Dowieziono' : 'W drodze')+' · '+wagon.carrier : 'Czeka na dostawcę.'}</li>;
+                    })}</ul></>}
+                    <PortLink href={fairHref(city)} go={()=>onTab('fair',city)}>{book.fair?.opening ? 'Zamówienia piekarza i kowala na placu' : 'Przejdź na plac dożynkowy'}</PortLink>
+                  </section>}
                   {book.launches?.returns && <ReturnFreightDesk orders={book.launches.returns} accounts={book.launches.freightAccounts ?? []} bids={book.launches.stallBids ?? []} token={token} login={onAccount}
                     yard={()=>onTab('shipyard')} refresh={read} update={page => {
                       ++seq.current;

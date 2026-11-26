@@ -9,6 +9,8 @@ import {
 } from '../economy/mill';
 import type { FreightCommand } from '../economy/waybills';
 import { PortLink } from './PortLink';
+import { HarvestFair } from './HarvestFair';
+import type { FairCommand } from '../economy/harvestFair';
 import { HarvestFeast, type FeastVisit } from './HarvestFeast';
 import type { FeastCommand } from '../economy/harvestLoaf';
 import { CommonField } from './CommonField';
@@ -16,14 +18,14 @@ import type { FieldCommand } from '../economy/commonField';
 import CarrierMutual from './CarrierMutual';
 import WaybillDesk from './WaybillDesk';
 const number = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-type Command = FieldCommand | FreightCommand | FeastCommand
+type Command = FieldCommand | FreightCommand | FeastCommand | FairCommand
   | { action: 'post'; quantity: number; price: number; purpose: Consignee }
   | { action: 'deliver'; order: number; quantity: number }
   | { action: 'cancel'; order: number }
   | { action: 'ration' };
 interface Props {
   visit: FeastVisit;
-  room?: 'mill' | 'freight' | 'mutual' | 'field' | 'feast';
+  room?: 'mill' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair';
   city: string;
   token: string | null;
   onAccount: () => void;
@@ -209,7 +211,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, visit, room = 
     +price < 1 ||
     +price > rules.maxPrice;
   return (
-    <section className="mill-house" aria-label={room==='feast' ? 'Piekarnia dożynkowa' : room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
+    <section className="mill-house" aria-label={room==='fair' ? 'Plac dożynkowy' : room==='feast' ? 'Piekarnia dożynkowa' : room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
       {loadError && (
         <p role="alert">
           Księga młyna jest chwilowo niedostępna. <button onClick={refresh}>Odśwież</button>
@@ -218,6 +220,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, visit, room = 
       {note && <p role="status">{note}</p>}
       {error && <p role="alert">{error}</p>}
       {!book && !loadError && <p>Młynarz otwiera księgę…</p>}
+      {book && room==='fair' && (book.fair ? <HarvestFair city={city} fair={book.fair} wallet={book.wallet} busy={busy} login={onAccount} sign={action} visit={visit}/> : <p role="alert">Księga jarmarku jest chwilowo niedostępna.</p>)}
       {book && room==='feast' && (book.feast ? <HarvestFeast visit={visit} feast={book.feast} book={book} busy={busy} login={onAccount} sign={action}/> : <p role="alert">Księga wypieków jest chwilowo niedostępna.</p>)}
       {book && room==='mutual' && (book.freight?.insurance ? <CarrierMutual funds={book.freight.insurance} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Kasa czeka na połączenie z księgą.</p>)}
       {book && room==='field' && (book.field ? <CommonField bakery={()=>visit('feast')} field={book.field} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Księga pola jest chwilowo niedostępna.</p>)}

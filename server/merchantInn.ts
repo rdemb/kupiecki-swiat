@@ -6,6 +6,7 @@ import { bridgeSite } from '../src/economy/bridge';
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, Request } from 'express';
+import { isFairTown, type FairBook } from '../src/economy/harvestFair';
 import { CITIES } from '../src/economy/economyEngine';
 import type { GuildInfo } from '../src/economy/gameData';
 import { convoyReduction, noticeKinds } from '../src/economy/merchantInn';
@@ -25,6 +26,7 @@ export function installMerchantInn(
   pilotBook: (uid: string | null) => PilotBook,
   launchBoard: (uid: string | null) => LaunchBoard,
   harvestTable: (city:string, now:number)=>import('../src/economy/harvestLoaf').Loaf[],
+  fairBook: (city:string, now:number)=>FairBook,
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -89,6 +91,7 @@ export function installMerchantInn(
         : [],
       boardAt,
       harvestTable:harvestTable(city,boardAt),
+      ...(isFairTown(city) ? {fair:fairBook(city,boardAt)} : {}),
       launches: city === 'krolewska_przystan' ? launchBoard(uid) : null,
       pilotage: city === 'krolewska_przystan' ? pilotBook(uid) : null,
       riverReports: city === bridgeSite ? riverReports(boardAt) : [],
