@@ -1,0 +1,48 @@
+.merchant-road,.road-film {position:fixed;inset:0;width:100%;height:100%;color:#fbf6e8;background:#151713}
+.merchant-road {isolation:isolate;z-index:20;display:flex;flex-direction:column;overflow-y:auto}
+.road-shot,.road-backdrop,.road-shade,.road-photo,.road-title-photo {position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.road-shot,.road-backdrop,.road-title-photo {z-index:-3}
+.road-backdrop,.road-photo,.road-title-photo {object-fit:cover;object-position:61% center;background-size:cover;background-position:61% center}
+.road-shot {animation:road-reveal .65s ease-out both;z-index:-2}
+.road-shade {z-index:-1;background:linear-gradient(90deg,#10120ed9 0%,#10120e93 25%,transparent 64%),linear-gradient(0deg,#0d100de8,transparent 36%,transparent 85%,#11130f55)}
+.road-head,.road-footer {display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:clamp(16px,3.4vw,54px) clamp(18px,5vw,88px)}
+.road-wordmark,.road-eyebrow {letter-spacing:.17em;text-transform:uppercase;color:#f0debb;font-size:.75rem;font-weight:650}
+.road-wordmark {font-family:Georgia,serif;font-size:clamp(.76rem,1.25vw,1.13rem)}
+.road-head-actions,.road-links {display:flex;align-items:center;gap:1em;flex-wrap:wrap}
+.road-chip {color:#fff8e7;background:#191a16cd;border:1px solid #c9b99683;border-radius:3px;padding:.52rem .94rem;cursor:pointer}
+.road-copy {margin:auto 0 0;padding:3rem clamp(18px,5vw,88px) 1.5rem;max-width:43rem}
+.road-text {animation:road-reveal .36s ease-out both}
+.road-copy h1,.road-title-heading {font-family:'Cinzel',Georgia,serif;line-height:1.02;font-weight:600;text-wrap:balance;color:#faf4e5;font-size:clamp(2.4rem,5.5vw,6rem);letter-spacing:-.04em;margin:.55rem 0 1rem;text-shadow:0 2px 16px #12120e70}
+.road-story {font:clamp(1rem,1.4vw,1.23rem)/1.55 Georgia,serif;color:#fff7e7;max-width:34rem;text-shadow:0 1px 4px #151711}
+.road-trade {display:flex;align-items:center;gap:1.5rem;margin:1.25rem 0 0;color:#fffaec}
+.road-trade b {display:block;font:600 1.06rem Georgia,serif}
+.road-trade span,.road-receipt {font-size:.78rem}
+.road-trade button,.road-primary {padding:.65rem 1rem;border:1px solid #dfcba7;background:#ecdbb8;color:#262117;border-radius:2px;font-weight:650;cursor:pointer}
+.road-trade button:disabled {opacity:.62}
+.road-receipt {display:block;min-height:1.35rem;color:#eee1c9}
+.road-links button {font-size:.82rem;text-decoration:underline;text-underline-offset:.23em;cursor:pointer;color:#f3e5cd}
+.road-footer {padding-top:.8rem;padding-bottom:clamp(1rem,3vw,2.8rem)}
+.road-footer nav {display:flex;flex-wrap:wrap;gap:.4rem 1.1rem}
+.road-footer nav button {min-height:36px;font:clamp(.94rem,1.4vw,1.15rem) Georgia,serif;color:#e0dacb;cursor:pointer;border-bottom:2px solid transparent}
+.road-footer nav button[aria-current] {color:#fff4da;border-color:#dfbf85}
+.road-inn,.road-film {margin:auto;border:1px solid #74694f;color:#f7efda}
+.road-inn {padding:1.5rem;width:min(33rem,93vw);max-height:82dvh;background:#22221c}
+.road-inn::backdrop,.road-film::backdrop {background:#080a08cf}
+.road-inn h2 {font:1.8rem Georgia,serif}.road-inn p {margin:.75rem 0;line-height:1.5}
+.road-inn ul {padding:0;list-style:none;margin-bottom:1rem}.road-inn li button {border-top:1px solid #bca27144;width:100%;padding:.5rem 0;display:flex;justify-content:space-between;gap:.5rem;text-align:left;cursor:pointer}.road-inn li span {font-size:.8rem;color:#d0bfa3}
+.road-film {z-index:60;max-width:none;max-height:none;border:none;background:#080907}
+.road-film video {width:100%;height:100%;object-fit:contain}.road-film-skip {position:absolute;right:4%;top:4%}.road-film p {position:absolute;left:5%;bottom:12%}
+.road-title-heading {font-size:clamp(2.9rem,5.8vw,5.8rem);margin:.25rem 0 .8rem}
+.road-title {isolation:isolate}.road-title::before {content:'';position:fixed;inset:0;z-index:-1;background:linear-gradient(90deg,#11110fec,#10120ed0 22%,#17181192 43%,transparent 73%),linear-gradient(0deg,#10130f60,transparent 60%)}
+.road-title-photo {position:fixed}
+.merchant-road button:focus-visible,.road-film button:focus-visible,.road-title :focus-visible {outline:2px solid #ffe2a6;outline-offset:3px}
+@keyframes road-reveal {from{opacity:0}to{opacity:1}}
+@media(max-width:720px){.road-copy{padding-top:4rem}.road-story{max-width:27rem}.road-footer{align-items:flex-start;flex-direction:column;gap:.45rem}.road-footer .road-links{align-self:flex-end}.road-shade{background:linear-gradient(0deg,#0b0e0dea 4%,#10100ed9 28%,#0b0e0d50 58%,transparent 78%,#11130f65)}.road-title::before{background:linear-gradient(90deg,#11110ee0, #11120eb0 52%,#11120e28),linear-gradient(0deg,#10120ed0,transparent 80%)}}
+@media(max-height:480px){.road-copy{padding-top:.65rem;padding-bottom:.35rem}.road-head,.road-footer{padding-top:.5rem;padding-bottom:.4rem}.road-copy h1{font-size:2rem;margin:.2rem 0}.road-trade{margin-top:.3rem}.road-story{font-size:.93rem}}
+@media(prefers-reduced-motion:reduce){.road-shot,.road-text{animation:none}}
+@media(max-width:720px){
+  .road-head{gap:.4rem}.road-wordmark{white-space:nowrap}.road-head-actions{flex-wrap:nowrap;gap:.35rem}.road-head-actions button{white-space:nowrap;font-size:.83rem;padding:.48rem .62rem}
+  .road-trade{gap:.65rem}.road-trade button{font-size:.88rem}
+  .road-photo,.road-backdrop{object-position:var(--portrait-focus,75%) center;background-position:var(--portrait-focus,75%) center}
+  .road-title-photo{object-position:76% center}
+}

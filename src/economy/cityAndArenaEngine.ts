@@ -185,7 +185,7 @@ const FROST_CITADEL_HOTSPOTS: CityHotspotSpec[] = [
 export const CITY_INTERIOR_SPECS: Record<string, CityInteriorSpec> = {
   krolewska_przystan: {
     cityId: 'krolewska_przystan',
-    backdropUrl: IMG_ROYAL_PLAZA,
+    backdropUrl: (import.meta.env?.BASE_URL ?? '/') + 'cinema/rynek.webp',
     atmosphere: 'gold_motes',
     districtTagline: 'Plac Złotej Wagi · Stolica Księstwa',
     welcomeLine: 'Dzwony portu wybijają otwarcie sesji. Na dziedzińcu krzyżują się szlaki sześciu kontynentów.',
@@ -197,7 +197,7 @@ export const CITY_INTERIOR_SPECS: Record<string, CityInteriorSpec> = {
   },
   srebrny_gaj: {
     cityId: 'srebrny_gaj',
-    backdropUrl: IMG_CITADEL_FALLBACK,
+    backdropUrl: (import.meta.env?.BASE_URL ?? '/') + 'cinema/trakt.webp',
     atmosphere: 'jade_petals',
     districtTagline: 'Dziedziniec Srebrnych Koron · Dolina Elfów',
     welcomeLine: 'Wśród kamiennych łuków pachnie żywicą elfickich dębów i atramentem runicznych skryptoriów.',
@@ -209,7 +209,7 @@ export const CITY_INTERIOR_SPECS: Record<string, CityInteriorSpec> = {
   },
   zelazna_kuznia: {
     cityId: 'zelazna_kuznia',
-    backdropUrl: IMG_FROST_CITADEL,
+    backdropUrl: (import.meta.env?.BASE_URL ?? '/') + 'cinema/kuznia.webp',
     atmosphere: 'frost_embers',
     districtTagline: 'Taras Wielkich Kowadeł · 1 150 m n.p.m.',
     welcomeLine: 'Rytmiczny łoskot młotów krasnoludzkich niesie się po ośnieżonych murach cytadeli.',

@@ -55,6 +55,7 @@ export interface ActiveCaravan3D {
 export type { CameraPresetId };
 
 interface World3DCanvasProps {
+  visible: boolean;
   towns:Town[];
   gameState: 'title' | 'playing' | 'paused' | 'gameover';
   selectedRegionId: string;
@@ -123,6 +124,7 @@ const _tmpWxColor = new THREE.Color();
 const _tmpSunPos = new THREE.Vector3();
 
 export const World3DCanvas: React.FC<World3DCanvasProps> = ({
+  visible,
   gameState, towns,
   selectedRegionId,
   selectedContinentId,
@@ -144,6 +146,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 }) => {
   const townsRef=useRef(towns);
   townsRef.current=towns;
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const mountRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const eventLabelRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -861,6 +865,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     function tick() {
       if(lastTowns!==townsRef.current){lastTowns=townsRef.current;settlements.update(lastTowns); }
       if (disposed) return;
+      if (!visibleRef.current || document.hidden) {
+        frameId = window.setTimeout(tick, 180);
+        return;
+      }
       const nowMs = performance.now();
       const dt = Math.min((nowMs - prevTimeMs) / 1000, 0.05);
       prevTimeMs = nowMs;

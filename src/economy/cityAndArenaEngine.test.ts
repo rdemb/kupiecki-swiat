@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { CITIES } from './economyEngine';
 import type { LeaderboardEntry } from './gameData';
 import {
@@ -69,7 +70,8 @@ describe('City Interiors catalog for all 12 capitals', () => {
     for (const city of CITIES) {
       const spec = CITY_INTERIOR_SPECS[city.id];
       assert.ok(spec, `Missing city interior spec for ${city.id}`);
-      assert.ok(spec.backdropUrl.startsWith('/src/assets/images/'));
+      const artRoot = spec.backdropUrl.startsWith('/cinema/') ? 'public' : '.';
+      assert.ok(existsSync(artRoot + spec.backdropUrl), `Missing backdrop for ${city.id}`);
       assert.equal(spec.hotspots.length, 5, `Expected 5 hotspots in ${city.id}`);
       assert.ok(spec.hotspots.some((h) => h.id === 'arena'), `Missing arena hotspot in ${city.id}`);
       assert.ok(spec.hotspots.some((h) => h.id === 'market'), `Missing market hotspot in ${city.id}`);

@@ -36,10 +36,11 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
   return {
     castleStone: new THREE.MeshStandardMaterial({
       map: textures.castleStone,
-      normalMap: textures.rockNormal,
+      normalMap: textures.masonryNormal,
+      roughnessMap: textures.masonryRoughness,
       normalScale: new THREE.Vector2(0.75, 0.75),
-      roughness: 0.82,
-      metalness: 0.08,
+      roughness: 1,
+      metalness: 0,
     }),
     sandstoneBrick: new THREE.MeshStandardMaterial({
       map: textures.sandstoneWall,

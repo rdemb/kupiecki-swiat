@@ -1,5 +1,5 @@
 import { gameRequest, gameSocketUrl } from './utils/gameServer';
-import { imageUrl } from './utils/imageUrl';
+import { MerchantRoad, OpeningFilm, cinemaFile, quietPictures, roadStops, type RoadStop, type RoadPanel } from './components/MerchantRoad';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -253,7 +253,10 @@ export default function App() {
   const [showWorldLabels, setShowWorldLabels] = useState<boolean>(true);
   const [muted, setMuted] = useState<boolean>(false);
   const [showCinematicIntro, setShowCinematicIntro] = useState<boolean>(false);
-  const [cinematicSceneIdx, setCinematicSceneIdx] = useState<number>(0);
+  const [onRoad, setOnRoad] = useState(false);
+  const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
+  const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart);
+  const playedIntro = useRef(false);
   const [cityInteriorOpen, setCityInteriorOpen] = useState<boolean>(false);
   const [cityInteriorMode, setCityInteriorMode] = useState<'plaza' | 'arena'>('plaza');
   const [arenaWins, setArenaWins] = useState<number>(0);
@@ -796,7 +799,8 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+      if (document.querySelector('dialog[open]') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+      if (['BUTTON', 'SUMMARY', 'A'].includes(tag) && (e.key === 'Enter' || e.key === ' ')) return;
 
       if (gameState === 'title' && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
@@ -821,13 +825,44 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [gameState, showCinematicIntro, activeTrailEvent]);
+  }, [gameState, showCinematicIntro, activeTrailEvent, selectedRaceId, backendUsername, firebaseUser]);
 
-  const handleStartGame = () => {
+  const visitStop = (stop: RoadStop) => {
+    setRoadStop(stop);
+    setSelectedCityId(stop.city);
+    setSelectedRegionId(stop.city);
+    setSelectedContinentId('stary_kontynent');
+    setSelectedCommodityId(stop.commodity);
+    setCinematicTourActive(false);
+    setOnRoad(true);
+  };
+
+  const openRoadPanel = (tab: RoadPanel, city = roadStop.city as string) => {
+    const region = WORLD_REGIONS.find(r => r.linkedCityId === city);
+    setSelectedCityId(city);
+    if (region) {
+      setSelectedRegionId(region.id);
+      setSelectedContinentId(region.continentId);
+    }
+    setHasOpenedMap(true);
+    setOnRoad(false);
+    setActiveTab(tab);
+    setDockCollapsed(false);
+  };
+
+  const handleStartGame = (account = false) => {
     const race = RACES.find((r) => r.id === selectedRaceId) ?? RACES[0];
     if (!backendUsername && !firebaseUser) {
       setPlayerGold(race.startingCapital);
       setKnight(createInitialKnightState(race.id));
+    }
+    if (account) openRoadPanel('profile');
+    else {
+      visitStop(roadStops[0]);
+      if (!playedIntro.current && !quietPictures()) {
+        playedIntro.current = true;
+        setShowCinematicIntro(true);
+      }
     }
     document.body.dataset.state = 'playing';
     setGameState('playing');
@@ -847,7 +882,7 @@ export default function App() {
     const st = markets[params.commodityId];
     if (!st) return;
     const spot = st.cityPrices[params.cityId] ?? st.currentPrice;
-    const effectiveTaxPct = macro.dynamicTaxRatePct * (1 - techModifiers.spreadRebate);
+    const effectiveTaxPct = tradeTaxPct;
     const unitPrice =
       params.side === 'buy'
         ? spot * (1 + st.spreadPct / 200)
@@ -2364,12 +2399,18 @@ export default function App() {
     backendUid,
   ]);
 
+  const tradeTaxPct = macro.dynamicTaxRatePct * (1 - techModifiers.spreadRebate);
+  const stopMarket = markets[roadStop.commodity];
+  const stopSpot = stopMarket.cityPrices[roadStop.city] ?? stopMarket.currentPrice;
+  const stopBuyPrice = stopSpot * (1 + stopMarket.spreadPct / 200) * (1 + tradeTaxPct / 100);
+  const showMap = gameState !== 'title' && !onRoad;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#080b10] select-none">
       {/* Persistent 3D World WebGL Canvas (Isolated Container) */}
-      <World3DCanvas
+      {hasOpenedMap && <div hidden={!showMap}><World3DCanvas
+        visible={showMap}
         towns={provinces.data.towns}
         gameState={gameState}
         selectedRegionId={selectedRegionId}
@@ -2398,60 +2439,21 @@ export default function App() {
         playerDragonStage={dragonBonuses.activeStage}
         cinematicTourActive={cinematicTourActive}
         onTourContinentChange={setTourContinentId}
-      />
+      /></div>}
 
       {/* ==================== 1. CLEAN REAL-TIME 3D TITLE SCREEN OVERLAY ==================== */}
       {gameState === 'title' && (
-        <div className="fixed inset-0 z-30 flex flex-col items-start overflow-y-auto overscroll-contain px-6 md:px-16 bg-gradient-to-r from-[#05080d]/95 via-[#05080d]/80 to-transparent">
-          <div className="relative z-10 my-auto max-w-xl w-full shrink-0 py-6 space-y-4">
-            {/* Custom Inline SVG Heraldic Emblem & Title Lockup */}
-            <div className="flex items-center gap-4">
-              <svg
-                viewBox="0 0 72 72"
-                className="w-16 h-16 shrink-0"
-                role="img"
-                aria-label="Herb Kupieckiego Świata"
-              >
-                <polygon
-                  points="36,4 64,18 64,52 36,68 8,52 8,18"
-                  fill="#0c131f"
-                  stroke="#d4af37"
-                  strokeWidth="2.5"
-                />
-                <line x1="22" y1="24" x2="22" y2="48" stroke="#10b981" strokeWidth="2" />
-                <rect x="19" y="30" width="6" height="12" fill="#10b981" />
-                <line x1="36" y1="16" x2="36" y2="50" stroke="#d4af37" strokeWidth="2.5" />
-                <rect x="32" y="22" width="8" height="18" fill="#d4af37" />
-                <line x1="50" y1="22" x2="50" y2="46" stroke="#f43f5e" strokeWidth="2" />
-                <rect x="47" y="27" width="6" height="11" fill="#f43f5e" />
-                <path
-                  d="M16 54 Q36 62 56 54"
-                  fill="none"
-                  stroke="#f8fafc"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              <div>
-                <h1 className="font-display text-3xl md:text-4xl font-extrabold tracking-tight text-white">
-                  KUPIECKI ŚWIAT 3D
-                </h1>
-                <p className="text-sm font-medium text-amber-400">
-                  6 Kontynentów · 12 Stolic Handlowych · 4 Pory Roku, Hodowla Smoków i Katastrofy
-                </p>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-200 leading-relaxed">
-              Żegluj między sześcioma kontynentami — od Starego Kontynentu po pustynie Solarii, lodowce Frostheimu, pagody Aetheris, wodospady Valorii i wulkany Archipelagu Obsydianowego. Handluj w rytmie 4 pór roku, hoduj żywiołowe smoki i reaguj na katastrofy świata!
-            </p>
-
+        <div className="road-title fixed inset-0 z-30 flex flex-col items-start overflow-y-auto overscroll-contain px-6 md:px-16">
+          <img className="road-title-photo" src={cinemaFile('rynek.webp')} fetchPriority="high" alt="" />
+          <div className="relative z-10 my-auto max-w-lg w-full shrink-0 py-6 space-y-4 text-white">
+            <p className="road-eyebrow">Stary Kontynent · Królewska Przystań</p>
+            <h1 className="road-title-heading">Kupiecki Świat</h1>
+            <p className="road-story">U bramy przystani masz sakwę i pierwszy wóz. Od ciebie zależy, czy na końcu tego traktu stanie twoje miasto.</p>
             {/* Choose Starting Faction / Race from Original Kupiecki Świat */}
-            <div className="space-y-1.5">
-              <div className="text-xs font-semibold text-slate-300">
-                Wybierz Frakcję Kupiecką (5 Ras Oryginału):
-              </div>
+            <details className="space-y-1.5">
+              <summary className="cursor-pointer py-2 text-sm text-amber-100">
+                Frakcja · {RACES.find(r => r.id === selectedRaceId)?.name}
+              </summary>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {RACES.map((race) => {
                   const active = race.id === selectedRaceId;
@@ -2481,25 +2483,22 @@ export default function App() {
                   );
                 })}
               </div>
-            </div>
+            </details>
 
             {/* Primary Start CTA + Account Login / Cinematic Trailer Buttons */}
             <div className="pt-1 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 data-start="true"
-                onClick={handleStartGame}
-                className="min-h-[48px] px-7 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm tracking-wide transition-transform active:scale-95 cursor-pointer"
+                onClick={() => handleStartGame()}
+                className="road-primary min-h-[48px]"
               >
-                Wkrocz do Kupieckiego Świata (Enter)
+                Wkrocz na targ
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  handleStartGame();
-                  setActiveTab('profile');
-                }}
+                onClick={() => handleStartGame(true)}
                 className="min-h-[48px] px-4 py-2.5 rounded-lg bg-[#0c1118]/95 hover:bg-slate-800 border border-amber-500/50 text-amber-300 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Logowanie / Rejestracja Konta
@@ -2508,98 +2507,32 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setCinematicSceneIdx(0);
+                  playedIntro.current = true;
                   setShowCinematicIntro(true);
                 }}
                 className="min-h-[48px] px-4 py-2.5 rounded-lg bg-[#0c1118]/95 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
               >
-                Zwiastun Filmowy (Cinematic)
+                Obejrzyj prolog
               </button>
             </div>
 
-            {/* Single Flat Control-Hint Line */}
-            <div className="pt-1 text-xs text-slate-400">
-              WASD / Mysz Kamera 3D · Kliknij Miasto na Mapie · H Zwiń/Rozwiń Panel · M Dźwięk · Esc Pauza
-            </div>
           </div>
         </div>
       )}
 
-      {/* ==================== CINEMATIC INTRO STORY TRAILER MODAL ==================== */}
-      {showCinematicIntro && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4"
-        >
-          <div className="relative max-w-4xl w-full bg-[#090d14] border border-amber-500/50 rounded-xl overflow-hidden shadow-2xl">
-            <div className="relative h-80 sm:h-96 overflow-hidden">
-              <img
-                src={
-                  cinematicSceneIdx === 0
-                    ? imageUrl('cinematic_title_backdrop_1795641276504.jpg')
-                    : imageUrl('cinematic_city_citadel_1795641277369.jpg')
-                }
-                alt="Scena filmowa Kupieckiego Świata"
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover transition-transform duration-1000 scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#090d14] via-[#090d14]/40 to-transparent" />
-              <div className="absolute bottom-4 left-6 right-6 space-y-2">
-                <div className="text-xs font-bold text-amber-400 tracking-wider">
-                  {cinematicSceneIdx === 0
-                    ? 'ROZDZIAŁ I: ZŁOTE SZLAKI I GIEŁDA KRÓLEWSKIEJ PRZYSTANI'
-                    : 'ROZDZIAŁ II: ZAKON RYCERZY I WYPRAWY W MIEJSCA STRACHU'}
-                </div>
-                <h2 className="font-display text-2xl font-bold text-white">
-                  {cinematicSceneIdx === 0
-                    ? 'Pory Roku, Żniwa i Wielka Wymiana Kupiecka'
-                    : 'Stal, Mithril i Potyczki Turowe z Bestiami'}
-                </h2>
-                <p className="text-sm text-slate-200 max-w-2xl">
-                  {cinematicSceneIdx === 0
-                    ? 'Gdy jesienne żniwa zapełniają spichlerze Królewskiej Przystani, a zimowe zamiecie odcinają górskie przełęcze Żelaznej Kuźni, mądrzy kupcy wystawiają swoje towary na tablicy giełdowej i wysyłają wozy przez 5 krain.'
-                    : 'Lecz szlaki nie są bezpieczne. Zuchwali Rebelianci, Pradawne Golemy i Ognisty Smok Ignis z Krwawego Szczytu czyhają na bogactwa. Szkól swojego Rycerza, wykuwaj broń i zdobywaj legendarne łupy w bitwach turowych!'}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 flex items-center justify-between bg-[#0c1118] border-t border-slate-800">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCinematicSceneIdx(0)}
-                  className={`px-3 py-1.5 rounded text-xs font-semibold cursor-pointer ${
-                    cinematicSceneIdx === 0 ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  Scena 1: Handel i Pory Roku
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCinematicSceneIdx(1)}
-                  className={`px-3 py-1.5 rounded text-xs font-semibold cursor-pointer ${
-                    cinematicSceneIdx === 1 ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  Scena 2: Rycerz i Miejsca Strachu
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowCinematicIntro(false)}
-                className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer"
-              >
-                Przejdź do Gry
-              </button>
-            </div>
-          </div>
-        </div>
+      {showCinematicIntro && <OpeningFilm onClose={() => setShowCinematicIntro(false)} muted={muted} />}
+      {onRoad && gameState === 'playing' && !showCinematicIntro && (
+        <MerchantRoad
+          stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
+          towns={provinces.data.towns} registerError={provinces.error}
+          onTravel={visitStop} onMenu={openRoadPanel}
+          onBuy={commodityId => void handleExecuteTrade({ commodityId, quantity: 1, side: 'buy', cityId: roadStop.city })}
+          onFilm={() => setShowCinematicIntro(true)}
+        />
       )}
 
       {/* ==================== 2. PLAYING HUD (WORLD-MATCHED, LOW-OCCLUSION) ==================== */}
-      {gameState !== 'title' && (
+      {showMap && (
         <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-3 md:p-4">
           {/* Top Perimeter Bar */}
           <div className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-2">
@@ -2662,6 +2595,9 @@ export default function App() {
 
             {/* Top-Right Cluster: Camera Presets, Time-of-Day, PBR Weather, Trail Events & Controls */}
             <div className="pointer-events-auto flex items-center gap-1 bg-[#0c1118]/95 border border-slate-800 rounded-lg p-1 shadow-lg">
+              <button className="road-chip text-xs" onClick={() => visitStop(roadStops.find(stop => stop.city === selectedCityId) ?? roadStop)}>
+                Na trakt
+              </button>
               {/* 3D Camera Preset Switcher */}
               <div className="hidden lg:flex items-center gap-0.5 pr-1 border-r border-slate-800">
                 {(
@@ -3269,7 +3205,7 @@ export default function App() {
                     }}
                     onManualSyncToBackend={() => syncProfileToCloudAndBackend()}
                     onOpenCinematicIntro={() => {
-                      setCinematicSceneIdx(0);
+                      playedIntro.current = true;
                       setShowCinematicIntro(true);
                     }}
                   />

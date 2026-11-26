@@ -4,6 +4,12 @@ Wielokontynentalna gra ekonomiczno-strategiczna i turowe RPG osadzona w uniwersu
 
 ---
 
+## Pierwszy szlak
+
+[Zagraj w Kupiecki Świat](https://rdemb.github.io/kupiecki-swiat/). Po wybraniu „Wkrocz na targ” otwiera się prolog, a potem Plac Złotej Wagi. Można od razu kupić towar do ładowni lub przejść do Srebrnego Gaju i Żelaznej Kuźni. Zajazd pokazuje okręgi i ogłoszone lokacje z serwera. Wybranie okręgu prowadzi do kancelarii ziemskiej. Pomysł na zajazd pochodzi z [FAQ dawnego Kupieckiego Świata](https://kupiecki-swiat.wikidot.com/faq).
+
+Prolog ma 20 sekund, własną ścieżkę dźwiękową i polskie opisy dźwięków. Cztery kadry źródłowe powstały w ImageGen. Przedstawiają sakwę z monetami, poranny plac handlowy, most z wozem drewna i warsztat kowala. Animowane sceny i montaż można odtworzyć z plików WebP w `public/cinema` poleceniem `python scripts/render-cinematics.py` po zainstalowaniu NumPy, OpenCV i FFmpeg. Ustawienia ograniczonego ruchu lub oszczędzania danych wyłączają automatyczne odtwarzanie na wejściu. Mapa 3D korzysta z [materiałów Poly Haven na licencji CC0](public/materials/SOURCES.txt).
+
 ## Najważniejsze Funkcje
 
 ### 1. Sześć Kontynentów, 26 Regionów i 12 Stolic Handlowych w Świecie 3D PBR

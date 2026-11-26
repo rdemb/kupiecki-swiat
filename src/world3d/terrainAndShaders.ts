@@ -16,6 +16,8 @@ export interface WorldTexturePack {
   alpineRock: THREE.Texture;
   cobblestone: THREE.Texture;
   castleStone: THREE.Texture;
+  masonryNormal: THREE.Texture;
+  masonryRoughness: THREE.Texture;
   slateRoof: THREE.Texture;
   forestFoliage: THREE.Texture;
   desertSand: THREE.Texture;
@@ -106,9 +108,9 @@ export function loadWorldTextures(
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
   const loader = new THREE.TextureLoader();
 
-  const loadTex = (url: string, repeatX: number, repeatY: number): THREE.Texture => {
+  const loadTex = (url: string, repeatX: number, repeatY: number, space: THREE.ColorSpace = THREE.SRGBColorSpace): THREE.Texture => {
     const tex = loader.load(url, (loaded) => {
-      loaded.colorSpace = THREE.SRGBColorSpace;
+      loaded.colorSpace = space;
       loaded.wrapS = THREE.RepeatWrapping;
       loaded.wrapT = THREE.RepeatWrapping;
       loaded.repeat.set(repeatX, repeatY);
@@ -118,7 +120,7 @@ export function loadWorldTextures(
       loaded.needsUpdate = true;
       onReady?.();
     });
-    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.colorSpace = space;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(repeatX, repeatY);
@@ -126,15 +128,18 @@ export function loadWorldTextures(
     return tex;
   };
 
+  const scans = (import.meta.env?.BASE_URL ?? '/') + 'materials/';
   const { bump: rockBump, normal: rockNormal } = createProceduralDetailBumpAndNormal();
   rockBump.anisotropy = maxAniso;
   rockNormal.anisotropy = maxAniso;
 
   return {
-    meadowGrass: loadTex(imageUrl('pbr_meadow_grass_seamless_1795643330436.jpg'), 28, 28),
+    meadowGrass: loadTex(scans + 'laka.webp', 28, 28),
     alpineRock: loadTex(imageUrl('pbr_alpine_rock_seamless_1795643331475.jpg'), 24, 24),
-    cobblestone: loadTex(imageUrl('seamless_cobblestone_terrain_1795641277001.jpg'), 32, 32),
-    castleStone: loadTex(imageUrl('pbr_castle_stone_seamless_1795643331714.jpg'), 3, 2),
+    cobblestone: loadTex(scans + 'bruk.webp', 32, 32),
+    castleStone: loadTex(scans + 'mur.webp', 3, 2),
+    masonryNormal: loadTex(scans + 'mur-normal.webp', 3, 2, THREE.NoColorSpace),
+    masonryRoughness: loadTex(scans + 'mur-szorstkosc.webp', 3, 2, THREE.NoColorSpace),
     slateRoof: loadTex(imageUrl('pbr_slate_roof_seamless_1795643331651.jpg'), 2, 2),
     forestFoliage: loadTex(imageUrl('pbr_forest_foliage_seamless_1795643350683.jpg'), 2, 2),
     desertSand: loadTex(imageUrl('pbr_desert_sand_seamless_1795644303427.jpg'), 26, 26),
