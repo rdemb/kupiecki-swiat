@@ -1,3 +1,4 @@
+import type { FreightBook } from './waybills';
 export const millRules = {
   orderHours: 24,
   maxSacks: 300,
@@ -29,6 +30,7 @@ export interface MillOrder {
   expires: number;
 }
 export interface MillBook {
+  freight?: FreightBook;
   flour: number;
   grain: number;
   treasury: number;

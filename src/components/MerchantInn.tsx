@@ -14,7 +14,7 @@ import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'freight';
 interface Props {
   city: string;
   token: string | null;
@@ -145,11 +145,11 @@ export default function MerchantInn({
     <main className="merchant-inn">
       <header
         className="inn-hero"
-        style={{ backgroundImage: 'url(' + cinemaFile(tab==='mill'?'mlyn.webp':'gospoda.webp') + ')' }}
+        style={{ backgroundImage: 'url(' + cinemaFile(tab==='freight'?'list-przewozowy.webp':tab==='mill'?'mlyn.webp':'gospoda.webp') + ')' }}
       >
         <div className="inn-heading">
           <span>{CITIES.find((c) => c.id === city)?.name}</span>
-          <h1>{tab==='mill'?'Młyn miejski':getCityInteriorSpec(city).tavernName}</h1>
+          <h1>{tab==='freight'?'Listy przewozowe':tab==='mill'?'Młyn miejski':getCityInteriorSpec(city).tavernName}</h1>
         </div>
         <button onClick={onClose}>Wróć do gry</button>
       </header>
@@ -175,11 +175,12 @@ export default function MerchantInn({
               Stół gildii
             </button>
             <button aria-pressed={tab==='mill'} onClick={()=>{onTab('mill');setReceipt('');}}>Kontrakty i młyn</button>
+            <button aria-pressed={tab==='freight'} onClick={()=>{onTab('freight');setReceipt('');}}>Listy przewozowe</button>
             <button onClick={()=>onTab('bridge')}>Most w Srebrnym Gaju</button>
           </nav>
           <span>{WEATHER_CONDITIONS[weather].name}</span>
         </div>
-        <InnGuide key={tab} cue={tab === 'board' ? 'karczma' : tab==='mill'?'mlyn':'gildia'} muted={muted} />
+        <InnGuide key={tab} cue={tab === 'freight' ? 'przewozy' : tab === 'board' ? 'karczma' : tab==='mill'?'mlyn':'gildia'} muted={muted} />
         {error && <p role="alert">{error}</p>}
         {readError && (
           <p role="alert">
@@ -188,8 +189,8 @@ export default function MerchantInn({
         )}
         {receipt && <p role="status">{receipt}</p>}
         {!book && !readError && <p>Karczmarz przynosi księgę…</p>}
-        {tab==='mill' && <MillHouse city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}
-        {!!book && tab!=='mill' && (
+        {(tab==='mill' || tab==='freight') && <MillHouse key={tab} isFreight={tab==='freight'} city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}
+        {!!book && tab!=='mill' && tab!=='freight' && (
           <div className="inn-spread">
             <section>
               {tab === 'board' ? (

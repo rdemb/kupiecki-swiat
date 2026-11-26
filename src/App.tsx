@@ -229,7 +229,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most';
+  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -270,10 +270,15 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const [inn,setInn]=useState<InnVisit|null>(startAtInn?{city:place==='most'?'srebrny_gaj':'krolewska_przystan',tab:place==='most'?'bridge':place==='gildia'?'guild':place==='mlyn'?'mill':'board'}:null);
+  const atRiver = place === 'most' || place === 'przewozy';
+  const innArrival: Record<string, InnTab> = { most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight' };
+  const [inn,setInn] = useState<InnVisit|null>(startAtInn ? {
+    city: atRiver ? 'srebrny_gaj' : 'krolewska_przystan',
+    tab: innArrival[place ?? ''] ?? 'board',
+  } : null);
   const innAfterLogin=useRef<InnVisit|null>(null);
   const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
-  const [roadStop, setRoadStop] = useState<RoadStop>(place==='most'?roadStops[1]:roadStops[0]);
+  const [roadStop, setRoadStop] = useState<RoadStop>(atRiver?roadStops[1]:roadStops[0]);
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
   const [coastView,setCoastView] = useState(startAtCoast);
   const [coastTracking,setCoastTracking] = useState(false);
@@ -2620,7 +2625,7 @@ export default function App() {
         </React.Suspense>
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
-        <MerchantInn onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({...inn,tab})}
+        <MerchantInn onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({city:tab==='freight'?'srebrny_gaj':inn.city,tab})}
           muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>setInn(null)}
           onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
       </React.Suspense>}

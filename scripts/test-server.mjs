@@ -473,5 +473,88 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     await rainySeason();
     const nextFlood=await watch();
     assert.equal(nextFlood.cycle,cycle+1);assert.equal(nextFlood.loads.length,0);assert.equal(nextFlood.openings.length,1);
+
+    {
+      // A merchant, a grower and a carrier use real accounts on a private copy of the game.
+      const destination='/api/mill/srebrny_gaj';
+      const desk=token=>request(destination,200,undefined,token);
+      const job=(token,action,params={},status=200)=>request(destination,status,{action,nonce:randomUUID(),...params},token);
+      const buyer=(await request('/api/auth/login',200,first)).token;
+      const growerProfile={username:'dostawca_zboza',password:randomUUID()};
+      const grower=(await request('/api/auth/register',201,growerProfile)).token;
+      const driverProfile={username:'przewoznik_zboza',password:randomUUID()};
+      const driver=(await request('/api/auth/register',201,driverProfile)).token;
+      const [originBuyer,originGrower,originDriver]=await Promise.all([buyer,grower,driver].map(desk));
+      const orderTerms={quantity:8,price:20,wage:18};
+      const manifest={...orderTerms,nonce:randomUUID()};
+      await job(null,'commission',manifest,401);
+      await job(buyer,'commission',{...manifest,quantity:21},409);
+      const posted=await job(buyer,'commission',manifest);
+      const ticket=posted.freight.bills[0].id,item={bill:ticket};
+      assert.equal(posted.wallet.gold,originBuyer.wallet.gold-178);
+      assert.equal((await job(buyer,'commission',manifest)).wallet.gold,posted.wallet.gold);
+      await job(buyer,'commission',{...manifest,wage:21},409);
+      await job(buyer,'seal',item,409);
+      await job(driver,'depart',{...item,road:'detour'},409);
+      const sealed=await job(grower,'seal',item);
+      assert.equal(sealed.wallet.grain,originGrower.wallet.grain-8);
+      assert.equal(sealed.wallet.gold,originGrower.wallet.gold);
+      assert.equal(sealed.flour,originGrower.flour);
+      await job(driver,'seal',item,409);
+      await job(driver,'withdraw',item,409);
+      await job(driver,'depart',{...item,road:'bridge'},409);
+      const launch={...item,road:'detour',nonce:randomUUID()};
+      const rolling=await job(driver,'depart',launch);
+      const route=rolling.freight.bills.find(b=>b.id===ticket);
+      assert.equal(route.status,'rolling');assert.equal(route.road,'detour');
+      const weatherDelay=rolling.freight.weather==='ulewne_deszcze'?8:rolling.freight.weather==='zamiec_i_mroz'?14:0;
+      assert.equal(route.due-route.departed,(24+8+weatherDelay+25)*1000);
+      assert.deepEqual((await job(driver,'depart',launch)).freight.bills[0],route);
+      assert.equal(rolling.freight.receipts.length,0);
+      assert.equal(rolling.flour,originGrower.flour);
+      assert.equal(rolling.wallet.gold,originDriver.wallet.gold);
+      await job(buyer,'withdraw',item,409);
+      const extra=await job(buyer,'commission',orderTerms);
+      const otherBill=extra.freight.bills[0].id;
+      await job(grower,'seal',{bill:otherBill});
+      await job(driver,'depart',{bill:otherBill,road:'detour'},409);
+      await order(driver,'dispatch',{town:forest,cargo:'handel'},400);
+      const undone=await job(buyer,'withdraw',{bill:otherBill});
+      assert.equal(undone.wallet.gold,posted.wallet.gold);
+      assert.equal((await desk(grower)).wallet.grain,sealed.wallet.grain);
+      const exp=await job(buyer,'commission',orderTerms);
+      const expires=exp.freight.bills[0].id;
+      await job(grower,'seal',{bill:expires});
+      testDb.prepare('UPDATE grainWaybills SET expires=0 WHERE id IN (?,?)').run(ticket,expires);
+      assert.equal((await desk(grower)).wallet.grain,sealed.wallet.grain);
+      assert.equal((await desk(buyer)).wallet.gold,posted.wallet.gold);
+      // A signed trip survives the expiry of its order and the disappearance of all clients.
+      await stop();
+      testDb.prepare('UPDATE grainWaybills SET due=? WHERE id=?').run(Date.now()-1,ticket);
+      await start();
+      const login=async(profile)=>(await request('/api/auth/login',200,profile)).token;
+      const [buyer2,grower2,driver2]=await Promise.all([first,growerProfile,driverProfile].map(login));
+      const received=await desk(driver2);
+      assert.equal(received.wallet.gold,originDriver.wallet.gold+18);
+      assert.equal((await desk(grower2)).wallet.gold,originGrower.wallet.gold+160);
+      assert.equal((await desk(buyer2)).wallet.gold,posted.wallet.gold);
+      assert.equal(received.flour,originGrower.flour+6);
+      assert.equal(received.grain,originGrower.grain);
+      assert.equal(received.freight.bills.length,0);
+      const receipt=received.freight.receipts[0];
+      assert.equal(receipt.id,ticket);assert.equal(receipt.road,'detour');assert.equal(receipt.driverName,route.driverName);
+      assert.equal((await desk()).wallet,null);
+      assert.equal((await desk(driver2)).wallet.gold,received.wallet.gold);
+      // Open span: two competing carriers cannot claim the same load, including after a repeat.
+      testDb.exec("UPDATE bridgeState SET damaged=0,opened=9000000000000");
+      const last=await job(buyer2,'commission',{quantity:1,price:3,wage:2});
+      const lastId=last.freight.bills[0].id;
+      await job(grower2,'seal',{bill:lastId});
+      const claims=await Promise.all([driver2,grower2].map(token=>fetch(base+destination,{method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({action:'depart',nonce:randomUUID(),bill:lastId,road:'bridge'})})));
+      assert.deepEqual(claims.map(r=>r.status).sort(),[200,409]);
+      assert.equal((await desk()).freight.bills[0].road,'bridge');
+    }
   } finally {testDb.close();}
 });

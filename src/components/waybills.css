@@ -1,0 +1,84 @@
+.waybill-weather,
+.freight-seal,
+.load-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.waybill-weather {
+  align-items: baseline;
+  border-block: 1px solid #74654e;
+  padding: 0.8rem 0;
+  margin-bottom: 1.1rem;
+}
+.waybill-weather span,
+.freight-seal,
+.freight-slip small,
+.load-ends,
+.freight-receipts span {
+  font: 500 0.8rem/1.5 system-ui;
+  color: #5c513e;
+}
+.freight-slip {
+  padding: 1rem 0.9rem;
+  border-left: 3px solid #98733a;
+  margin: 0.7rem 0 1.25rem;
+  background: #ddd1b920;
+}
+.freight-seal {
+  letter-spacing: 0.045em;
+  border-bottom: 1px solid #b8aa90;
+  padding-bottom: 0.35rem;
+}
+.freight-slip h3 {
+  margin: 0.65rem 0 0.35rem;
+}
+.freight-slip small,
+.freight-receipts span {
+  display: block;
+}
+.freight-slip button,
+.waybill-desk aside button {
+  margin-top: 0.55rem;
+}
+.freight-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.load-route {
+  padding: 0.65rem 0 0;
+}
+.load-track {
+  height: 2px;
+  margin: 0.55rem 0.7rem 0.8rem;
+  background: #897b61;
+  position: relative;
+}
+.load-track span {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #324333;
+  color: #fff8e5;
+  transition: left 0.5s linear;
+}
+.freight-receipts {
+  padding: 0;
+  list-style: none;
+}
+.freight-receipts li {
+  border-bottom: 1px solid #b8aa90;
+  padding: 0.65rem 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .load-track span {
+    transition: none;
+  }
+}

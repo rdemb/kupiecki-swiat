@@ -1145,10 +1145,14 @@ async function startServer() {
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount);
   const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds);
-  const mill = installMill(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex]);
-  mill.advanceTowns();
+  const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
+    bridge.advance(now);
+    return bridge.sign().damaged;
+  });
   const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],mill.settleGold);
   installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation, bridge);
+
+  mill.advanceTowns();
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {

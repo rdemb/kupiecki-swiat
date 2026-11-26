@@ -1,3 +1,4 @@
+import { wagonHaulingGrain } from './waybills';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, Request } from 'express';
 import {
@@ -193,6 +194,7 @@ export function installBridge(
           requireRule(wagon && wagon.delivered === null, 'Ta dostawa jest już rozliczona.');
           const rule = bridgeRules[wagon.material as BridgeMaterial];
           if (action === 'haul') {
+            requireRule(!wagonHaulingGrain(db, me.uid), 'Twój wóz wiezie zboże do młyna.');
             requireRule(wagon.driver === null, 'Ten wóz ma już woźnicę.');
             requireRule(
               !db

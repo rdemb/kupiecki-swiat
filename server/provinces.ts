@@ -1,3 +1,4 @@
+import { wagonHaulingGrain } from './waybills';
 import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { CITIES } from '../src/economy/economyEngine';
@@ -153,6 +154,7 @@ export function installProvinces(
             log(String(target.site), 'Opieczętowano akt lokacji: ' + target.name + '.');
           }
         } else if (action === 'dispatch') {
+          requireRule(!wagonHaulingGrain(db, me.uid), 'Twój wóz wiezie zboże do młyna.');
           requireRule(
             target.approved && !db.prepare('SELECT 1 FROM freight WHERE carrier=?').get(me.uid),
             'Dokończ poprzedni przewóz lub wybierz zatwierdzone miasto.',

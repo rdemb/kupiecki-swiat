@@ -7,13 +7,16 @@ import {
   type MillBook,
   type MillOrder,
 } from '../economy/mill';
+import type { FreightCommand } from '../economy/waybills';
+import WaybillDesk from './WaybillDesk';
 const number = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-type Command =
+type Command = FreightCommand
   | { action: 'post'; quantity: number; price: number; purpose: Consignee }
   | { action: 'deliver'; order: number; quantity: number }
   | { action: 'cancel'; order: number }
   | { action: 'ration' };
 interface Props {
+  isFreight?: boolean;
   city: string;
   token: string | null;
   onAccount: () => void;
@@ -103,7 +106,7 @@ function OrderLine({
     </article>
   );
 }
-export function MillHouse({ city, token, onSettlement, onAccount }: Props) {
+export function MillHouse({ city, token, onSettlement, onAccount, isFreight = false }: Props) {
   const [book, setBook] = useState<MillBook | null>(null),
     [loadError, setLoadError] = useState(false),
     [error, setError] = useState(''),
@@ -199,7 +202,7 @@ export function MillHouse({ city, token, onSettlement, onAccount }: Props) {
     +price < 1 ||
     +price > rules.maxPrice;
   return (
-    <section className="mill-house" aria-label="Kontrakty na zboże">
+    <section className="mill-house" aria-label={isFreight ? "Listy przewozowe" : "Kontrakty na zboże"}>
       {loadError && (
         <p role="alert">
           Księga młyna jest chwilowo niedostępna. <button onClick={refresh}>Odśwież</button>
@@ -208,7 +211,8 @@ export function MillHouse({ city, token, onSettlement, onAccount }: Props) {
       {note && <p role="status">{note}</p>}
       {error && <p role="alert">{error}</p>}
       {!book && !loadError && <p>Młynarz otwiera księgę…</p>}
-      {book && (
+      {book && isFreight && (book.freight ? <WaybillDesk book={book} desk={book.freight} busy={busy} onAccount={onAccount} onAction={action}/> : <p role="alert">Kantor czeka na połączenie z księgą przewozów.</p>)}
+      {book && !isFreight && (
         <>
           <dl className="mill-stocks">
             <div>

@@ -3,6 +3,9 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { installWaybills, WaybillRule } from './waybills';
+import { waybillTown } from '../src/economy/waybills';
+
 type Actor = { uid: string; displayName: string; guildId: string };
 class MillRule extends Error {}
 function check(ok: unknown, message: string): asserts ok {
@@ -17,6 +20,7 @@ export function installMill(
   db: DatabaseSync,
   authenticate: (req: Request) => Actor | null,
   weather: () => WeatherConditionId,
+  bridgeClosed: (now: number) => boolean,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS mills(city TEXT PRIMARY KEY, flour INTEGER NOT NULL DEFAULT 0, grain INTEGER NOT NULL DEFAULT 0, treasury INTEGER NOT NULL, bakeryAt INTEGER NOT NULL, civicAt INTEGER NOT NULL DEFAULT 0, baked INTEGER NOT NULL DEFAULT 0);
@@ -84,8 +88,28 @@ export function installMill(
     else db.prepare('UPDATE mills SET treasury=treasury+? WHERE city=?').run(refund, city);
     db.prepare('UPDATE millOrders SET state=? WHERE id=?').run(state, o.id);
   }
+  function grind(city: string, quantity: number) {
+    const sacks = Number(getMill.get(city)!.grain) + quantity;
+    db.prepare('UPDATE mills SET flour=flour+?,grain=? WHERE city=?').run(
+      Math.floor(sacks / 4) * 3,
+      sacks % 4,
+      city,
+    );
+  }
+  function bakeUntil(city: string, now: number) {
+    const m = getMill.get(city)!;
+    const periods = Math.floor((now - Number(m.bakeryAt)) / rules.bakeryInterval);
+    if (periods > 0) {
+      const used = Math.min(periods, Number(m.flour));
+      db.prepare(
+        'UPDATE mills SET flour=flour-?, baked=baked+?, bakeryAt=bakeryAt+? WHERE city=?',
+      ).run(used, used, periods * rules.bakeryInterval, city);
+    }
+  }
+  const freight = installWaybills(db, transfer, grind, bakeUntil, weather, bridgeClosed);
   // Advance a city's bakery using elapsed real time, including time while the server was offline.
   function advance(city: string, now: number) {
+    if (city === waybillTown) freight.advance(now);
     const expired = db
       .prepare(
         "SELECT id,issuer,remaining,price FROM millOrders WHERE city=? AND state='open' AND expires<=?",
@@ -102,20 +126,14 @@ export function installMill(
         city,
         'expired',
       );
+    bakeUntil(city, now);
     const m = getMill.get(city)!;
-    const periods = Math.floor((now - Number(m.bakeryAt)) / rules.bakeryInterval);
-    if (periods > 0) {
-      const used = Math.min(periods, Number(m.flour));
-      db.prepare(
-        'UPDATE mills SET flour=flour-?, baked=baked+?, bakeryAt=bakeryAt+? WHERE city=?',
-      ).run(used, used, periods * rules.bakeryInterval, city);
-    }
     const w = weather(),
       poorHarvest = w === 'ulewne_deszcze' || w === 'zamiec_i_mroz';
     const reserve = rules.citySacks * rules.cityPrice;
     if (
       poorHarvest &&
-      Number(m.flour) - Math.max(0, periods) < rules.rationFlour * 4 &&
+      Number(m.flour) < rules.rationFlour * 4 &&
       Number(m.civicAt) + day <= now &&
       Number(m.treasury) >= reserve
     ) {
@@ -143,6 +161,7 @@ export function installMill(
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
+      ...(city === waybillTown ? { freight: freight.book(uid, Date.now()) } : {}),
       treasury: m.treasury,
       orders: orders.all(city),
       deliveries: db
@@ -188,7 +207,9 @@ export function installMill(
       return;
     }
     const { action, nonce, quantity, price, order, purpose } = req.body ?? {};
-    const payload = JSON.stringify([city, action, quantity, price, order, purpose]);
+    const isFreight = ['commission', 'withdraw', 'depart', 'seal'].includes(action);
+    const fields = isFreight ? [req.body.wage, req.body.road, req.body.bill] : [];
+    const payload = JSON.stringify([city, action, quantity, price, order, purpose, ...fields]);
     const now = Date.now();
     try {
       check(
@@ -202,7 +223,10 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (action === 'post') {
+        if (isFreight) {
+          check(city === waybillTown, 'Ten szlak zaopatruje młyn w Srebrnym Gaju.');
+          freight.command(me, req.body, now);
+        } else if (action === 'post') {
           check(
             whole(quantity, rules.maxSacks) &&
               whole(price, rules.maxPrice) &&
@@ -239,12 +263,7 @@ export function installMill(
             transfer(me.uid, paid, -quantity);
             if (o.purpose === 'merchant') transfer(String(o.issuer), 0, quantity);
             else {
-              const sacks = Number(getMill.get(city)!.grain) + quantity;
-              db.prepare('UPDATE mills SET flour=flour+?,grain=? WHERE city=?').run(
-                Math.floor(sacks / 4) * 3,
-                sacks % 4,
-                city,
-              );
+              grind(city, quantity);
             }
             const guild = me.guildId
               ? db.prepare('SELECT name FROM innGuilds WHERE id=? AND archived=0').get(me.guildId)
@@ -284,7 +303,7 @@ export function installMill(
       res.json(page);
     } catch (e) {
       if (db.isTransaction) db.exec('ROLLBACK');
-      if (e instanceof MillRule) res.status(409).json({ error: e.message });
+      if (e instanceof MillRule || e instanceof WaybillRule) res.status(409).json({ error: e.message });
       else next(e);
     }
   });
