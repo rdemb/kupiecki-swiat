@@ -65,6 +65,23 @@ class SoundEngine {
     }
   }
 
+  public playMintBell() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const hit = ctx.currentTime + .16;
+    // Hum, prime, minor third, fifth and nominal of a bronze bell.
+    for (const [frequency, volume, tail] of [[146,.048,3.0],[293,.061,2.5],[350,.026,1.8],[436,.020,1.35],[592,.024,1.25],[798,.009,.55]]) {
+      const tone = ctx.createOscillator(), gain = ctx.createGain();
+      tone.frequency.value = frequency;
+      gain.gain.setValueAtTime(.0001,hit);
+      gain.gain.exponentialRampToValueAtTime(volume,hit+.012);
+      gain.gain.exponentialRampToValueAtTime(.0001,hit+tail);
+      tone.connect(gain); gain.connect(ctx.destination);
+      tone.onended=()=>{tone.disconnect();gain.disconnect();};
+      tone.start(hit); tone.stop(hit+tail+.02);
+    }
+  }
+
   public playCaravanHorn() {
     const ctx = this.getContext();
     if (!ctx) return;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { royalMint } from './royalMint';
 import { buildGalleonMesh } from './merchantShip';
 export { buildGalleonMesh } from './merchantShip';
 import { shoreTrees, scannedRocks } from './coastalScenery';
@@ -109,7 +110,8 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
       metalness: 0.18,
     }),
     plasterWall: new THREE.MeshStandardMaterial({
-      color: 0xdccdb6,
+      color: 0xf1e3cd,
+      map: textures.limePlaster,
       bumpMap: textures.rockBump,
       bumpScale: 0.05,
       roughness: 0.88,
@@ -368,7 +370,12 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
     const z2 = Math.sin(a2) * wallRadius;
 
     const isHarborOpening = city.isCoastalPort && i === 1;
-    if (!isHarborOpening) {
+    const isMintGate = city.id === 'krolewska_przystan' && i === 2;
+    if (isMintGate) {
+      const bearing = (a1 + a2) * .5;
+      group.add(royalMint(materials, [(x1+x2)/2,0,(z1+z2)/2], Math.PI/2-bearing));
+    }
+    if (!isHarborOpening && !isMintGate) {
       const segLen = Math.hypot(x2 - x1, z2 - z1);
       const wall = new THREE.Mesh(new THREE.BoxGeometry(segLen, 2.35, 0.82), primaryStone);
       wall.position.set((x1 + x2) / 2, 1.15, (z1 + z2) / 2);
@@ -485,7 +492,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
     frostBrazier.position.set(2.8, 10.6, -1.8);
     frostBrazier.name = 'city_banner';
     group.add(frostBrazier);
-  } else {
+  } else if (city.id !== 'krolewska_przystan') {
     // Classic Fortified Medieval Citadel Keep & Cathedral Spire
     const keepBase = new THREE.Mesh(new THREE.BoxGeometry(4.8, 4.6, 4.4), primaryStone);
     keepBase.position.set(0, 2.3, -0.8);
@@ -560,7 +567,9 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
   ];
 
   for (let i = 0; i < houseLayout.length; i++) {
-    const [hx, hz, hw, hh, hd, rot] = houseLayout[i];
+    const [plotX, hz, hw, hh, hd, rot] = houseLayout[i];
+    // Keep the path between the sea gate and the great hall clear.
+    const hx = city.id === 'krolewska_przystan' && i === 1 ? -4.9 : plotX;
     const localGroundDelta = getTerrainHeight(cx + hx, cz + hz) - groundY;
     if (groundY + localGroundDelta < 0.85) continue;
 

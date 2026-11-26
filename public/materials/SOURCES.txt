@@ -18,3 +18,13 @@ https://polyhaven.com/a/clay_roof_tiles_02
 przystan-ladunkowa.glb — pomost i beczki z Modular Wooden Pier oraz Wooden Barrels 01, Poly Haven, CC0.
 https://polyhaven.com/a/modular_wooden_pier
 https://polyhaven.com/a/wooden_barrels_01
+
+skarpa.webp — Rock Face 03, Dario Barresi i Rico Cilliers, Poly Haven, CC0. RGB zawiera barwę, kanał alfa wysokość powierzchni.
+https://polyhaven.com/a/rock_face_03
+
+Rzeźba gór Starego Kontynentu — próbka terenu San Juan w Kolorado dopasowana do mapy gry. United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey. Mapzen Terrain Tiles (Terrarium 12/821/1579), odczyt 26.11.2026.
+https://s3.amazonaws.com/elevation-tiles-prod/terrarium/12/821/1579.png
+https://registry.opendata.aws/terrain-tiles/
+
+tynk.webp — Rough Plaster 03, Rob Tuytel, Poly Haven, CC0.
+https://polyhaven.com/a/rough_plaster_03

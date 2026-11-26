@@ -222,8 +222,9 @@ function createInitialOfflineMarkets(): Record<CommodityId, CommodityMarketState
 const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
-  const startAtPort = new URLSearchParams(window.location.search).get('miejsce') === 'waga-portowa';
-  const startAtCoast = new URLSearchParams(window.location.search).get('miejsce') === 'zatoka';
+  const place = new URLSearchParams(window.location.search).get('miejsce');
+  const startAtPort = place === 'waga-portowa';
+  const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('autostart') === '1';
@@ -238,7 +239,7 @@ export default function App() {
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
-  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>(startAtCoast ? 'coast' : 'world');
+  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>(place === 'mennica' ? 'mint' : startAtCoast ? 'coast' : 'world');
   const [trackedCaravanId, setTrackedCaravanId] = useState<string | null>(null);
   const [lightingMood, setLightingMood] = useState<LightingMoodId>('golden_hour');
   const [pbrWeather, setPbrWeather] = useState<PbrWeatherId>('clear');
@@ -265,6 +266,13 @@ export default function App() {
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
   const [coastView,setCoastView] = useState(startAtCoast);
   const [coastTracking,setCoastTracking] = useState(false);
+  const [bellStrike, setBellStrike] = useState(-Infinity);
+  function ringMintBell() {
+    const now = performance.now();
+    if (now-bellStrike < 1400) return;
+    setBellStrike(now);
+    soundEngine.playMintBell();
+  }
   const playedIntro = useRef(false);
   const [cityInteriorOpen, setCityInteriorOpen] = useState<boolean>(false);
   const [cityInteriorMode, setCityInteriorMode] = useState<'plaza' | 'arena'>('plaza');
@@ -2449,6 +2457,7 @@ export default function App() {
         activeCaravans={activeCaravans}
         cameraPreset={cameraPreset}
         coastTracking={coastTracking && coastView}
+        bellStrike={bellStrike}
         trackedCaravanId={trackedCaravanId}
         activeSeason={macro.activeSeason}
         activeDisaster={macro.activeDisaster}
@@ -2562,9 +2571,13 @@ export default function App() {
 
       {/* ==================== 2. PLAYING HUD (WORLD-MATCHED, LOW-OCCLUSION) ==================== */}
       {showMap && coastView && (
-        <nav className="coast-view" aria-label="Widok zatoki">
-          <div><span>Królewska Przystań</span><h1>Centralna Zatoka</h1></div>
+        <nav className="coast-view" aria-label="Widoki Królewskiej Przystani">
+          <div><span>Królewska Przystań</span><h1>{cameraPreset === 'mint' ? 'Królewska Mennica' : 'Centralna Zatoka'}</h1></div>
           <div className="coast-tools">
+            <button onClick={() => setCameraPreset(cameraPreset === 'mint' ? 'coast' : 'mint')}>
+              {cameraPreset === 'mint' ? 'Nad zatokę' : 'Pod mennicę'}
+            </button>
+            {cameraPreset === 'mint' && <button onClick={ringMintBell}>Uderz w dzwon</button>}
             <button onClick={()=>setCoastTracking(!coastTracking)} aria-pressed={coastTracking}>{coastTracking?'Zatrzymaj najazd':'Najazd kamery'}</button>
             <select aria-label="Światło zatoki" value={lightingMood} onChange={e=>setLightingMood(e.target.value as LightingMoodId)}>
               <option value="golden_hour">Złota godzina</option><option value="midday">Południe</option><option value="dusk">Zmierzch</option><option value="night">Noc</option>

@@ -17,6 +17,7 @@ export interface WorldTexturePack {
   alpineRock: THREE.Texture;
   cobblestone: THREE.Texture;
   castleStone: THREE.Texture;
+  limePlaster: THREE.Texture;
   masonryNormal: THREE.Texture;
   masonryRoughness: THREE.Texture;
   slateRoof: THREE.Texture;
@@ -139,9 +140,10 @@ export function loadWorldTextures(
 
   return {
     meadowGrass: loadTex(scans + 'laka.webp', 28, 28),
-    alpineRock: loadTex(imageUrl('pbr_alpine_rock_seamless_1795643331475.jpg'), 24, 24),
+    alpineRock: loadTex(scans + 'skarpa.webp', 5, 5),
     cobblestone: loadTex(scans + 'bruk.webp', 32, 32),
     castleStone: loadTex(scans + 'mur.webp', 3, 2),
+    limePlaster: loadTex(scans + 'tynk.webp', 1.3, 1.3),
     masonryNormal: loadTex(scans + 'mur-normal.webp', 3, 2, THREE.NoColorSpace),
     masonryRoughness: loadTex(scans + 'mur-szorstkosc.webp', 3, 2, THREE.NoColorSpace),
     slateRoof: loadTex(scans + 'lupek-kolor.webp', 2, 1),
@@ -157,12 +159,19 @@ export function loadWorldTextures(
   };
 }
 
-/**
- * Builds the 520x520 High-Resolution 4-Continent Sculpted Terrain with Unreal-Engine-5-Grade
- * Triplanar Cliff Projection, Analytical Micro-Normal Shading, 6-Biome PBR Splatmapping,
- * Glowing Magma Veins, and Built-In Aerial Perspective Fog.
- */
+// Put extra grid rows along the populated inner coastline and the mountain pass.
+// The mesh is continuous across the transition and still covers every continent.
+function surveyAxis(t: number, near: number, far: number): number {
+  const outerStep = (620 - (far - near)) / 166;
+  const leftRows = Math.round((near + 310) / outerStep);
+  const row = t * 324;
+  if (row < leftRows) return -310 + row * (near + 310) / leftRows;
+  if (row < leftRows + 158) return near + (row - leftRows) * (far - near) / 158;
+  return far + (row - leftRows - 158) * (310 - far) / (166 - leftRows);
+}
+
 export function buildSculptedTerrain(textures: WorldTexturePack): {
+  heightAt: (x: number, z: number) => number;
   mesh: THREE.Mesh;
   uniforms: {
     uSeasonSnow: { value: number };
@@ -180,7 +189,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   };
 } {
   const size = 620;
-  const segments = 224;
+  const segments = 324;
   const geo = new THREE.PlaneGeometry(size, size, segments, segments);
   geo.rotateX(-Math.PI / 2);
 
@@ -190,10 +199,10 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const continentData = new Float32Array(count * 4); // x: desert, y: glacier, z: jade, w: oasis
 
   for (let i = 0; i < count; i++) {
-    const vx = posAttr.getX(i);
-    const vz = posAttr.getZ(i);
+    const vx = surveyAxis(posAttr.getX(i) / size + 0.5, -76, 98);
+    const vz = surveyAxis(posAttr.getZ(i) / size + 0.5, -96, 42);
     const vy = getTerrainHeight(vx, vz);
-    posAttr.setY(i, vy);
+    posAttr.setXYZ(i, vx, vy, vz);
 
     const w = getContinentBiomeWeights(vx, vz);
 
@@ -227,6 +236,30 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
     continentData[i * 4 + 3] = w.oasis;
   }
 
+  // Four terrain horizons let the sun drop behind actual ridges and keep the
+  // distant valleys in shade even outside the city shadow map.
+  const horizons = new Float32Array(count * 4);
+  const rowLength = segments + 1;
+  const offsets = [[1,0],[-1,0],[0,1],[0,-1]];
+  const steps = [2,5,10,19,34];
+  for (let row = 0; row <= segments; row++) {
+    for (let col = 0; col <= segments; col++) {
+      const i = row * rowLength + col;
+      for (let direction = 0; direction < offsets.length; direction++) {
+        const [dc, dr] = offsets[direction];
+        let horizon = 0;
+        for (const step of steps) {
+          const c = col + dc * step, r = row + dr * step;
+          if (c < 0 || r < 0 || c > segments || r > segments) break;
+          const j = r * rowLength + c;
+          const distance = Math.abs(dc ? posAttr.getX(j) - posAttr.getX(i) : posAttr.getZ(j) - posAttr.getZ(i));
+          horizon = Math.max(horizon, (posAttr.getY(j) - posAttr.getY(i)) / distance);
+        }
+        horizons[i * 4 + direction] = Math.min(4,horizon);
+      }
+    }
+  }
+  geo.setAttribute('aHorizon', new THREE.BufferAttribute(horizons,4));
   geo.setAttribute('aBiome', new THREE.BufferAttribute(biomeData, 4));
   geo.setAttribute('aContinent', new THREE.BufferAttribute(continentData, 4));
   geo.computeVertexNormals();
@@ -254,9 +287,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.84,
-    metalness: 0.05,
-    normalMap: textures.rockNormal,
-    normalScale: new THREE.Vector2(0.85, 0.85),
+    metalness: 0.01,
   });
 
   mat.onBeforeCompile = (shader) => {
@@ -284,6 +315,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         `
         #include <common>
         attribute vec4 aBiome;
+        attribute vec4 aHorizon;
+        varying vec4 vHorizon;
         attribute vec4 aContinent;
         varying vec4 vBiome;
         varying vec4 vContinent;
@@ -295,6 +328,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         '#include <begin_vertex>',
         `
         #include <begin_vertex>
+        vHorizon = aHorizon;
         vBiome = aBiome;
         vContinent = aContinent;
         vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
@@ -320,6 +354,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         uniform float uWeatherDust;
         uniform float uAerialFogDensity;
         uniform sampler2D uGrassTex;
+        varying vec4 vHorizon;
         uniform sampler2D uRockTex;
         uniform sampler2D uCobbleTex;
         uniform sampler2D uDesertTex;
@@ -345,10 +380,13 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         vec3 triW = abs(vWorldNorm);
         triW = pow(triW, vec3(4.0));
         triW /= max(dot(triW, vec3(1.0)), 0.0001);
-        vec3 rockX = texture2D(uRockTex, vWorldPos.zy * 0.15).rgb;
-        vec3 rockY = texture2D(uRockTex, vWorldPos.xz * 0.15).rgb;
-        vec3 rockZ = texture2D(uRockTex, vWorldPos.xy * 0.15).rgb;
-        vec3 rockCol = rockX * triW.x + rockY * triW.y + rockZ * triW.z;
+        // Keep the displacement paired with the scanned rock on every projection.
+        vec3 strata = vWorldPos * vec3(.115,.20,.115);
+        strata.y += .24 * sin(vWorldPos.x * .09 + vWorldPos.z * .06);
+        vec4 exposed = texture2D(uRockTex, strata.zy) * triW.x
+                     + texture2D(uRockTex, strata.xz) * triW.y
+                     + texture2D(uRockTex, strata.xy) * triW.z;
+        vec3 rockCol = exposed.rgb;
 
         vec3 grassDetail = texture2D(uGrassTex, uvGrass).rgb;
         vec3 grassMacro = texture2D(uGrassTex, uvGrassMacro).rgb;
@@ -416,11 +454,13 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         terrainCol = mix(terrainCol, basaltCol, volc * 0.90);
 
         // Snow-capped Alpine Peaks on Stary Kontynent (dynamic seasonal snowline!)
-        float snowLine = mix(14.2, 4.4, uSeasonSnow);
-        float snowNoise = sin(vWorldPos.x * 0.22) * cos(vWorldPos.z * 0.22) * 1.5;
-        float snowMask = smoothstep(snowLine - 1.5, snowLine + 4.5, h + snowNoise) * smoothstep(0.45, 0.78, flatness);
-        snowMask *= (1.0 - volc * 0.92) * (1.0 - desertW * 0.96) * (1.0 - jadeW * 0.65);
-        terrainCol = mix(terrainCol, glacierCol * 1.06, clamp(snowMask, 0.0, 0.95));
+        float snowLine = mix(26., 5.5, uSeasonSnow);
+        float northFace = clamp(.5 - .5 * normalize(vWorldNorm).z, 0., 1.);
+        float ledge = smoothstep(.48, .88, flatness + (exposed.a - .5) * .34);
+        float snowMask = ledge * smoothstep(-2., 5., h - snowLine + northFace * 3.8 + (exposed.a - .5) * 4.);
+        snowMask *= (1. - volc * .96) * (1. - desertW) * (1. - jadeW * .78);
+        vec3 granularSnow = mix(vec3(.52,.59,.65),vec3(.86,.9,.93), exposed.a);
+        terrainCol = mix(terrainCol, granularSnow, snowMask);
 
         // Capital Plazas (Cobblestone in Heartland/Frostheim/Aetheris, Carved Sandstone in Solaria)
         vec3 plazaMat = mix(cobbleCol * 0.95, desertCol * vec3(1.06, 0.96, 0.82), desertW);
@@ -456,6 +496,16 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         diffuseColor.rgb *= terrainCol;
         `,
       )
+      .replace('#include <normal_fragment_maps>', `
+        #include <normal_fragment_maps>
+        // Screen-space surface gradient in view space, using the measured rock relief.
+        vec3 dpX = dFdx(-vViewPosition), dpY = dFdy(-vViewPosition);
+        vec3 across = cross(dpY,normal), along = cross(normal,dpX);
+        float area = dot(dpX,across);
+        float reliefHeight = .19 * exposed.a * max(cliffWeight, highRockMask) * (1.-snowMask);
+        vec3 change = across * dFdx(reliefHeight) + along * dFdy(reliefHeight);
+        normal = normalize(max(abs(area),.000001)*normal - sign(area)*change);
+      `)
       .replace(
         '#include <roughnessmap_fragment>',
         `
@@ -478,6 +528,19 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         }
         `,
       )
+      .replace('#include <lights_fragment_end>', `
+        #include <lights_fragment_end>
+        vec2 bearing = uSunDir.xz / max(length(uSunDir.xz), .001);
+        float xRidge = bearing.x > 0. ? vHorizon.x : vHorizon.y;
+        float zRidge = bearing.y > 0. ? vHorizon.z : vHorizon.w;
+        float crest = dot(vec2(xRidge,zRidge), bearing*bearing);
+        float solarSlope = uSunDir.y / max(length(uSunDir.xz),.001);
+        float sun = smoothstep(crest-.08, crest+.09, solarSlope);
+        float skyView = 1. - .48 * dot(vHorizon/(1.+vHorizon),vec4(.25));
+        reflectedLight.directDiffuse *= mix(.38,1.,sun);
+        reflectedLight.directSpecular *= sun;
+        reflectedLight.indirectDiffuse *= skyView;
+      `)
       .replace(
         '#include <emissivemap_fragment>',
         `
@@ -509,7 +572,25 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   mesh.castShadow = false;
-  return { mesh, uniforms };
+  const xGrid = Float32Array.from({length:rowLength},(_,i)=>posAttr.getX(i));
+  const zGrid = Float32Array.from({length:rowLength},(_,i)=>posAttr.getZ(i*rowLength));
+  function cell(axis: Float32Array, value: number) {
+    let lo = 0, hi = segments;
+    while (hi-lo > 1) {
+      const mid = (lo+hi) >>> 1;
+      if (axis[mid] <= value) lo=mid; else hi=mid;
+    }
+    return lo;
+  }
+  function heightAt(x: number, z: number) {
+    const c=cell(xGrid,x), r=cell(zGrid,z), i=r*rowLength+c;
+    const u=THREE.MathUtils.clamp((x-xGrid[c])/(xGrid[c+1]-xGrid[c]),0,1);
+    const v=THREE.MathUtils.clamp((z-zGrid[r])/(zGrid[r+1]-zGrid[r]),0,1);
+    const b=posAttr.getY(i+rowLength), d=posAttr.getY(i+1);
+    if (u+v<=1) return (1-u-v)*posAttr.getY(i)+v*b+u*d;
+    return (u+v-1)*posAttr.getY(i+rowLength+1)+(1-u)*b+(1-v)*d;
+  }
+  return { mesh, uniforms, heightAt };
 }
 
 /** Water mesh with more shoreline samples in the central trading archipelago. */

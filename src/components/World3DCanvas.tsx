@@ -65,6 +65,7 @@ interface World3DCanvasProps {
   activeCaravans: ActiveCaravan3D[];
   cameraPreset: CameraPresetId;
   coastTracking?: boolean;
+  bellStrike?: number;
   trackedCaravanId?: string | null;
   activeSeason: SeasonId;
   lightingMood: LightingMoodId;
@@ -134,6 +135,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   activeCaravans,
   cameraPreset,
   coastTracking = false,
+  bellStrike = -Infinity,
   trackedCaravanId = null,
   activeSeason,
   lightingMood,
@@ -171,6 +173,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   const activeCaravansRef = useRef(activeCaravans);
   activeCaravansRef.current = activeCaravans;
 
+  const bellStrikeRef = useRef(bellStrike);
+  bellStrikeRef.current = bellStrike;
   const coastTrackingRef = useRef(coastTracking);
   coastTrackingRef.current = coastTracking;
   const cameraPresetRef = useRef(cameraPreset);
@@ -245,6 +249,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = !isSoftwareGl;
+    renderer.shadowMap.autoUpdate = !isSoftwareGl;
     renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.innerHTML = '';
@@ -265,10 +270,14 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 1550);
     camera.position.set(16, 152, 266);
 
+    function isHarbourView() {
+      return cameraPresetRef.current === 'coast' || cameraPresetRef.current === 'mint';
+    }
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = !isSoftwareGl;
     controls.dampingFactor = 0.065;
-    controls.maxPolarAngle = cameraPresetRef.current === 'coast' ? Math.PI * .525 : Math.PI / 2.12;
+    controls.maxPolarAngle = isHarbourView() ? Math.PI * .525 : Math.PI / 2.12;
     controls.minDistance = 16;
     controls.maxDistance = 460;
     controls.target.set(4, 3, 12);
@@ -280,14 +289,15 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       target.x += 2.65 * amount;
       target.z += 3.40 * amount;
     }
-    if (cameraPresetRef.current === 'coast') {
-      const initial = computeStaticCameraPresetPose('coast', [0,0,0], 'stary_kontynent');
+    if (isHarbourView()) {
+      const initial = computeStaticCameraPresetPose(cameraPresetRef.current === 'mint' ? 'mint' : 'coast', [0,0,0], 'stary_kontynent');
       camera.position.set(...initial.position);
       controls.target.set(...initial.target);
-      frameCoast(controls.target);
+      if (cameraPresetRef.current === 'coast') frameCoast(controls.target);
       controls.update();
     }
     let coastPhase = 0;
+    let lastHarbourShadow = -Infinity;
     let wasTracking = false;
     let userInteractingWithCamera = false;
     controls.addEventListener('start', () => {
@@ -319,8 +329,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     const sunLight = new THREE.DirectionalLight(initAtmo.sunColor, initAtmo.sunIntensity);
     sunLight.position.set(...initAtmo.sunPos);
     sunLight.castShadow = !isSoftwareGl;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.setScalar(isSoftwareGl ? 768 : 2048);
     sunLight.shadow.camera.near = 25;
     sunLight.shadow.camera.far = 520;
     const d = 195;
@@ -382,6 +391,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       scene.add(warmLight);
       cityPointLights.push(warmLight);
     }
+
+    const mintBell = cityGroups.krolewska_przystan.getObjectByName('mint_bell');
 
     // 7. Build ALL 12 Explorable World Landmarks & Fear Places across the 4 Continents
     const landmarks = buildWorldLandmarks(materials);
@@ -472,6 +483,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     ];
 
     const routeCurves: Record<string, THREE.CatmullRomCurve3> = {};
+    const landCurves = new Set<THREE.CatmullRomCurve3>();
     const roadMat = new THREE.MeshStandardMaterial({
       map: textures.cobblestone,
       color: 0xc2b296,
@@ -484,7 +496,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       const cityB = CITIES.find((c) => c.id === idB);
       if (!cityA || !cityB) return;
       const pts: THREE.Vector3[] = [];
-      const steps = 24;
+      const steps = isSea ? 24 : Math.ceil(Math.hypot(cityB.position3D[0]-cityA.position3D[0],cityB.position3D[2]-cityA.position3D[2]));
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         let px = THREE.MathUtils.lerp(cityA.position3D[0], cityB.position3D[0], t);
@@ -492,7 +504,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const bow = Math.sin(t * Math.PI) * (isSea ? 14 : 7);
         px += ((cityB.position3D[2] - cityA.position3D[2]) / 120) * bow;
         pz -= ((cityB.position3D[0] - cityA.position3D[0]) / 120) * bow;
-        const py = isSea ? 0.16 : Math.max(0.35, getTerrainHeight(px, pz) + 0.18);
+        const py = isSea ? 0.16 : Math.max(0.35, terrain.heightAt(px, pz) + 0.065);
         pts.push(new THREE.Vector3(px, py, pz));
       }
       const fwd = new THREE.CatmullRomCurve3(pts);
@@ -501,9 +513,21 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       routeCurves[`${idB}__${idA}`] = rev;
 
       if (!isSea) {
-        const roadTube = new THREE.TubeGeometry(fwd, 48, 0.44, 6, false);
-        roadTube.scale(1, 0.25, 1);
-        const roadMesh = new THREE.Mesh(roadTube, roadMat);
+        landCurves.add(fwd); landCurves.add(rev);
+        const ribbon = new THREE.PlaneGeometry(.87,1,1,steps);
+        const vertices = ribbon.getAttribute('position');
+        for (let i=0;i<=steps;i++) {
+          const tangent = fwd.getTangent(i/steps);
+          const horizontal = Math.hypot(tangent.x,tangent.z) || 1;
+          for (let side=0;side<2;side++) {
+            const offset = side===0 ? -.435 : .435;
+            const x = pts[i].x + offset*tangent.z/horizontal;
+            const z = pts[i].z - offset*tangent.x/horizontal;
+            vertices.setXYZ(2*i+side,x,Math.max(.32,terrain.heightAt(x,z)+.048),z);
+          }
+        }
+        ribbon.computeVertexNormals();
+        const roadMesh = new THREE.Mesh(ribbon, roadMat);
         roadMesh.receiveShadow = true;
         scene.add(roadMesh);
       }
@@ -818,7 +842,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     function updateProjectedLabels() {
       const w = renderer.domElement.clientWidth || window.innerWidth;
       const h = renderer.domElement.clientHeight || window.innerHeight;
-      const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current && cameraPresetRef.current !== 'quay' && cameraPresetRef.current !== 'coast';
+      const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current && cameraPresetRef.current !== 'quay' && !isHarbourView();
       const camDist = camera.position.distanceTo(controls.target);
 
       for (const reg of WORLD_REGIONS) {
@@ -856,7 +880,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
       // Project clickable 3D Trail Event callout badges across the 4 continents
       const activeEvents = trailEventsRef.current;
-      const showEvents = gameStateRef.current === 'playing' && cameraPresetRef.current !== 'coast';
+      const showEvents = gameStateRef.current === 'playing' && !isHarbourView();
       for (const ev of activeEvents) {
         const el = eventLabelRefs.current[ev.id];
         if (!el) continue;
@@ -1091,7 +1115,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         for (let i = 0; i < eventBeaconPool.length; i++) {
           const b = eventBeaconPool[i];
           const ev = activeTrailList[i];
-          if (!ev || cameraPresetRef.current === 'coast') {
+          if (!ev || isHarbourView()) {
             b.group.visible = false;
             b.proxy.userData.trailEventId = null;
             continue;
@@ -1166,6 +1190,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           if (curve) {
             curve.getPointAt(item.t, _actorPos);
             curve.getPointAt(Math.min(1, item.t + 0.02), _actorLook);
+            _actorPos.y = Math.max(.35,terrain.heightAt(_actorPos.x,_actorPos.z)+.065);
+            _actorLook.y = Math.max(.35,terrain.heightAt(_actorLook.x,_actorLook.z)+.065);
             item.mesh.position.copy(_actorPos);
             item.mesh.lookAt(_actorLook);
             if (desiredCaravanId && item.id === desiredCaravanId) {
@@ -1191,6 +1217,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             const clampedT = Math.max(0, Math.min(0.99, data.progress));
             curve.getPointAt(clampedT, _actorPos);
             curve.getPointAt(Math.min(1, clampedT + 0.02), _actorLook);
+            if (landCurves.has(curve)) {
+              _actorPos.y=Math.max(.35,terrain.heightAt(_actorPos.x,_actorPos.z)+.065);
+              _actorLook.y=Math.max(.35,terrain.heightAt(_actorLook.x,_actorLook.z)+.065);
+            }
             mesh.position.copy(_actorPos);
             mesh.lookAt(_actorLook);
             if (desiredCaravanId && data.id === desiredCaravanId) {
@@ -1282,7 +1312,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const [ax, az] = activeRegion.position2D;
         const ay = Math.max(0.35, getTerrainHeight(ax, az));
 
-        const byWater = cameraPresetRef.current === 'coast';
+        const byWater = isHarbourView();
         controls.maxPolarAngle = byWater ? Math.PI * .525 : Math.PI / 2.12;
         const fov = 44 + (byWater ? 18 * portraitFraming() : 0);
         if (camera.fov !== fov) {
@@ -1298,7 +1328,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             ? _trackedPos.y + 0.35
             : ay + 0.38;
 
-        selectionRing.visible = cameraPresetRef.current !== 'quay' && cameraPresetRef.current !== 'coast';
+        selectionRing.visible = cameraPresetRef.current !== 'quay' && !isHarbourView();
         selectionRing.position.x = THREE.MathUtils.damp(selectionRing.position.x, ringTargetX, 7, dt);
         selectionRing.position.z = THREE.MathUtils.damp(selectionRing.position.z, ringTargetZ, 7, dt);
         selectionRing.position.y = THREE.MathUtils.damp(selectionRing.position.y, ringTargetY, 7, dt);
@@ -1381,13 +1411,14 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
               );
               _targetPos.set(...staticPose.position);
               _targetLook.set(...staticPose.target);
-              if (preset === 'coast') {
-                frameCoast(_targetLook);
-                if(coastTrackingRef.current)coastPhase+=dt*.19;
-                _targetPos.x+=Math.sin(coastPhase)*3.1;
-                _targetPos.z+=Math.sin(coastPhase*.68)*3.2;
-                _targetLook.x+=Math.sin(coastPhase)*1.6;
-              } else coastPhase=0;
+              if (preset === 'coast' || preset === 'mint') {
+                if (preset === 'coast') frameCoast(_targetLook);
+                if (coastTrackingRef.current) coastPhase += dt * .19;
+                const radius = preset === 'mint' ? 1.5 : 3.1;
+                _targetPos.x += Math.sin(coastPhase) * radius;
+                _targetPos.z += Math.sin(coastPhase * .68) * radius;
+                _targetLook.x += Math.sin(coastPhase) * radius * .45;
+              } else coastPhase = 0;
             }
 
             const distToTarget = camera.position.distanceTo(_targetPos);
@@ -1413,15 +1444,26 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         }
       }
 
-      const quayDetail = cameraPresetRef.current === 'coast';
+      const quayDetail = isHarbourView();
       if (shadowAtHarbour !== quayDetail) {
         shadowAtHarbour = quayDetail;
+        if (isSoftwareGl) renderer.shadowMap.enabled = sunLight.castShadow = quayDetail;
         const shadowCamera=sunLight.shadow.camera;
         const radius = quayDetail ? 37 : d;
         shadowCamera.left=shadowCamera.bottom=-radius;
         shadowCamera.right=shadowCamera.top=radius;
         shadowCamera.updateProjectionMatrix();
         sunLight.shadow.needsUpdate=true;
+      }
+      // Cache shadows on software WebGL. The quay still gets sunlight between
+      // the buttresses without rendering a second full scene on every frame.
+      if (isSoftwareGl && quayDetail && elapsed - lastHarbourShadow > .65) {
+        renderer.shadowMap.needsUpdate = true;
+        lastHarbourShadow = elapsed;
+      }
+      if (mintBell) {
+        const seconds = (performance.now()-bellStrikeRef.current) / 1000;
+        mintBell.rotation.z = seconds < 4 ? .49*Math.exp(-seconds*1.13)*Math.sin(7.6*seconds) : 0;
       }
       scenery.update(camera.position.y, elapsed);
       ocean.updateReflection(renderer, scene, camera, performance.now());
@@ -1454,6 +1496,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       materials.sailCloth.dispose();
       materials.timberWood.map?.dispose();
       materials.timberWood.dispose();
+      cityGroups.krolewska_przystan?.getObjectByName('mennica-krolewska')?.userData.releaseMint?.();
       settlements.dispose();
       closeLanding();
       ocean.dispose();

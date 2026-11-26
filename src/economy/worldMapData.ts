@@ -1,3 +1,4 @@
+import sanJuanElevation from '../assets/terrain/san-juan.json';
 import { CITIES, CommodityId, ContinentId } from './economyEngine';
 
 export type WorldRegionType = 'capital' | 'fear_place' | 'port' | 'sanctuary';
@@ -668,6 +669,22 @@ function gaussian(dx: number, dz: number, radius: number): number {
   return Math.exp(-d2 / (2 * radius * radius));
 }
 
+// Two-by-two averages of decoded USGS elevations, ordered north to south.
+// The survey supplies the local ridges. The coastline and city terraces belong to the game.
+const reliefSize = 128;
+const reliefSamples = Uint8Array.from(atob(sanJuanElevation), c => c.charCodeAt(0));
+function mountainRelief(x: number, z: number): number {
+  const u = Math.min(1, Math.max(0, (x + 85) / 176)) * (reliefSize - 1);
+  const v = Math.min(1, Math.max(0, (-z + 3) / 102)) * (reliefSize - 1);
+  const ix = Math.min(reliefSize - 2, Math.floor(u));
+  const iz = Math.min(reliefSize - 2, Math.floor(v));
+  const i = iz * reliefSize + ix;
+  const tx = u - ix, tz = v - iz;
+  const top = reliefSamples[i] + tx * (reliefSamples[i + 1] - reliefSamples[i]);
+  const bottom = reliefSamples[i + reliefSize] + tx * (reliefSamples[i + reliefSize + 1] - reliefSamples[i + reliefSize]);
+  return (top + tz * (bottom - top)) / 255;
+}
+
 export interface ContinentBiomeWeights {
   desert: number;   // Solaria dunes & red canyons
   glacier: number;  // Frostheim ice & arctic snow
@@ -799,8 +816,9 @@ export function getTerrainHeight(x: number, z: number): number {
     gaussian((x + 6) * 0.65, z + 60, 26) +
     gaussian(x - 28, z + 54, 18) * 0.75 +
     gaussian(x + 42, z + 52, 18) * 0.7;
-  const alpineRidges = ridgeNoise2D(x * 0.038 + 2.4, z * 0.038 - 1.1, 4);
-  h += alpineEnvelope * (8.5 + alpineRidges * 27.0);
+  const relief = mountainRelief(x, z);
+  h += alpineEnvelope * (4.8 + relief * 32);
+
 
   const distToVolcano = Math.hypot(x - 82, z + 20);
   const volcanoCone = Math.max(0, 1 - distToVolcano / 34);
