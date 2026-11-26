@@ -312,7 +312,8 @@ export type ContinentId =
   | 'valoria_zachod'
   | 'obsydian_wulkan'
   | 'nowa_nadzieja'
-  | 'kresy_nadziei';
+  | 'kresy_nadziei'
+  | 'morze_wylin';
 
 export interface CityNode {
   id: string;

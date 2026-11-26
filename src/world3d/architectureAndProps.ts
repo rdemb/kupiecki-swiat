@@ -1216,11 +1216,13 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
  */
 export function buildArticulatedDragon(
   materials: SharedWorldMaterials,
-  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' = 'crimson',
+  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' = 'crimson',
 ): THREE.Group {
   const dragon = new THREE.Group();
 
   const palette = {
+    ochreTwin: {body:0x6e5947,wing:0x604837,emissive:0x392719,roughness:.94,metalness:.08},
+    redTwin: {body:0x9a483a,wing:0x772f25,emissive:0x782d18,roughness:.54,metalness:.32},
     umber: {body:0x593922,wing:0x4d322a,emissive:0x48291b,roughness:.88,metalness:.08},
     twin: {body:0x46613b,wing:0x30472a,emissive:0x283524,roughness:.67,metalness:.18},
     copper: { body: 0x765035, wing: 0x955939, emissive: 0x763817, roughness: 0.77, metalness: 0.14 },
@@ -1258,7 +1260,8 @@ export function buildArticulatedDragon(
   ];
   const body: number[]=[], indices: number[]=[];
   const sides=14;
-  const sections: Station[][] = variant==='twin' ? [
+  const twoHeads=variant==='twin'||variant==='redTwin'||variant==='ochreTwin';
+  const sections: Station[][] = twoHeads ? [
     stations.slice(0,10),
     ...[-1,1].map(side=>stations.slice(9).map(([z,x,y,w,h]):Station=>
       [z,x+side*(z-1.35)*.48,y+side*(z-1.35)*.08,w,h])),
@@ -1288,7 +1291,7 @@ export function buildArticulatedDragon(
     part.position.copy(a).lerp(b,.5); parent.add(part);
   }
   for(const side of [-1,1]){
-    for(const neck of (variant==='twin'?[-1,1]:[0])) {
+    for(const neck of (twoHeads?[-1,1]:[0])) {
       const dx=neck*.87,dy=neck*.14;
       spur(dragon,[dx+.27*side,dy+1.28,3.17],[dx+.61*side,dy+1.78,2.4],.14,.013);
     }
@@ -1296,7 +1299,7 @@ export function buildArticulatedDragon(
     spur(dragon,[.85*side,-.66,-1.78],[.70*side,-.77,-2.47],.17,.08);
     for(let toe=-1;toe<=1;toe++) spur(dragon,[.7*side,-.77,-2.47],[(.71+toe*.12)*side,-.97,-2.77],.047,.008);
   }
-  for(const [z,x,y,w,h] of stations.slice(2,variant==='twin'?10:13)){
+  for(const [z,x,y,w,h] of stations.slice(2,twoHeads?10:13)){
     spur(dragon,[x,y+h*.86,z],[x,y+h+.09+w*.44,z-.24-w*.19],.045+w*.11,.008);
   }
   const wing=new THREE.Group();

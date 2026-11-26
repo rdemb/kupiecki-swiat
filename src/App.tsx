@@ -232,8 +232,9 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
+  const startAtNests = place==='morze-wylin';
   const startAtCoastlands = place==='dalekie-wybrzeze';
-  const startAtHope = place==='nowa-nadzieja' || startAtCoastlands;
+  const startAtHope = place==='nowa-nadzieja' || startAtCoastlands || startAtNests;
   const startAtPort = place === 'waga-portowa';
   const startAtInn = place === 'lazaret' || place === 'koszary' || place === 'targ' || place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
@@ -246,10 +247,12 @@ export default function App() {
     isAutostart || startAtInn || startAtWorks || startAtPort || startAtCoast || startAtHope ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
+  const [postFromNests,setPostFromNests]=useState(false);
+  const [nestSighting,setNestSighting]=useState<import('./economy/northPassage').NestBook['sighting']>(null);
   const [careerSite,setCareerSite]=useState('mierzeja');
-  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
+  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtNests?'morze_wylin':startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
   const [selectedCityId, setSelectedCityId] = useState<string>('krolewska_przystan');
-  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtNests?'sieci_matyldy':startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
@@ -2458,6 +2461,7 @@ export default function App() {
         trailEvents={trailEvents}
         onSelectTrailEvent={handleSelectTrailEvent}
         showWorldLabels={showWorldLabels}
+        nestSighting={backendToken?nestSighting:null}
         playerDragonSpecies={dragonBonuses.activeSpecies}
         playerDragonStage={dragonBonuses.activeStage}
         cinematicTourActive={cinematicTourActive}
@@ -2563,8 +2567,12 @@ export default function App() {
         </React.Suspense>
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
-        <MerchantInn onHarbor={()=>{setInn(null);visitStop(roadStops[0]);setAtWorks(true);}} onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={(tab,town)=>setInn({city:town ?? (tab==='shipyard'||tab==='pilots'?'krolewska_przystan':tab==='rafting'||tab==='freight'||tab==='mutual'||tab==='field'||tab==='feast'||tab==='bridge'?'srebrny_gaj':inn.city),tab})}
+        <MerchantInn postFromNests={postFromNests} onNests={()=>{
+          setInn(null);setPostFromNests(false);setOnRoad(false);setHasOpenedMap(true);setCoastView(false);
+          setDockCollapsed(false);setActiveTab('world_map');setSelectedContinentId('morze_wylin');setSelectedRegionId('sieci_matyldy');setCameraPreset('continent');
+        }} onHarbor={()=>{setInn(null);visitStop(roadStops[0]);setAtWorks(true);}} onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={(tab,town)=>setInn({city:town ?? (tab==='shipyard'||tab==='pilots'?'krolewska_przystan':tab==='rafting'||tab==='freight'||tab==='mutual'||tab==='field'||tab==='feast'||tab==='bridge'?'srebrny_gaj':inn.city),tab})}
           muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>{
+            setPostFromNests(false);
             if (inn.tab==='fair' || inn.tab==='barter' || inn.tab==='garrison' || inn.tab==='ward') visitStop(roadStops.find(s=>s.city===inn.city)??roadStops[0]);
             setInn(null);
           }}
@@ -2993,7 +3001,7 @@ export default function App() {
             {!dockCollapsed && (
               <div className="w-full bg-[#080b10]/95 border border-slate-700 rounded-b-xl rounded-tr-xl p-3.5 shadow-2xl max-h-[58vh] overflow-y-auto">
                 {activeTab === 'world_map' && (
-                  <WorldMapAtlasPanel
+                  <WorldMapAtlasPanel onNestPost={()=>{setPostFromNests(true);setInn({city:'krolewska_przystan',tab:'board'});}} onNestSighting={setNestSighting}
                     token={backendToken} towns={provinces.data.towns}
                     selectedRegionId={selectedRegionId}
                     selectedContinentId={selectedContinentId}

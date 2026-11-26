@@ -96,6 +96,9 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     cameraOverviewLook: [154, 7, 156],
     capitalRegionId: 'obsydianowa_cytadela',
   },
+  {id:'morze_wylin',name:'Morze Wylin · północny szlak',shortName:'Morze Wylin',subtitle:'Od fiordu do ciepłych kominów',climate:'Chłodny morski',
+    colorHex:'#8dc9d0',description:'Północny szlak między wyspami. Po sztormach kupcy nanoszą nowe lęgowiska na swoje mapy.',
+    cameraOverviewPos:[925,510,-112],cameraOverviewLook:[925,0,-614],capitalRegionId:'sieci_matyldy'},
   {id:'kresy_nadziei',name:'Dalekie Wybrzeże Nowej Nadziei',shortName:'Dalekie Wybrzeże',subtitle:'Ławice, kredowe progi i smocze mokradła',
     climate:'Morski i bagienny',colorHex:'#a1bd82',description:'Za dawnym krańcem mapy kupcy utrzymują osady na czterech wyspach.',
     cameraOverviewPos:[1510,360,395],cameraOverviewLook:[1510,0,0],capitalRegionId:'biale_progi'},
@@ -112,6 +115,7 @@ export interface WorldRegionNode {
   type: WorldRegionType;
   typeLabel: string;
   biome:
+    | NorthernBiome
     | 'Nadmorska Nizina'
     | 'Zaczarowana Puszcza'
     | 'Alpejskie Szczyty'
@@ -133,6 +137,21 @@ export interface WorldRegionNode {
   linkedQuestId?: string;
   featuredCommodity?: CommodityId;
 }
+
+const northernIslands = [
+  [-95,-512,184,126,'marsh'],[220,-655,167,151,'dune'],[500,-735,174,157,'fjord'],
+  [792,-515,181,124,'dune'],[1082,-691,204,161,'fjord'],[1393,-536,162,156,'basalt'],
+  [1684,-731,182,157,'marsh'],[1947,-532,168,161,'basalt'],
+] as const;
+
+const northernBiomeNames = {
+  marsh: 'Słone rozlewiska',
+  dune: 'Wydmy nadmorskie',
+  fjord: 'Skalisty fiord',
+  basalt: 'Brzeg bazaltowy',
+} as const;
+type NorthernTerrainKind = keyof typeof northernBiomeNames;
+type NorthernBiome = typeof northernBiomeNames[NorthernTerrainKind];
 
 export const WORLD_REGIONS: WorldRegionNode[] = [
   // ================= CONTINENT 1: STARY KONTYNENT (9 Regions) =================
@@ -611,9 +630,9 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     featuredCommodity: 'mithril',
   },
   ...worksites.map((site):WorldRegionNode=>({
-    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
-    typeLabel:'Warsztat kupiecki',biome:'Nadmorska Nizina',position2D:[site.x,site.z],
-    atlasPercent:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
+    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
+    typeLabel:'Warsztat kupiecki',biome:site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
+    atlasPercent:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
     dangerLabel:'Osada rzemieślnicza',loreDescription:site.description,colorHex:crafts[site.craft].color,
   })),
 ];
@@ -710,6 +729,11 @@ export interface ContinentBiomeWeights {
  * Pure geographic biome classifier across all 6 Continents in 620x620 world space.
  */
 export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWeights {
+  if (z < -310) {
+    const zone = northernTerrain(x,z);
+    return {desert:zone.biome==='dune'?.75:0,glacier:zone.biome==='fjord'?.78:0,jade:0,
+      oasis:zone.biome==='marsh'?.8:0,volcanic:zone.biome==='basalt'?.85:0};
+  }
   if (x>930) {
     const basin=(cx:number,cz:number,rx:number,rz:number)=>1-smoothstep(.45,1.2,Math.hypot((x-cx)/rx,(z-cz)/rz));
     return {desert:.68*basin(1435,-110,165,132),jade:.6*basin(1985,-41,163,165),
@@ -758,7 +782,30 @@ export function newHopeHeight(x:number,z:number):number {
   const shelf=smoothstep(-.13,.25,land);
   return -8+16*shelf+shelf*(Math.max(0,land)*relief*43 + 2.6*Math.sin(x*.14)*Math.cos(z*.11));
 }
+// Landforms share coastlines with their atlas and the navigable terrain.
+function northernTerrain(x:number,z:number) {
+  const wx=x+19*Math.sin(z*.026)+9*Math.sin(x*.045);
+  const wz=z+18*Math.sin(x*.031)+6*Math.cos(z*.052);
+  let land = -Infinity;
+  let biome: NorthernTerrainKind = 'marsh';
+  for (const [cx,cz,rx,rz,kind] of northernIslands) {
+    const d=1-Math.hypot((wx-cx)/rx,(wz-cz)/rz);
+    if(d>land) { land=d; biome=kind; }
+  }
+  return {land,biome};
+}
+function northHeight(x:number,z:number) {
+  const {land,biome}=northernTerrain(x,z);
+  if (land < -.12) return -9;
+  const noise=fbm2D(x*.018,z*.018,3);
+  let relief=8+8*noise;
+  if(biome==='basalt') relief=18+Math.floor(noise*5)*8;
+  if(biome==='fjord') relief=18+62*Math.abs(Math.cos(x*.018+.5*noise));
+  if(biome==='dune') relief=10+12*Math.sin(x*.09+noise*3);
+  return -9+smoothstep(-.12,.32,land)*(15+Math.max(land,0)*relief);
+}
 export function getTerrainHeight(x: number, z: number): number {
+  if(z < -310) return northHeight(x,z);
   if(x>930) {
     const wx=x+12*Math.sin(z*.046), wz=z+16*Math.cos(x*.028);
     const island=(cx:number,cz:number,rx:number,rz:number)=>1-Math.hypot((wx-cx)/rx,(wz-cz)/rz);

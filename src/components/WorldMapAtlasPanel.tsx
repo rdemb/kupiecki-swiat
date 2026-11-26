@@ -1,3 +1,4 @@
+import { NestingJournal } from './NestingJournal';
 import { CareerDesk } from './CareerDesk';
 import { fieldLabels } from '../economy/commonField';
 import { imageUrl } from '../utils/imageUrl';
@@ -21,6 +22,8 @@ import { CameraPresetId, buildActiveRouteList } from '../world3d/cameraPresets';
 import type { ActiveCaravan3D } from './World3DCanvas';
 
 interface WorldMapAtlasPanelProps {
+  onNestPost:()=>void;
+  onNestSighting:(s:import('../economy/northPassage').NestBook['sighting'])=>void;
   token: string|null;
   towns: {site:string;name:string;approved:number}[];
   selectedRegionId: string;
@@ -52,7 +55,7 @@ interface WorldMapAtlasPanelProps {
 }
 
 export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
-  token, towns, selectedRegionId,
+  token, towns, selectedRegionId, onNestSighting, onNestPost,
   selectedContinentId,
   onSelectContinent,
   onSelectRegion,
@@ -83,14 +86,15 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
   const activeContinent =
     WORLD_CONTINENTS.find((c) => c.id === activeRegion.continentId) ?? WORLD_CONTINENTS[0];
 
+  const northern=selectedContinentId==='morze_wylin';
   const farCoast=selectedContinentId==='kresy_nadziei';
-  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast;
+  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast || northern;
   const visibleRegions = WORLD_REGIONS.filter((r) =>
-    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' : r.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' : r.continentId === selectedContinentId,
   );
 
   const visibleTrailEvents = trailEvents.filter((ev) =>
-    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' : ev.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' && ev.continentId!=='morze_wylin' : ev.continentId === selectedContinentId,
   );
 
   const visibleRoutes = buildActiveRouteList(activeCaravans, selectedContinentId);
@@ -125,7 +129,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   : 'bg-[#111722] text-slate-300 border border-slate-800 hover:bg-slate-800'
               }`}
             >
-              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei').length})
+              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin').length})
             </button>
             {WORLD_CONTINENTS.map((cont) => {
               const count = WORLD_REGIONS.filter((r) => r.continentId === cont.id).length;
@@ -151,8 +155,8 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         {/* High-Altitude Photorealistic 6-Continent Satellite Map */}
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
-            src={farCoast ? imageUrl('dalekie-wybrzeze.webp') : eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
-            alt={eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
+            src={northern ? imageUrl('morze-wylin.webp') : farCoast ? imageUrl('dalekie-wybrzeze.webp') : eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
+            alt={northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
             referrerPolicy="no-referrer"
             className={eastern?'w-full h-full object-fill':'w-full h-full object-cover'}
           />
@@ -537,6 +541,8 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             </button>
           </div>
 
+          {(northern || activeRegion.id==='lawica_krabow' || activeRegion.id==='przyladek_dwoch_szyj') &&
+            <NestingJournal onPost={onNestPost} onSighting={onNestSighting} key={(token??'guest')+activeRegion.id} token={token} site={activeRegion.id} choose={onSelectRegion}/>}
           {activeRegion.type==='workshop' && <CareerDesk key={(token??'guest')+activeRegion.id} token={token} site={activeRegion.id} choose={onSelectRegion}/>}
           {activeRegion.linkedCityId === 'srebrny_gaj' && <button type="button" onClick={onField} className="w-full rounded border border-emerald-700/70 py-2 text-emerald-200">Wspólne pole{macro.fieldStage && ' · ' + fieldLabels[macro.fieldStage]}</button>}
           {CITIES.some(c => c.id===activeRegion.linkedCityId && c.isCoastalPort && c.id!=='oaza_alkharim') &&

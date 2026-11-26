@@ -1,10 +1,11 @@
 // Run with tsx and pipe the PPM to an image encoder. Markers use these same terrain coordinates.
 import {getTerrainHeight} from '../src/economy/worldMapData';
 const coast=process.argv.includes('--coast');
-const w=coast?1440:960,h=520;
+const north=process.argv.includes('--north');
+const w=north?1600:coast?1440:960,h=520;
 const rgb=Buffer.alloc(w*h*3);
 for(let j=0;j<h;j++) for(let i=0;i<w;i++){
-  const x=(coast?930:310)+(i+.5)*(coast?1240:620)/w, z=-310+(j+.5)*620/h;
+  const x=(north?-310:coast?930:310)+(i+.5)*(north?2480:coast?1240:620)/w, z=(north?-930:-310)+(j+.5)*620/h;
   const y=getTerrainHeight(x,z);
   const light=Math.min(1.32,Math.max(.64,1+(getTerrainHeight(x+1,z+1)-y)*.30));
   const wave=3*Math.sin(z*.91+x*.17);

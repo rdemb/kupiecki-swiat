@@ -80,6 +80,7 @@ interface World3DCanvasProps {
   onSelectTrailEvent: (eventId: string) => void;
   showWorldLabels?: boolean;
   activeDisaster?: ActiveWorldDisaster | null;
+  nestSighting?:import('../economy/northPassage').NestBook['sighting'];
   playerDragonSpecies?: DragonSpeciesId;
   playerDragonStage?: DragonLifeStage;
   cinematicTourActive?: boolean;
@@ -150,11 +151,13 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   onSelectTrailEvent,
   showWorldLabels = true,
   activeDisaster = null,
-  playerDragonSpecies = 'ogien',
+  nestSighting=null, playerDragonSpecies = 'ogien',
   playerDragonStage = 2,
   cinematicTourActive = false,
   onTourContinentChange,
 }) => {
+  const nestRef=useRef(nestSighting);
+  nestRef.current=nestSighting;
   const fieldStageRef = useRef(fieldStage);
   fieldStageRef.current = fieldStage;
   const townsRef=useRef(towns);
@@ -657,6 +660,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const playerDragonRig = new THREE.Group();
     const playerDragonModels: Record<DragonSpeciesId, THREE.Group> = {
+      dwuglowy_brazowy:buildArticulatedDragon(materials,'ochreTwin'),
+      dwuglowy_czerwony:buildArticulatedDragon(materials,'redTwin'),
       brazowy: buildArticulatedDragon(materials,'umber'),
       dwuglowy: buildArticulatedDragon(materials,'twin'),
       pseudosmok: buildArticulatedDragon(materials, 'copper'),
@@ -666,6 +671,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       szmaragd: buildArticulatedDragon(materials, 'emerald'),
       zloto: buildArticulatedDragon(materials, 'gold'),
     };
+    playerDragonModels.dwuglowy_brazowy.scale.set(1.42,1.08,.94);
+    playerDragonModels.dwuglowy_czerwony.scale.set(1.12,1.24,1.36);
     playerDragonModels.brazowy.scale.set(1.48,1.08,1.12);
     playerDragonModels.pseudosmok.scale.set(.42, .36, .38);
     playerDragonModels.blekit.scale.set(1.14, .90, 1.26);
@@ -674,6 +681,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       playerDragonRig.add(playerDragonModels[sp]);
     });
     scene.add(playerDragonRig);
+    // The wild animal shares mesh buffers with the aviary, but has its own pose.
+    const rookery=new THREE.Group();
+    scene.add(rookery);
+    let wildSpecies:DragonSpeciesId|null=null;
 
     // 6-Continent Cinematic Showcase Tour Curve
     const tourPosCurve = new THREE.CatmullRomCurve3(
@@ -1280,6 +1291,22 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const homeReg = WORLD_REGIONS.find((r) => r.id === selectedRegionIdRef.current) ?? WORLD_REGIONS[0];
         const [hx, hz] = homeReg.position2D;
         const hy = Math.max(2.0, getTerrainHeight(hx, hz));
+        const sight=nestRef.current;
+        rookery.visible=!!sight && sight.site===homeReg.id;
+        if(rookery.visible && sight) {
+          if(wildSpecies!==sight.species) {
+            rookery.clear();
+            const wild=playerDragonModels[sight.species].clone();
+            wild.visible=true;rookery.add(wild);wildSpecies=sight.species;
+          }
+          const phase=elapsed*.27;
+          const nx=hx+Math.cos(phase)*9, nz=hz+Math.sin(phase)*7;
+          rookery.position.set(nx,terrain.heightAt(nx,nz)+6+Math.sin(phase*2)*1.1,nz);
+          rookery.rotation.set(0,Math.atan2(-9*Math.sin(phase),7*Math.cos(phase)),.08*Math.cos(phase));
+          const motion=.24*Math.sin(elapsed*3.3);
+          const left=rookery.getObjectByName('left_wing'),right=rookery.getObjectByName('right_wing');
+          if(left && right){left.rotation.z=motion;right.rotation.z=-motion;}
+        }
         const pAng = elapsed * 0.52;
         playerDragonRig.position.set(
           hx + Math.cos(pAng) * 20,

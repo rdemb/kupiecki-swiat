@@ -1,4 +1,5 @@
 import { installReturnFreight, ReturnRule } from './returnFreight';
+import { installNestingGrounds } from './nestingGrounds';
 import { installSeaMail } from './seaMail';
 import { hullMarks } from './hullMarks';
 import { maidenRegister } from './maidenVoyage';
@@ -70,7 +71,9 @@ export function installShipyard(
   const marks = hullMarks(db);
   const returns = installReturnFreight(db, transfer);
   const mail = installSeaMail(db,gold);
+  const nests=installNestingGrounds(app,db,auth,gold,mail);
   function sealReport(uid: string, sender: string, destination: string, topic: unknown, now: number) {
+    if (topic==='nest') return nests.seal(uid,sender,destination,now);
     const body = topic === 'grain' ? mail.grainReport()
       : topic === 'salt' ? 'Warzelnia w Królewskiej Przystani. Beczki soli gotowe do wydania: '+harbor.salt()+'.'
       : topic === 'timber' ? 'Skład przy pochylni. Partie dębu dostępne do budowy: '+rafts.portStock()+'.' : null;

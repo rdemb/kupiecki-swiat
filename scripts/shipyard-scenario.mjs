@@ -1,3 +1,4 @@
+import {exerciseNests} from './nesting-scenario.mjs';
 import { exerciseStallBargains } from './stall-bargains-scenario.mjs';
 import { exerciseReturnFreight } from './return-freight-scenario.mjs';
 import assert from 'node:assert/strict';
@@ -649,4 +650,5 @@ export async function exerciseShipyard({
   const traders = {db,request,send,read,master,oak,smith,short,ship,inn,commissionTrip,arrive,start,stop,logIn};
   await exerciseReturnFreight(traders);
   await exerciseStallBargains(traders);
+  await exerciseNests({request,db,account,setSky,read,post});
 }

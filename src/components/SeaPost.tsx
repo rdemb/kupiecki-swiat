@@ -4,17 +4,17 @@ import type { InnBook } from '../economy/merchantInn';
 import { cinemaFile } from './MerchantRoad';
 
 const stamp = (ms: number) => new Date(ms).toLocaleString('pl-PL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-export function GuildPost({ letters }: { letters: Dispatch[] }) {
+export function GuildPost({ letters,onNests }: { letters: Dispatch[];onNests:()=>void }) {
   return <section className="feast-table"><h3>Listy doręczone gildii</h3>
     {letters.length ? letters.map(l=><details key={l.id}><summary>{l.sender} · {stamp(l.delivered!)} · {l.vessel ?? 'goniec'}</summary>
-      <p>{l.body}</p><small>Stan z chwili pieczętowania · {stamp(l.written)}</small></details>)
+      <p>{l.body}</p>{l.body.startsWith('Lęgowisko nr ') && <button type="button" onClick={onNests}>Otwórz dziennik wyprawy</button>}<small>Stan z chwili pieczętowania · {stamp(l.written)}</small></details>)
       : <p>Skrytka czeka na pierwszą przesyłkę.</p>}</section>;
 }
-export function SeaPost({book,busy,login,act}: {book: InnBook; busy:boolean; login:()=>void;
+export function SeaPost({book,busy,login,act,postFromNests}: {postFromNests:boolean;book: InnBook; busy:boolean; login:()=>void;
   act:(action:string,params:Record<string,unknown>,success:string)=>Promise<boolean>}) {
-  const [guild,setGuild]=useState(''), [topic,setTopic]=useState('grain');
+  const [guild,setGuild]=useState(''), [topic,setTopic]=useState(postFromNests || new URLSearchParams(location.search).get('wiesc')==='legowisko'?'nest':'grain');
   const desk=useRef<HTMLElement>(null);
-  useEffect(()=>{if(location.hash==='#poczta-okretowa') desk.current?.focus()},[]);
+  useEffect(()=>{if(postFromNests||location.hash==='#poczta-okretowa') desk.current?.focus()},[postFromNests]);
   const destination=guild || book.membership || book.groups[0]?.id;
   const pending=book.seaMail.sent.find(l=>l.delivered===null);
   return <section ref={desk} id="poczta-okretowa" tabIndex={-1} className="return-desk">

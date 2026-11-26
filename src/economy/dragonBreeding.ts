@@ -8,7 +8,7 @@ import { imageUrl } from '../utils/imageUrl';
 
 import type { CommodityId } from './economyEngine';
 
-export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy';
+export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony';
 
 export type DragonLifeStage = 1 | 2 | 3 | 4 | 5;
 
@@ -18,7 +18,7 @@ export interface DragonSpeciesSpec {
   elementLabel: string;
   originContinentName: string;
   artworkUrl: string;
-  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin';
+  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin';
   accentHex: string;
   favoriteCommodity: CommodityId;
   favoriteCommodityName: string;
@@ -30,6 +30,18 @@ export interface DragonSpeciesSpec {
 }
 
 export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
+  dwuglowy_brazowy: {
+    id:'dwuglowy_brazowy',name:'Brązowy smok dwugłowy',elementLabel:'Kamień i sól',originContinentName:'Morze Wylin',
+    artworkUrl:imageUrl('dwuglowy-brazowy.webp'),variant3D:'ochreTwin',accentHex:'#c5a683',favoriteCommodity:'zelazo',favoriteCommodityName:'Żelazo',
+    specialtySummary:'Zbiera minerały odsłonięte odpływem. Przynosi księstwu dodatkowe 6 punktów premii do dochodu.',
+    baseFirePower:30,baseFlightSpeed:13,baseHoardGreed:26,eggCostGold:3450,
+  },
+  dwuglowy_czerwony: {
+    id:'dwuglowy_czerwony',name:'Czerwony smok dwugłowy',elementLabel:'Bazalt i gorąca para',originContinentName:'Morze Wylin',
+    artworkUrl:imageUrl('dwuglowy-czerwony.webp'),variant3D:'redTwin',accentHex:'#d88a70',favoriteCommodity:'smocza_luska',favoriteCommodityName:'Smocza łuska',
+    specialtySummary:'Patron rycerzy północnego szlaku. Dodaje 7 punktów do siły rycerza.',
+    baseFirePower:35,baseFlightSpeed:19,baseHoardGreed:12,eggCostGold:3700,
+  },
   brazowy: {
     id:'brazowy', name:'Brązowy smok klifowy', elementLabel:'Ziemia i urwiska', originContinentName:'Dalekie Wybrzeże Nowej Nadziei',
     artworkUrl:imageUrl('smok-klifowy.webp'),variant3D:'umber',accentHex:'#cd9566',favoriteCommodity:'mithril',favoriteCommodityName:'Sztaby Mithrilu',
@@ -220,6 +232,8 @@ export const DRAGON_MISSIONS: DragonMissionSpec[] = [
 ];
 
 const DRAGON_NAMES_BY_SPECIES: Record<DragonSpeciesId, string[]> = {
+  dwuglowy_brazowy:['Dwułom','Łupek','Rogacz'],
+  dwuglowy_czerwony:['Dwużar','Skoria','Iskra'],
   brazowy:['Rdzawiec','Skalnik','Krzemień'],
   dwuglowy:['Dwugłos','Rozwidleniec','Szuwar'],
   pseudosmok: ['Szelest', 'Kłębek', 'Bosman'],
@@ -290,14 +304,14 @@ export function computeDragonGlobalBonuses(sanctuary: DragonSanctuaryState): Dra
   }
 
   const fleetBonus = Math.max(0, sanctuary.dragons.length - 1);
-  const knightAttackBonus = Math.round(active.firePower * 0.45 + active.stage * 4 + fleetBonus * 3);
+  const knightAttackBonus = Math.round(active.firePower * 0.45 + active.stage * 4 + fleetBonus * 3 + (active.speciesId==='dwuglowy_czerwony'?7:0));
   const caravanSpeedBonusPct = Math.min(
     40,
     Math.round(active.flightSpeed * 0.45 + (active.speciesId === 'szmaragd' ? 6 : active.speciesId === 'pseudosmok' ? 4 : active.speciesId === 'dwuglowy' ? 5 : 0) + fleetBonus * 2),
   );
   const duchyIncomeBonusPct = Math.min(
     55,
-    Math.round(active.hoardGreed * 0.6 + active.stage * 3 + (active.speciesId === 'zloto' ? 8 : 0)),
+    Math.round(active.hoardGreed * 0.6 + active.stage * 3 + (active.speciesId === 'zloto' ? 8 : active.speciesId === 'dwuglowy_brazowy' ? 6 : 0)),
   );
   const disasterResistancePct = Math.min(
     50,
