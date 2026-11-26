@@ -229,7 +229,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
+  const startAtInn = place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -270,15 +270,16 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const atRiver = place === 'pole' || place === 'flisacy' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
-  const innArrival: Record<string, InnTab> = { pole:'field', piloci:'pilots', stocznia:'shipyard', flisacy:'rafting', most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
+  const innTown = place === 'karczma' && new URLSearchParams(window.location.search).get('miasto') === 'zelazna_kuznia' ? 'zelazna_kuznia' : 'krolewska_przystan';
+  const atRiver = place === 'dozynki' || place === 'pole' || place === 'flisacy' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
+  const innArrival: Record<string, InnTab> = { dozynki:'feast', pole:'field', piloci:'pilots', stocznia:'shipyard', flisacy:'rafting', most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
   const [inn,setInn] = useState<InnVisit|null>(startAtInn ? {
-    city: atRiver ? 'srebrny_gaj' : 'krolewska_przystan',
+    city: atRiver ? 'srebrny_gaj' : innTown,
     tab: innArrival[place ?? ''] ?? 'board',
   } : null);
   const innAfterLogin=useRef<InnVisit|null>(null);
   const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
-  const [roadStop, setRoadStop] = useState<RoadStop>(atRiver?roadStops[1]:roadStops[0]);
+  const [roadStop, setRoadStop] = useState<RoadStop>(atRiver?roadStops[1]:innTown==='zelazna_kuznia'?roadStops[2]:roadStops[0]);
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
   const [coastView,setCoastView] = useState(startAtCoast);
   const [coastTracking,setCoastTracking] = useState(false);
@@ -2626,7 +2627,7 @@ export default function App() {
         </React.Suspense>
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
-        <MerchantInn onHarbor={()=>{setInn(null);visitStop(roadStops[0]);setAtWorks(true);}} onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({city:tab==='shipyard'||tab==='pilots'?'krolewska_przystan':tab==='rafting'||tab==='freight'||tab==='mutual'||tab==='field'||tab==='bridge'?'srebrny_gaj':inn.city,tab})}
+        <MerchantInn onHarbor={()=>{setInn(null);visitStop(roadStops[0]);setAtWorks(true);}} onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={(tab,town)=>setInn({city:town ?? (tab==='shipyard'||tab==='pilots'?'krolewska_przystan':tab==='rafting'||tab==='freight'||tab==='mutual'||tab==='field'||tab==='feast'||tab==='bridge'?'srebrny_gaj':inn.city),tab})}
           muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>setInn(null)}
           onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
       </React.Suspense>}

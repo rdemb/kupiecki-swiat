@@ -1155,7 +1155,7 @@ async function startServer() {
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
-  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid));
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table);
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;

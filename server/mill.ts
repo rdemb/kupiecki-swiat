@@ -3,6 +3,7 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { FeastRule } from './harvestLoaf';
 import { seedActions } from '../src/economy/commonField';
 import { FieldRule, type openCommonField } from './commonField';
 import { installWaybills } from './waybills';
@@ -169,7 +170,7 @@ export function installMill(
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
-      ...(city === waybillTown ? { freight: freight.book(uid, Date.now()), field: field.book(uid, worldDay(), weather()) } : {}),
+      ...(city === waybillTown ? { freight: freight.book(uid, Date.now()), field: field.book(uid, worldDay(), weather()), feast: field.feastBook(uid,Date.now()) } : {}),
       treasury: m.treasury,
       orders: orders.all(city),
       deliveries: db
@@ -224,7 +225,9 @@ export function installMill(
     const isFreight = ['commission', 'withdraw', 'depart', 'seal', 'tariff', 'suspendCover', 'pledge', 'redeem'].includes(action);
     const fields = isFreight ? [req.body.wage, req.body.road, req.body.bill] : [];
     const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow', ...seedActions].includes(action);
-    if (isField) fields.push(req.body.round);
+    const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
+    if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
+    if (isFeast) fields.push(req.body.loaf, req.body.town);
     if (action === 'recallHarvestSeed' || action === 'acceptHarvestSeed') fields.push(req.body.lot);
     // Keep previously signed documents valid after the upgrade.
     if (isFreight && (req.body.quote !== undefined || req.body.guild !== undefined || req.body.amount !== undefined || req.body.cover !== undefined || req.body.fee !== undefined)) {
@@ -244,7 +247,11 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (isField) {
+        if (action === 'millHarvestLoaf' || isFeast) {
+          check(city === waybillTown, 'Młyn dożynkowy leży w Srebrnym Gaju.');
+          if (action === 'millHarvestLoaf') field.millForFeast(me.uid,me.displayName,req.body.round,now,transfer);
+          else field.feast.command(me.uid,me.displayName,req.body,now,weather(),bridgeClosed);
+        } else if (isField) {
           check(city === waybillTown, 'Wspólne pole leży pod Srebrnym Gajem.');
           field.command(me.uid, me.displayName, req.body, worldDay(), transfer);
         } else if (isFreight) {
@@ -327,7 +334,7 @@ export function installMill(
       res.json(page);
     } catch (e) {
       if (db.isTransaction) db.exec('ROLLBACK');
-      if (e instanceof MillRule || e instanceof WaybillRule || e instanceof FieldRule) res.status(409).json({ error: e.message });
+      if (e instanceof FeastRule || e instanceof MillRule || e instanceof WaybillRule || e instanceof FieldRule) res.status(409).json({ error: e.message });
       else next(e);
     }
   });

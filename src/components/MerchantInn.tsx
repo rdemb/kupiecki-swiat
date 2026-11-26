@@ -17,16 +17,18 @@ import { ReturnFreightDesk } from './ReturnFreight';
 import { LaunchBoard } from './LaunchBoard';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
+import { HarvestTable } from './HarvestFeast';
+import { feastTowns, type FeastTown } from '../economy/harvestLoaf';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast';
 interface Props {
   city: string;
   token: string | null;
   tab: InnTab;
-  onTab: (v: InnTab) => void;
+  onTab: (v: InnTab, town?:FeastTown) => void;
   onClose: () => void;
   onHarbor: () => void;
   onAccount: () => void;
@@ -150,9 +152,13 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
+  if (tab === 'feast') return <main className="merchant-inn common-field">
+    <nav className="field-nav" aria-label="Drogi z piekarni"><button onClick={()=>onTab('field')}>Na wspólne pole</button><button onClick={()=>onTab('mill')}>Do młyna</button></nav>
+    <MillHouse visit={onTab} room="feast" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
+  </main>;
   if (tab === 'field') return <main className="merchant-inn common-field">
     <nav className="field-nav" aria-label="Drogi ze wspólnego pola"><button onClick={onClose}>Wróć do gry</button><button onClick={()=>onTab('mill')}>Do młyna</button></nav>
-    <MillHouse room="field" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
+    <MillHouse visit={onTab} room="field" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
   </main>;
   if(tab==='pilots') return <PilotHouse yard={()=>onTab('shipyard')} inn={()=>onTab('board')} book={book?.pilotage ?? null} error={readError} retry={read} close={onClose} muted={muted}/>;
   if(tab==='shipyard') return <Shipyard inn={()=>onTab('board')} pilots={()=>onTab('pilots')} token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
@@ -209,12 +215,13 @@ export default function MerchantInn({
         )}
         {receipt && <p role="status">{receipt}</p>}
         {!book && !readError && <p>Karczmarz przynosi księgę…</p>}
-        {(tab==='mill' || tab==='freight' || tab==='mutual') && <MillHouse key={tab} room={tab} city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}
+        {(tab==='mill' || tab==='freight' || tab==='mutual') && <MillHouse visit={onTab} key={tab} room={tab} city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}
         {!!book && tab!=='mill' && tab!=='freight' && tab!=='mutual' && (
           <div className="inn-spread">
             <section>
               {tab === 'board' ? (
                 <>
+                  {book.harvestTable && feastTowns.some(town=>town===city) && <HarvestTable visit={onTab} loaves={book.harvestTable}/>}
                   {book.launches?.returns && <ReturnFreightDesk orders={book.launches.returns} accounts={book.launches.freightAccounts ?? []} bids={book.launches.stallBids ?? []} token={token} login={onAccount}
                     yard={()=>onTab('shipyard')} refresh={read} update={page => {
                       ++seq.current;

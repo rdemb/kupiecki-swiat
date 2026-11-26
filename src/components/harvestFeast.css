@@ -1,0 +1,186 @@
+.feast-field-link {
+  max-width: 1000px;
+  margin: 0.8rem auto;
+  padding: 0 clamp(1rem, 3vw, 2.5rem);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.feast-house {
+  max-width: 980px;
+  margin: auto;
+  background: #f0e8d8;
+  color: #30251b;
+}
+.feast-cover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #30251b;
+}
+.feast-cover img {
+  width: 100%;
+  height: clamp(200px, 31vw, 360px);
+  object-fit: cover;
+  object-position: center 52%;
+  display: block;
+}
+.feast-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(10deg, #140e08ed, transparent 65%);
+  z-index: 0;
+}
+.feast-cover div {
+  position: absolute;
+  z-index: 1;
+  bottom: 8%;
+  left: 5%;
+  color: #fff5d8;
+}
+.feast-cover h1 {
+  margin: 0;
+  font:
+    normal clamp(2.3rem, 5.3vw, 4rem) / 1.05 Georgia,
+    serif;
+}
+.feast-cover span,
+.feast-season,
+.feast-spread small,
+.feast-names dt {
+  font:
+    0.85rem/1.5 system-ui,
+    sans-serif;
+}
+.feast-spread {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1.7rem 3rem;
+  padding: clamp(1rem, 3vw, 2.3rem);
+  overflow-wrap: anywhere;
+}
+.feast-spread p,
+.feast-table p {
+  margin: 0.5rem 0 0.9rem;
+}
+.feast-spread h2,
+.feast-table h2 {
+  font:
+    normal 1.55rem/1.12 Georgia,
+    serif;
+  margin: 0 0 0.5rem;
+}
+.feast-spread a,
+.feast-table a {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.feast-spread li {
+  list-style: none;
+  border-top: 1px solid #bbad96;
+  padding: 0.65rem 0;
+}
+.feast-spread li span,
+.feast-spread li small {
+  display: block;
+}
+.feast-spread ul {
+  margin: 0.6rem 0;
+  padding: 0;
+}
+.feast-road {
+  margin: 0.7rem 0;
+}
+.feast-road-scene {
+  position: relative;
+  height: 6rem;
+  background-position: center 56%;
+  background-size: cover;
+}
+.feast-road-line {
+  position: absolute;
+  bottom: 20%;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: #f3dcad;
+  box-shadow: 0 1px 3px #312313;
+}
+.feast-road-line span {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #f8e9c4;
+  border-radius: 50%;
+  background: #73482c;
+  transform: translate(-50%, -50%);
+}
+.feast-road figcaption {
+  display: flex;
+  justify-content: space-between;
+  font:
+    0.81rem/1.8 system-ui,
+    sans-serif;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feast-road-line span {
+    transition: left 4s linear;
+  }
+}
+.feast-names {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+  overflow-wrap: anywhere;
+}
+.feast-names dt {
+  color: #64523b;
+}
+.feast-names dd {
+  margin: 0;
+  font:
+    1.12rem Georgia,
+    serif;
+}
+.feast-spread progress {
+  width: min(17rem, 100%);
+  accent-color: #79542d;
+}
+.feast-table {
+  border-block: 1px solid #b3a68d;
+  margin: 0.7rem 0 1.4rem;
+  padding: 1rem 0;
+  overflow-wrap: anywhere;
+}
+.feast-table details {
+  margin: 0.65rem 0;
+}
+.feast-table summary,
+.feast-house summary {
+  cursor: pointer;
+}
+@media (max-width: 650px) {
+  .feast-spread {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .feast-spread aside {
+    border-top: 1px solid #b3a68d;
+    padding-top: 1rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feast-cover img {
+    animation: feast-arrival 1.4s ease-out both;
+  }
+  @keyframes feast-arrival {
+    from {
+      transform: scale(1.025);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+}

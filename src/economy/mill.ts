@@ -30,6 +30,7 @@ export interface MillOrder {
   expires: number;
 }
 export interface MillBook {
+  feast?: import('./harvestLoaf').FeastBook;
   freight?: FreightBook;
   field?: import('./commonField').FieldBook;
   flour: number;

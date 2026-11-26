@@ -3,18 +3,20 @@ import { WEATHER_CONDITIONS } from '../economy/economyEngine';
 import { fieldLabels, fieldRules as rules, type FieldBook, type FieldCommand } from '../economy/commonField';
 import type { MillBook } from '../economy/mill';
 import { cinemaFile } from './MerchantRoad';
+import { PortLink } from './PortLink';
 import { SeedChest } from './SeedChest';
 import { sacks } from '../utils/sacks';
 import './commonField.css';
 
 interface Props {
   field: FieldBook;
+  bakery: ()=>void;
   wallet: MillBook['wallet'];
   busy: boolean;
   onAccount: () => void;
   sign: (c: FieldCommand, receipt: string) => Promise<boolean>;
 }
-export function CommonField({field:f, wallet, busy, onAccount, sign}: Props) {
+export function CommonField({field:f, wallet, busy, onAccount, sign, bakery}: Props) {
   const [amount,setAmount] = useState('1');
   const open = f.sown === null;
   const seed = f.mine?.seed ?? 0;
@@ -64,6 +66,7 @@ export function CommonField({field:f, wallet, busy, onAccount, sign}: Props) {
         {open && <p className="field-hint">Każdy kupiec wnosi do czterech worków i ma jeden głos. Gdy siew poprze ponad połowa uczestników, ziarno trafia w ziemię. Do tego czasu możesz je wycofać.</p>}
       </aside>
     </div>
+    <p className="feast-field-link"><PortLink href="?miejsce=dozynki" go={bakery}>Zanieś ziarno do piekarni dożynkowej →</PortLink></p>
     {f.chest && <SeedChest field={f} chest={f.chest} busy={busy} sign={sign} grain={wallet?.grain ?? null} onAccount={onAccount}/>}
   </>;
 }

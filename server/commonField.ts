@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { WeatherConditionId } from '../src/economy/economyEngine';
 import { cropPoints, fieldRules as rules, type FieldBook, type FieldStage } from '../src/economy/commonField';
 
+import { openHarvestFeast } from './harvestLoaf';
 import { openSeedChest } from './seedChest';
 
 export class FieldRule extends Error {}
@@ -22,7 +23,8 @@ export function openCommonField(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS fieldDays(round INTEGER NOT NULL, day INTEGER NOT NULL, weather TEXT NOT NULL, points INTEGER NOT NULL, PRIMARY KEY(round,day));
     INSERT OR IGNORE INTO fieldRounds(id) VALUES(1);
   `);
-  const chest = openSeedChest(db);
+  const feast = openHarvestFeast(db);
+  const chest = openSeedChest(db,feast.used);
   const latest = db.prepare('SELECT * FROM fieldRounds ORDER BY id DESC LIMIT 1');
   const current = () => latest.get() as unknown as Round;
   const totals = db.prepare('SELECT COALESCE(SUM(seed),0) total, COUNT(*) growers, COALESCE(SUM(voted),0) votes FROM fieldGrowers WHERE round=?');
@@ -101,6 +103,14 @@ export function openCommonField(db: DatabaseSync) {
     }
   }
 
+  function millForFeast(uid:string,name:string,round:unknown,now:number,transfer:Transfer) {
+    const r=current();
+    requireField(round===r.id, 'Księga dotyczy innego zasiewu. Odśwież młyn.');
+    const target=r.harvested===null ? r.id : r.id+1;
+    requireField((r.sown===null || r.harvested!==null) && chest.eligible(uid,target), 'Potrzebujesz udziału z ostatnich udanych żniw. Worek odłożony dla sąsiada zostaje w skrzyni.');
+    feast.mill(target-1,uid,name,now,transfer);
+  }
+
   function book(uid: string | null, day: number, weather: WeatherConditionId): FieldBook {
     const r = current(), t = totals.get(r.id)!;
     const mine = uid === null ? null : participant.get(r.id,uid);
@@ -115,5 +125,6 @@ export function openCommonField(db: DatabaseSync) {
       lastHarvest:h ? {day:Number(h.harvested), seed:Number(totals.get(h.id)!.total), yield:Number(h.yield), myShare:share ? Number(share.share) : null} : null,
     };
   }
-  return { advance, command, book, seedRoute:chest.route, landscape: () => stage(current()) };
+  const feastBook = (uid:string|null, now:number) => feast.book(uid,Number(harvest.get()?.id ?? 0),now);
+  return { advance, command, book, feast, feastBook, millForFeast, seedRoute:chest.route, landscape: () => stage(current()) };
 }

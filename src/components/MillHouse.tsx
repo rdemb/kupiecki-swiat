@@ -8,18 +8,22 @@ import {
   type MillOrder,
 } from '../economy/mill';
 import type { FreightCommand } from '../economy/waybills';
+import { PortLink } from './PortLink';
+import { HarvestFeast, type FeastVisit } from './HarvestFeast';
+import type { FeastCommand } from '../economy/harvestLoaf';
 import { CommonField } from './CommonField';
 import type { FieldCommand } from '../economy/commonField';
 import CarrierMutual from './CarrierMutual';
 import WaybillDesk from './WaybillDesk';
 const number = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-type Command = FieldCommand | FreightCommand
+type Command = FieldCommand | FreightCommand | FeastCommand
   | { action: 'post'; quantity: number; price: number; purpose: Consignee }
   | { action: 'deliver'; order: number; quantity: number }
   | { action: 'cancel'; order: number }
   | { action: 'ration' };
 interface Props {
-  room?: 'mill' | 'freight' | 'mutual' | 'field';
+  visit: FeastVisit;
+  room?: 'mill' | 'freight' | 'mutual' | 'field' | 'feast';
   city: string;
   token: string | null;
   onAccount: () => void;
@@ -109,7 +113,7 @@ function OrderLine({
     </article>
   );
 }
-export function MillHouse({ city, token, onSettlement, onAccount, room = 'mill' }: Props) {
+export function MillHouse({ city, token, onSettlement, onAccount, visit, room = 'mill' }: Props) {
   const [book, setBook] = useState<MillBook | null>(null),
     [loadError, setLoadError] = useState(false),
     [error, setError] = useState(''),
@@ -205,7 +209,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, room = 'mill' 
     +price < 1 ||
     +price > rules.maxPrice;
   return (
-    <section className="mill-house" aria-label={room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
+    <section className="mill-house" aria-label={room==='feast' ? 'Piekarnia dożynkowa' : room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
       {loadError && (
         <p role="alert">
           Księga młyna jest chwilowo niedostępna. <button onClick={refresh}>Odśwież</button>
@@ -214,16 +218,18 @@ export function MillHouse({ city, token, onSettlement, onAccount, room = 'mill' 
       {note && <p role="status">{note}</p>}
       {error && <p role="alert">{error}</p>}
       {!book && !loadError && <p>Młynarz otwiera księgę…</p>}
+      {book && room==='feast' && (book.feast ? <HarvestFeast visit={visit} feast={book.feast} book={book} busy={busy} login={onAccount} sign={action}/> : <p role="alert">Księga wypieków jest chwilowo niedostępna.</p>)}
       {book && room==='mutual' && (book.freight?.insurance ? <CarrierMutual funds={book.freight.insurance} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Kasa czeka na połączenie z księgą.</p>)}
-      {book && room==='field' && (book.field ? <CommonField field={book.field} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Księga pola jest chwilowo niedostępna.</p>)}
+      {book && room==='field' && (book.field ? <CommonField bakery={()=>visit('feast')} field={book.field} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Księga pola jest chwilowo niedostępna.</p>)}
       {book && room==='freight' && (book.freight ? <WaybillDesk book={book} desk={book.freight} busy={busy} onAccount={onAccount} onAction={action}/> : <p role="alert">Kantor czeka na połączenie z księgą przewozów.</p>)}
       {book && room==='mill' && (
         <>
+          {book.feast && <p><PortLink href="?miejsce=dozynki" go={()=>visit('feast')}>Przejdź do pieca dożynkowego</PortLink></p>}
           <dl className="mill-stocks">
             <div>
               <dt>Mąka w mieście</dt>
               <dd>
-                {book.flour} <small>miar</small>
+                {number.format(book.flour + (book.feast?.publicQuarters ?? 0)/4)} <small>miar</small>
               </dd>
             </div>
             <div>

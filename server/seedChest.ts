@@ -4,7 +4,7 @@ import type { SeedChestBook, SeedRoute } from '../src/economy/commonField';
 type Transfer = (uid: string, gold: number, grain: number) => void;
 type Lot = { id: number; donor: string; donorName: string; founder: string; generation: number; receiver: string | null; receiverName: string | null };
 
-export function openSeedChest(db: DatabaseSync) {
+export function openSeedChest(db: DatabaseSync, milled: (round:number, uid:string)=>boolean) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS fieldSeedGifts(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +39,7 @@ export function openSeedChest(db: DatabaseSync) {
     };
   }
   function eligible(uid: string, target: number) {
-    return !!crop.get(target-1,uid) && !fromDonor.get(target,uid);
+    return !!crop.get(target-1,uid) && !fromDonor.get(target,uid) && !milled(target-1,uid);
   }
   function book(uid: string | null, target: number, accepting: boolean): SeedChestBook {
     const active = accepting ? lots.all(target) as unknown as Lot[] : [];
@@ -89,5 +89,5 @@ export function openSeedChest(db: DatabaseSync) {
       }
     }
   }
-  return { route, book, offer, recall, reserve, release, sow };
+  return { eligible, route, book, offer, recall, reserve, release, sow };
 }

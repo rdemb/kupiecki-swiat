@@ -26,6 +26,7 @@ export interface InnBook {
   applicants: { uid: string; name: string }[];
   letters: { id: number; name: string; body: string; at: number }[];
   boardAt: number;
+  harvestTable?: import('./harvestLoaf').Loaf[];
   pilotage: PilotBook | null;
   launches: LaunchBoard | null;
   riverReports: RiverReading[];
