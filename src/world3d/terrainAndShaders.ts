@@ -837,9 +837,14 @@ export function buildAtmosphericSkyDome() {
         // Starfield & Shimmering Northern Aurora Borealis over Frostheim at Dusk/Night!
         if (uNightFactor > 0.1 && d.y > 0.08 && uOvercast < 0.75) {
           float clearSkyMult = 1.0 - uOvercast;
-          vec2 starCell = floor(d.xz / max(d.y, 0.15) * 95.0);
+          vec2 starField = d.xz / max(d.y, 0.15) * 95.0;
+          vec2 starCell = floor(starField);
           float starSeed = hash2(starCell);
-          float star = smoothstep(0.992, 0.999, starSeed) * smoothstep(0.12, 0.45, d.y);
+          vec2 withinCell = fract(starField) - .5;
+          float pinLight = exp(-dot(withinCell,withinCell)*100.);
+          float footprint = max(fwidth(starField.x),fwidth(starField.y));
+          float star = smoothstep(.992,.999,starSeed) * pinLight * smoothstep(.12,.45,d.y)
+                     * (1.-smoothstep(.3,1.,footprint)) * (1.-.65*smoothstep(.22,.72,luminance));
           sky += vec3(0.85, 0.92, 1.0) * star * uNightFactor * 1.25 * clearSkyMult;
 
           // Aurora ribbons in Northern/Northwest quadrant (Frostheim sky)

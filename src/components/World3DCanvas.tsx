@@ -273,11 +273,22 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     controls.maxDistance = 460;
     controls.target.set(4, 3, 12);
 
-    if(cameraPresetRef.current==='coast'){
-      const initial=computeStaticCameraPresetPose('coast',[0,0,0],'stary_kontynent');
-      camera.position.set(...initial.position);controls.target.set(...initial.target);controls.update();
+    // On a tall screen keep both the quay and the nearest ship in frame.
+    const portraitFraming = () => THREE.MathUtils.clamp((1.05 - camera.aspect) / .6, 0, 1);
+    function frameCoast(target: THREE.Vector3) {
+      const amount = portraitFraming();
+      target.x += 2.65 * amount;
+      target.z += 3.40 * amount;
     }
-    let coastPhase=0,wasTracking=false;
+    if (cameraPresetRef.current === 'coast') {
+      const initial = computeStaticCameraPresetPose('coast', [0,0,0], 'stary_kontynent');
+      camera.position.set(...initial.position);
+      controls.target.set(...initial.target);
+      frameCoast(controls.target);
+      controls.update();
+    }
+    let coastPhase = 0;
+    let wasTracking = false;
     let userInteractingWithCamera = false;
     controls.addEventListener('start', () => {
       userInteractingWithCamera = true;
@@ -1271,7 +1282,13 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const [ax, az] = activeRegion.position2D;
         const ay = Math.max(0.35, getTerrainHeight(ax, az));
 
-        controls.maxPolarAngle = cameraPresetRef.current === 'coast' ? Math.PI * .525 : Math.PI / 2.12;
+        const byWater = cameraPresetRef.current === 'coast';
+        controls.maxPolarAngle = byWater ? Math.PI * .525 : Math.PI / 2.12;
+        const fov = 44 + (byWater ? 18 * portraitFraming() : 0);
+        if (camera.fov !== fov) {
+          camera.fov = fov;
+          camera.updateProjectionMatrix();
+        }
         const ringTargetX =
           cameraPresetRef.current === 'caravan' && hasTrackedCaravan ? _trackedPos.x : ax;
         const ringTargetZ =
@@ -1364,7 +1381,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
               );
               _targetPos.set(...staticPose.position);
               _targetLook.set(...staticPose.target);
-              if(preset==='coast'){
+              if (preset === 'coast') {
+                frameCoast(_targetLook);
                 if(coastTrackingRef.current)coastPhase+=dt*.19;
                 _targetPos.x+=Math.sin(coastPhase)*3.1;
                 _targetPos.z+=Math.sin(coastPhase*.68)*3.2;
