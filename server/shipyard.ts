@@ -1,3 +1,4 @@
+import { installReturnFreight, ReturnRule } from './returnFreight';
 import { maidenRegister } from './maidenVoyage';
 import { installLighters } from './lighters';
 import { installPilotage, PilotRule } from './pilotage';
@@ -44,6 +45,7 @@ export function installShipyard(
   harbor: ReturnType<typeof installHarborWorks>,
   gold: (uid: string, delta: number) => void,
   weather: () => WeatherConditionId,
+  transfer: (uid: string, gold: number, grain: number) => void,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS yardShips(id INTEGER PRIMARY KEY, guild TEXT NOT NULL UNIQUE,guildName TEXT NOT NULL,
@@ -63,6 +65,7 @@ export function installShipyard(
   const pilots = installPilotage(db, gold);
   const lighters = installLighters(db, gold);
   const maidens = maidenRegister(db);
+  const returns = installReturnFreight(db, transfer);
   const hull = db.prepare('SELECT * FROM yardShips WHERE id=?');
   const guild = db.prepare(
     'SELECT id,name,tag,founder,archived FROM innGuilds WHERE id=?',
@@ -86,8 +89,9 @@ export function installShipyard(
     notices +
       'WHERE s.launched IS NOT NULL ORDER BY s.launched DESC,s.id DESC LIMIT 1',
   );
-  function launchBoard(): LaunchBoard {
+  function launchBoard(uid: string | null): LaunchBoard {
     return {
+      returns: returns.board(uid, Date.now()),
       lastMaiden: maidens.latest(),
       open: openNotices.all() as unknown as LaunchNotice[],
       lastLaunch:
@@ -128,6 +132,7 @@ export function installShipyard(
   }
   function advance(now: number) {
     lighters.expire(now);
+    returns.expire(now);
     for (const v of db
       .prepare(
         'SELECT id FROM yardVoyages WHERE closed=0 AND departed IS NULL AND expires<=? ORDER BY id',
@@ -147,6 +152,7 @@ export function installShipyard(
         Number(v.due),
       );
       lighters.land(Number(v.id), Number(v.due));
+      returns.land(Number(v.id), String(v.captain));
       gold(String(v.captain), Number(v.wage));
       gold(String(v.sponsor), Number(v.freight));
       db.prepare(
@@ -171,6 +177,7 @@ export function installShipyard(
       : null;
     const s = hull.get(id ?? own?.id ?? fleet[0]?.id ?? 0);
     const book: YardBook = {
+      returns: returns.board(me?.uid ?? null, now),
       now,
       oak: rafts.portStock(),
       salt: harbor.salt(),
@@ -204,7 +211,7 @@ export function installShipyard(
       LEFT JOIN yardLighters boat ON boat.voyage=v.id
       LEFT JOIN yardVoyages witness ON witness.id=m.voyage `;
     type Voyage = NonNullable<YardBook['ship']>['journal'][number];
-    type RecordRow = Omit<Voyage, 'lighter'> & {
+    type RecordRow = Omit<Voyage, 'lighter' | 'backhaul'> & {
       boatman: string | null;
       moved: number;
       fare: number;
@@ -225,6 +232,7 @@ export function installShipyard(
       .get(uid, uid, s.id) as unknown as RecordRow | undefined;
     const charter = ({ boatman, moved, fare, ...v }: RecordRow): Voyage => ({
       ...v,
+      backhaul: returns.choice(v.id),
       lighter: boatman ? { name: boatman, barrels: moved, fee: fare } : null,
       mine: Boolean(v.mine),
       myJob: Boolean(v.myJob),
@@ -264,8 +272,18 @@ export function installShipyard(
     reference: unknown,
     offer: unknown,
     fee: unknown,
+    ask: unknown,
     now: number,
   ): number {
+    if (action === 'postReturn') {
+      returns.post(me, fee, ask, now);
+      return 0;
+    }
+    if (action === 'cancelReturn' || action === 'buyReturn' || action === 'collectReturn') {
+      check(positive(offer), 'Wybierz zlecenie frachtowe.');
+      returns.trade(me, action, offer);
+      return 0;
+    }
     if (action === 'offerLighter' || action === 'recallLighter') {
       if (action === 'offerLighter') lighters.post(me, fee, now);
       else {
@@ -298,7 +316,13 @@ export function installShipyard(
     check(positive(ship), 'Wybierz statek z rejestru.');
     const s = hull.get(ship);
     check(s, 'W rejestrze nie ma takiego statku.');
-    if (action === 'signMaiden') {
+    if (action === 'loadReturn' || action === 'emptyReturn') {
+      check(positive(charter), 'Wybierz czynny rejs.');
+      if (action === 'loadReturn') {
+        check(positive(offer), 'Wybierz ładunek na redzie.');
+        returns.choose(me.uid, ship, charter, offer, now);
+      } else returns.choose(me.uid, ship, charter, null, now);
+    } else if (action === 'signMaiden') {
       check(positive(charter), 'Wybierz list z pierwszego rejsu tej szkuty.');
       const problem = maidens.sign(ship, charter, me.uid, me.displayName, now);
       if (problem) throw new YardRule(problem);
@@ -542,6 +566,7 @@ export function installShipyard(
         reference,
         offer,
         fee,
+        ask,
         nonce,
       } = req.body ?? {};
       check(
@@ -558,6 +583,7 @@ export function installShipyard(
       if (course !== undefined || reference !== undefined)
         parts.push(course, reference);
       if (offer !== undefined || fee !== undefined) parts.push({ offer, fee });
+      if (ask !== undefined) parts.push({ ask });
       const payload = JSON.stringify(parts);
       const slip = db
         .prepare('SELECT payload,ship FROM yardSlips WHERE uid=? AND nonce=?')
@@ -580,6 +606,7 @@ export function installShipyard(
           reference,
           offer,
           fee,
+          ask,
           now,
         );
         db.prepare('INSERT INTO yardSlips VALUES(?,?,?,?)').run(
@@ -594,7 +621,7 @@ export function installShipyard(
       res.json(book);
     } catch (e) {
       if (db.isTransaction) db.exec('ROLLBACK');
-      if (e instanceof YardRule || e instanceof PilotRule)
+      if (e instanceof YardRule || e instanceof PilotRule || e instanceof ReturnRule)
         res.status(409).json({ error: e.message });
       else next(e);
     }

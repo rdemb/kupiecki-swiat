@@ -313,6 +313,7 @@ export function installMill(
     }
   });
   return {
+    transfer,
     settleGold: (uid: string, change: number) => transfer(uid, change, 0),
     useRation: (uid: string) =>
       Number(db.prepare('DELETE FROM millRations WHERE uid=?').run(uid).changes) > 0

@@ -1150,7 +1150,7 @@ async function startServer() {
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
-  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), () => shipyard.launchBoard());
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid));
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;
@@ -1158,7 +1158,7 @@ async function startServer() {
   const rafts = installRafts(db, mill.settleGold);
   const harbor = installHarborWorks(app, db, getAuthenticatedAccount, rafts);
   const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold,rafts);
-  const shipyard = installShipyard(app, db, getAuthenticatedAccount, rafts, harbor, mill.settleGold, ()=>WEATHER_ORDER[activeWeatherIndex]);
+  const shipyard = installShipyard(app, db, getAuthenticatedAccount, rafts, harbor, mill.settleGold, ()=>WEATHER_ORDER[activeWeatherIndex], mill.transfer);
   installProvinces(app, db, getAuthenticatedAccount, portCleared, harbor.useTeam, guildTravelBonus, mill.useRation, bridge);
 
   mill.advanceTowns();

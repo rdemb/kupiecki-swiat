@@ -1,3 +1,4 @@
+import type { ReturnOrder, ReturnChoice } from './returnFreight';
 import type { Course, PilotBook } from './pilotage';
 import { bridgeRules } from './bridge';
 import { harborRules } from './harborWorks';
@@ -69,6 +70,7 @@ export interface MaidenLetter extends MaidenPassage {
 }
 
 export interface LaunchBoard {
+  returns: ReturnOrder[];
   lastMaiden: MaidenPassage | null;
   open: LaunchNotice[];
   lastLaunch: LaunchNotice | null;
@@ -83,6 +85,7 @@ export interface LighterOffer {
   own: boolean;
 }
 export interface Charter {
+  backhaul: ReturnChoice | null;
   id: number;
   payer: string;
   skipper: string | null;
@@ -103,6 +106,8 @@ export interface Charter {
   lighter: { name: string; barrels: number; fee: number } | null;
 }
 export type YardAction =
+  | { action: 'loadReturn'; ship: number; charter: number; offer: number }
+  | { action: 'emptyReturn'; ship: number; charter: number }
   | { action: 'offerLighter'; fee: number; ship?: number }
   | { action: 'recallLighter'; offer: number; ship?: number }
   | { action: 'commission' }
@@ -121,6 +126,7 @@ export type YardAction =
       offer?: number;
     };
 export interface YardBook {
+  returns: ReturnOrder[];
   now: number;
   oak: number;
   salt: number;

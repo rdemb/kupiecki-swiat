@@ -80,7 +80,7 @@ export function LighterQuay({
           <p>
             Na wodzie ze szkutą „{wallet.duty.vessel}”{' '}
             {wallet.duty.role === 'lighter' ? 'jako przewoźnik' : 'jako szyper'}
-            . Po rozliczeniu zarobisz {wallet.duty.fee} zł na tym rejsie.
+            . Należność za podstawową przeprawę wynosi {wallet.duty.fee} zł.
           </p>
         ) : own ? (
           <>

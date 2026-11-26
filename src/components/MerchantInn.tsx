@@ -13,6 +13,7 @@ import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
 import Shipyard from './Shipyard';
 import { PortLink } from './PortLink';
+import { ReturnFreightDesk } from './ReturnFreight';
 import { LaunchBoard } from './LaunchBoard';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
@@ -209,6 +210,12 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {book.launches?.returns && <ReturnFreightDesk orders={book.launches.returns} token={token} login={onAccount}
+                    yard={()=>onTab('shipyard')} refresh={read} update={page => {
+                      ++seq.current;
+                      setBook(prev => prev?.launches ? { ...prev, launches: { ...prev.launches, returns: page.returns } } : prev);
+                      if (page.wallet) onSettlement(page.wallet.uid, page.wallet.mark);
+                    }}/>}
                   {book.launches && <LaunchBoard board={book.launches} yard={()=>onTab('shipyard')}/>}
                   {book.pilotage && <>
                     <PortLink href="?miejsce=stocznia&keja=lichtugi" go={()=>onTab('shipyard')}>Praca na wodzie · keja lichtug</PortLink>

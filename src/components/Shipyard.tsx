@@ -10,6 +10,8 @@ import { cinemaFile } from './MerchantRoad';
 import { InnGuide } from './InnGuide';
 import { courseNames } from '../economy/pilotage';
 import { PortLink } from './PortLink';
+import { roadstead } from '../economy/returnFreight';
+import { ReturnOrderAtSea } from './ReturnFreight';
 import { MaidenLetter } from './MaidenLetter';
 import { LighterQuay } from './LighterQuay';
 import { PassageOrder } from './PassageOrder';
@@ -180,6 +182,8 @@ export default function Shipyard({
         history.replaceState(history.state, '', shipLink(b.ship.hull.id));
       }
       const messages: Record<YardAction['action'], string> = {
+        loadReturn: 'Polecenie przyjęte. Szkuta zabierze zboże z redy.',
+        emptyReturn: 'Po rozładunku soli szkuta wróci z pustą ładownią.',
         offerLighter: 'Twoja oferta wisi na kei. Szyper może wynająć twoją łódź.',
         recallLighter: 'Oferta zdjęta z kei.',
         inviteBuilders: 'Podpisane zaproszenie wisi na tablicy Gospody Pod Złotym Gryfem.',
@@ -204,6 +208,7 @@ export default function Shipyard({
   }
   const disabled = busy || !!error;
   const sea = job?.departed != null && job.due != null;
+  const quay = sea ? roadstead(job.departed!, job.due!, !!job.backhaul?.cargo) : null;
   const progress = sea
     ? Math.min(
         1,
@@ -437,8 +442,9 @@ export default function Shipyard({
                         <>
                           <p>
                             <b>{job.skipper}</b> ·{' '}
-                            {progress < 0.5
-                              ? 'Płynie z solą na redę'
+                            {now < quay!.alongside ? 'Płynie z solą na redę'
+                              : now < quay!.deadline ? 'Rozładowuje sól na redzie'
+                              : now < quay!.castOff ? 'Ładuje zboże na powrót'
                               : 'Wraca z redy do portu'}
                             . Do powrotu{' '}
                             {Math.max(0, Math.ceil((job.due! - now) / 1000))} s.
@@ -450,6 +456,9 @@ export default function Shipyard({
                             max={1}
                             aria-label="Przebieg rejsu"
                           />
+                          {page.returns && <ReturnOrderAtSea job={job} orders={page.returns} busy={disabled} closed={now >= quay!.deadline}
+                            choose={offer=>act(offer === undefined ? { action:'emptyReturn', ship:hull.id, charter:job.id }
+                              : { action:'loadReturn', ship:hull.id, charter:job.id, offer })}/>}
                           <div className="yard-route">
                             <span>Port</span>
                             <span>Reda</span>
@@ -521,6 +530,7 @@ export default function Shipyard({
                               </small>
                               <small>{courseNames[v.course]}{v.course === 'survey' && (v.depth === null ? ' · sztorm uniemożliwił pomiar' : ' · sonda wskazała '+v.depth+' cm')}
                                 {v.course === 'cut' && ' · pomiar: '+v.pilot+' ('+v.depth+' cm)'}</small>
+                              {v.backhaul?.cargo && <small>Z redy · dwa worki zboża dla {v.backhaul.cargo.name} · przewoźne {v.backhaul.cargo.fee} zł</small>}
                               {v.lighter && <small>Lichtuga · {v.lighter.name} · {v.lighter.barrels} z {v.barrels} beczek · wypłacono {v.lighter.fee} zł</small>}
                             </li>
                           ))}

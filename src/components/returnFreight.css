@@ -1,0 +1,11 @@
+.return-desk { margin: 1.5rem 0; border: 1px solid #978567; background: #f2e9d5; color: #302a21; }
+.return-desk header { background-size: cover; background-position: center 46%; padding: clamp(1rem,4vw,2rem); color: #fff4dd; }
+.return-desk header h2 { font: italic 500 clamp(1.8rem,4vw,2.65rem)/1.12 Georgia,serif; margin: 0; }
+.return-desk header p { margin: .4rem 0 0; }
+.return-body { padding: .9rem clamp(.8rem,3vw,1.5rem); overflow-wrap: anywhere; }
+.return-body form { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem 1rem; }
+.return-body form p { flex-basis: 100%; margin: 0; }
+.return-body form input { display: block; width: 5rem; color: #302a21; background: #fff9e9; border: 1px solid #978567; padding: .3rem; }
+.return-lot { border-top: 1px solid #baa98c; padding: .6rem 0; }
+.return-choice { min-width: 0; margin: .7rem 0; padding: .8rem; border: 1px solid #978567; }
+.return-choice button { margin: .2rem; }

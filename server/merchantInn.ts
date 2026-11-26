@@ -23,7 +23,7 @@ export function installMerchantInn(
   companies: GuildInfo[],
   riverReports: (now: number) => RiverReading[],
   pilotBook: (uid: string | null) => PilotBook,
-  launchBoard: () => LaunchBoard,
+  launchBoard: (uid: string | null) => LaunchBoard,
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -87,7 +87,7 @@ export function installMerchantInn(
             .reverse()
         : [],
       boardAt,
-      launches: city === 'krolewska_przystan' ? launchBoard() : null,
+      launches: city === 'krolewska_przystan' ? launchBoard(uid) : null,
       pilotage: city === 'krolewska_przystan' ? pilotBook(uid) : null,
       riverReports: city === bridgeSite ? riverReports(boardAt) : [],
       notices: db
