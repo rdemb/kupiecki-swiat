@@ -1,4 +1,5 @@
 import type { ReturnOrder, ReturnChoice, FreightAccount, StallBid } from './returnFreight';
+import type { HullEmblem, HullRecord } from './hullMarks';
 import type { Course, PilotBook } from './pilotage';
 import { bridgeRules } from './bridge';
 import { harborRules } from './harborWorks';
@@ -108,6 +109,8 @@ export interface Charter {
   lighter: { name: string; barrels: number; fee: number } | null;
 }
 export type YardAction =
+  | { action: 'fitFirst'; ship: number }
+  | { action: 'engrave'; ship: number; emblem: HullEmblem }
   | { action: 'loadReturn'; ship: number; charter: number; offer: number }
   | { action: 'emptyReturn'; ship: number; charter: number }
   | { action: 'offerLighter'; fee: number; ship?: number }
@@ -153,6 +156,7 @@ export interface YardBook {
   } | null;
   ship: null | {
     hull: Hull;
+    marks: HullRecord;
     mayManage: boolean;
     archived: boolean;
     oak: number;

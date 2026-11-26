@@ -48,6 +48,7 @@ export function CareerDesk({token,site,choose}:{token:string|null;site:string;ch
       {token && <ul className="flex flex-wrap gap-3 text-amber-100">{(Object.keys(crafts) as Craft[]).map(c=><li key={c}>
         {crafts[c].name} · {craftRank(book.progress[c]??0)} ({book.progress[c]??0})
       </li>)}</ul>}
+      <a className="text-amber-200 underline" href="?miejsce=stocznia#znaki-burty">Obejrzyj znaki budowniczych na szkucie gildii</a>
       <details><summary className="cursor-pointer text-amber-200">Wyprawa trzech fachów · odpłynęło {book.sailings}</summary>
         <p>Sól na prowiant, klepki na poszycie, bursztyn na zapłatę dla pilota. Kiedy zbierze się komplet, statek odpływa.</p>
         {(Object.keys(outfitting) as Craft[]).map(c=><p key={c}>{crafts[c].name} · {Math.min(book.stores[c],outfitting[c])} / {outfitting[c]}</p>)}

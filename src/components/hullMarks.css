@@ -1,0 +1,36 @@
+.hull-marks {
+  margin: 1.25rem 0;
+  border: 1px solid #9d8968;
+  background: #f5eddc;
+  color: #312b20;
+}
+.hull-marks header, .hull-entry, .hull-carving { padding: .85rem clamp(.85rem,3vw,1.4rem); }
+.hull-marks header { background:#292d27; color:#f8edce; }
+.yard-grid .hull-marks h2, .yard-grid .hull-marks h3 { margin:0; color:inherit; }
+.hull-marks header p { margin:.35rem 0 0; color:#dccca9; }
+.hull-plate { position:relative; overflow:hidden; background:#362e20; }
+.hull-plate img { display:block; width:100%; height:clamp(150px,16vw,240px); object-fit:cover; object-position:center 55%; }
+.hull-pins { position:absolute; inset:0; display:grid; grid-template-columns:repeat(4,1fr); align-items:center; padding:0 4%; }
+.hull-pins button {
+  display:flex; align-items:center; justify-self:center; flex-direction:column; gap:.32rem;
+  min-width:44px; padding:.45rem .12rem; background:none; border:0; box-shadow:none;
+  font:600 .75rem/1.2 system-ui; color:#fff7dd;
+}
+.hull-pins button span:last-child { background:#261b12eb; padding:.23rem .45rem; border-radius:2px; }
+.hull-boss {
+  display:grid; place-items:center; width:44px; height:44px; border-radius:50%; color:#e9d6a5;
+  border:2px solid #bba077; background:radial-gradient(ellipse at 32% 16%,#7d6241,#382b1b 71%);
+  box-shadow:inset 0 1px 1px #faf1bd66,0 2px 4px #170e07b0; transition:transform .22s ease;
+}
+.hull-pins button[aria-pressed=true] .hull-boss { color:#fff7d1; border-color:#ffe1a0; transform:translateY(-3px); box-shadow:0 0 0 3px #3b291a,0 3px 5px #1b130a; }
+.hull-pins button:focus-visible { outline:3px solid #fff3b3; outline-offset:1px; }
+.hull-entry { min-height:6.4rem; }
+.hull-entry p, .hull-entry ul { margin:.4rem 0; }
+.hull-entry li { margin:.3rem 0; overflow-wrap:anywhere; }
+.hull-entry small { display:flex; gap:.3rem; align-items:center; color:#4f4937; }
+.hull-carving { border-top:1px solid #cabca1; }
+.hull-tools { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; margin-top:.55rem; }
+.hull-proof { width:72px; height:62px; display:grid; place-items:center; background-size:540px; background-position:45% 50%;
+  color:#34200e; filter:contrast(1.08); border-radius:3px; }
+.hull-proof svg { filter:drop-shadow(0 1px 0 #dfa960); }
+@media(prefers-reduced-motion:reduce){.hull-boss{transition:none;}}

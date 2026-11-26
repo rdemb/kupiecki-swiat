@@ -12,6 +12,7 @@ import { courseNames } from '../economy/pilotage';
 import { PortLink } from './PortLink';
 import { roadstead } from '../economy/returnFreight';
 import { ReturnOrderAtSea } from './ReturnFreight';
+import { HullMarks } from './HullMarks';
 import { MaidenLetter } from './MaidenLetter';
 import { LighterQuay } from './LighterQuay';
 import { PassageOrder } from './PassageOrder';
@@ -182,6 +183,8 @@ export default function Shipyard({
         history.replaceState(history.state, '', shipLink(b.ship.hull.id));
       }
       const messages: Record<YardAction['action'], string> = {
+        fitFirst: 'Pierwsza klepka leży na wręgach. Pisarz zapisał twoje imię.',
+        engrave: 'Twoje godło jest już na burcie.',
         loadReturn: 'Polecenie przyjęte. Szkuta zabierze zboże z redy.',
         emptyReturn: 'Po rozładunku soli szkuta wróci z pustą ładownią.',
         offerLighter: 'Twoja oferta wisi na kei. Szyper może wynająć twoją łódź.',
@@ -224,6 +227,10 @@ export default function Shipyard({
   useEffect(() => {
     if (hull?.launched && maidenRequested) document.getElementById('list-z-redy')?.focus();
   }, [hull?.id, hull?.launched, maidenRequested]);
+  const hasRegister = !!page;
+  useEffect(() => {
+    if (hasRegister && location.hash === '#znaki-burty') document.getElementById('znaki-burty')?.focus();
+  }, [hasRegister]);
   const hullReady = ship?.oak === r.oakLoads && ship?.iron === r.ironLots;
   return (
     <main className="merchant-inn shipyard">
@@ -285,6 +292,9 @@ export default function Shipyard({
                   Połóż stępkę dla gildii · {r.berthPrice} zł
                 </button>
               )}
+              <HullMarks key={hull?.id ?? 'wzornik'} ship={ship ?? null} busy={disabled}
+                fitFirst={() => hull && void act({action:'fitFirst',ship:hull.id})}
+                engrave={emblem => hull && void act({action:'engrave',ship:hull.id,emblem})}/>
               {!ship && (
                 <div className="yard-empty">
                   <h3>

@@ -50,6 +50,19 @@ export async function exerciseShipyard({
   assert.equal(built.wallet.gold, first.wallet.gold - 35);
   assert.equal((await send(master, 'commission', slip)).ship.hull.id, id);
   await send(master, 'commission', {}, 409);
+  assert.deepEqual(built.ship.marks.hands.map(h=>[h.part,h.name,h.mine,h.emblem]),[['keel','Róża',true,null]]);
+  await send(undefined,'engrave',{...ship,emblem:'leaf'},401);
+  await send(oak,'engrave',{...ship,emblem:'leaf'},409);
+  await send(master,'engrave',{...ship,emblem:'other'},409);
+  const sealSlip={...ship,emblem:'star',nonce:randomUUID()};
+  await Promise.all([send(master,'engrave',sealSlip),send(master,'engrave',sealSlip)]);
+  await send(master,'engrave',{...sealSlip,emblem:'anchor'},409);
+  await send(master,'engrave',{...ship,emblem:'leaf'},409);
+  const carpenter=await account('kupiec_klepki','Ala z Pochylni');
+  const order={action:'start',site:'pochylnia',id:randomUUID()};
+  const lesson=(await request('/api/careers',200,order,carpenter.token)).jobs[0];
+  await request('/api/careers',200,{...order,action:'finish',choice:[2,0,1][lesson.task]},carpenter.token);
+  await send(carpenter,'fitFirst',ship,409);
   const notices = async () => (await request(inn, 200)).launches;
   assert.equal((await notices()).open.length, 0);
   assert.equal((await request('/api/inn/srebrny_gaj', 200)).launches, null);
@@ -100,6 +113,16 @@ export async function exerciseShipyard({
   const oakStart = (await read(oak)).wallet.gold;
   await send(oak, 'oak', signed);
   assert.equal((await notices()).open[0].oakMissing, 1);
+  await send(oak,'fitFirst',ship,409);
+  assert.equal((await read(carpenter)).ship.marks.canFitFirst,true);
+  const fitSlip={...ship,nonce:randomUUID()};
+  await Promise.all([send(carpenter,'fitFirst',fitSlip),send(carpenter,'fitFirst',fitSlip)]);
+  await send(carpenter,'fitFirst',ship,409);
+  await send(carpenter,'engrave',{...ship,emblem:'shell'});
+  const fitted=(await read()).ship.marks;
+  assert.equal(fitted.canFitFirst,false);
+  assert.deepEqual(fitted.hands.map(h=>[h.name,h.emblem,h.mine]),
+    [['Róża','star',false],['Ala z Pochylni','shell',false],['Jan od dębu',null,false]]);
   await send(oak, 'oak', signed);
   assert.equal((await notices()).open[0].oakMissing, 1);
   await send(oak, 'iron', signed, 409);
@@ -169,6 +192,10 @@ export async function exerciseShipyard({
   for (const a of [master, oak, smith]) await logIn(a);
   assert.equal((await read(master, '?ship=' + id)).ship.job.id, actual.id);
   assert.equal((await notices()).lastLaunch.signer, 'Róża');
+  const saved=(await read()).ship.marks;
+  assert.equal(saved.hands.find(h=>h.part==='plank').emblem,'shell');
+  assert.equal(saved.hands.find(h=>h.part==='oak').lots,2);
+  assert.deepEqual(saved.routes,[]);
   assert.equal((await notices()).lastMaiden, null);
   await send(oak, 'signMaiden', { ...ship, charter: actual.id }, 409);
   assert.deepEqual(
@@ -181,6 +208,9 @@ export async function exerciseShipyard({
   );
   const paid = await read(master);
   assert.equal(paid.ship.completed, 1);
+  assert.deepEqual(paid.ship.marks.routes,[{course:'outer',trips:1}]);
+  assert.deepEqual((await read(null,'?ship='+id+'&before='+actual.id)).ship.marks.routes,paid.ship.marks.routes);
+  await send(smith,'fitFirst',ship,409);
   const maiden = paid.ship.maiden;
   assert.deepEqual([maiden.voyage, maiden.vessel, maiden.course, maiden.barrels, maiden.teams, maiden.payer],
     [actual.id, 'Skowronek', 'outer', 4, 1, 'Róża']);

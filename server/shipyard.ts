@@ -1,4 +1,5 @@
 import { installReturnFreight, ReturnRule } from './returnFreight';
+import { hullMarks } from './hullMarks';
 import { maidenRegister } from './maidenVoyage';
 import { installLighters } from './lighters';
 import { installPilotage, PilotRule } from './pilotage';
@@ -65,6 +66,7 @@ export function installShipyard(
   const pilots = installPilotage(db, gold);
   const lighters = installLighters(db, gold);
   const maidens = maidenRegister(db);
+  const marks = hullMarks(db);
   const returns = installReturnFreight(db, transfer);
   const hull = db.prepare('SELECT * FROM yardShips WHERE id=?');
   const guild = db.prepare(
@@ -242,6 +244,7 @@ export function installShipyard(
       myJob: Boolean(v.myJob),
     });
     book.ship = {
+      marks: marks.record(Number(s.id), uid),
       hull: fleet.find((x) => x.id === s.id)!,
       mayManage: master(me, s),
       archived: !!guild.get(s.guild)?.archived,
@@ -271,6 +274,7 @@ export function installShipyard(
     action: string,
     ship: unknown,
     rawName: unknown,
+    emblem: unknown,
     charter: unknown,
     course: unknown,
     reference: unknown,
@@ -327,7 +331,13 @@ export function installShipyard(
     check(positive(ship), 'Wybierz statek z rejestru.');
     const s = hull.get(ship);
     check(s, 'W rejestrze nie ma takiego statku.');
-    if (action === 'loadReturn' || action === 'emptyReturn') {
+    if (action === 'fitFirst') {
+      const problem = marks.fitFirst(ship, me.uid, me.displayName, now);
+      if (problem) throw new YardRule(problem);
+    } else if (action === 'engrave') {
+      const problem = marks.engrave(ship, me.uid, emblem, now);
+      if (problem) throw new YardRule(problem);
+    } else if (action === 'loadReturn' || action === 'emptyReturn') {
       check(positive(charter), 'Wybierz czynny rejs.');
       if (action === 'loadReturn') {
         check(positive(offer), 'Wybierz ładunek na redzie.');
@@ -572,6 +582,7 @@ export function installShipyard(
         action,
         ship,
         name,
+        emblem,
         charter,
         course,
         reference,
@@ -593,6 +604,7 @@ export function installShipyard(
       const me = auth(req)!;
       // Keep receipts from clients that predate route selection replayable.
       const parts = [action, ship, name, charter];
+      if (action === 'engrave') parts.push({ emblem });
       if (course !== undefined || reference !== undefined)
         parts.push(course, reference);
       if (offer !== undefined || fee !== undefined) {
@@ -618,6 +630,7 @@ export function installShipyard(
           action,
           ship,
           name,
+          emblem,
           charter,
           course,
           reference,
