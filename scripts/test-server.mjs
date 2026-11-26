@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
+import { exerciseInfirmary } from './infirmary-scenario.mjs';
 import { exerciseBarter } from './barter-scenario.mjs';
 import { exerciseCommonField } from './common-field-scenario.mjs';
 import { exerciseShipyard } from './shipyard-scenario.mjs';
@@ -765,5 +766,6 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     await exerciseShipyard({request,db:testDb,start,stop,imperator:currentEmperor});
     await exerciseCommonField({request,db:testDb,start,stop});
     await exerciseBarter({request,db:testDb,start,stop});
+    await exerciseInfirmary({request,db:testDb,start,stop});
   } finally {testDb.close();}
 });

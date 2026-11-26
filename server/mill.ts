@@ -3,6 +3,8 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { openInfirmary } from './infirmary';
+import { wardActions } from '../src/economy/infirmary';
 import { openGarrison } from './garrison';
 import { openBarter } from './barter';
 import { openHarvestFair } from './harvestFair';
@@ -100,6 +102,7 @@ export function installMill(
   const barter = openBarter(db, (uid, good, amount) => {
     transfer(uid, 0, good === 'zboze' ? amount : 0, good === 'zelazo' ? amount : 0, good === 'drewno_elfickie' ? amount : 0);
   });
+  const ward = openInfirmary(db, transfer);
   const garrison = openGarrison(db, transfer);
   function endOrder(
     o: Pick<MillOrder, 'id' | 'remaining' | 'price' | 'issuer'>,
@@ -184,7 +187,7 @@ export function installMill(
     const m = getMill.get(city)!;
     const purse = uid ? wallet(uid) : null;
     return {
-      ...(isFairTown(city) ? { fair: fair.book(city, Date.now()), barter: barter.book(city, uid), garrison: garrison.book(city, uid, Date.now()) } : {}),
+      ...(isFairTown(city) ? { infirmary: ward.book(city,uid,Date.now()), fair: fair.book(city, Date.now()), barter: barter.book(city, uid), garrison: garrison.book(city, uid, Date.now()) } : {}),
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
@@ -249,6 +252,8 @@ export function installMill(
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
     const isBarter = ['postBarter','withdrawBarter','sealBarter','inviteBarter','recallBarterCall','answerBarterCall'].includes(action);
     const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews'].includes(action);
+    const isWard=wardActions.includes(action);
+    if(isWard) fields.push(req.body.revision,req.body.sortie,req.body.step,req.body.stance);
     if (isGarrison) fields.push(req.body.level, req.body.unit, req.body.circle, req.body.escort);
     if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
     if (action === 'inviteBarter') fields.push(req.body.first, req.body.second);
@@ -274,7 +279,11 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (isGarrison) {
+        if(isWard){
+          check(isFairTown(city),'Lazaret stoi przy koszarach w Przystani i Kuźni.');
+          ward.command(city,me,req.body,now);
+        } else if (isGarrison) {
+          if(action==='knightDuty' || (action==='carryNews' && req.body.escort))check(!ward.occupied(me.uid,now),'Rycerz jest na wyprawie lub leczy rany w lazarecie.');
           check(isFairTown(city), 'Koszary traktowe stoją przy dwóch targach bez monety.');
           garrison.command(city, me, req.body, now, weather(), bridgeClosed(now));
         } else if (isBarter) {
@@ -365,7 +374,7 @@ export function installMill(
         } else throw new MillRule('Nieznane polecenie.');
         db.prepare('INSERT INTO millCommands VALUES(?,?,?)').run(me.uid, nonce, payload);
       }
-      const page = read(city, me.uid);
+      const page = {...read(city, me.uid),...(isWard ? {wardSnapshot:ward.snapshot(me.uid)} : {})};
       db.exec('COMMIT');
       res.json(page);
     } catch (e) {
@@ -375,7 +384,7 @@ export function installMill(
     }
   });
   return {
-    newsLetters: garrison.letters,
+    ward, newsLetters: garrison.letters,
     fairBook: fair.book,
     barterCalls: barter.calls,
     transfer,

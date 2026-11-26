@@ -1,6 +1,9 @@
 import {emptyMark,type MillMark} from './economy/mill';
 import { grainHarvest } from './economy/merchantInn';
 import type { InnTab } from './components/MerchantInn';
+import { ignisQuest, waitingForCare, type WardSnapshot } from './economy/infirmary';
+import type { MillBook } from './economy/mill';
+import { resolveQuestTurn, type Stance } from './economy/questTurn';
 import { gameRequest, gameSocketUrl } from './utils/gameServer';
 import { MerchantRoad, OpeningFilm, cinemaFile, quietPictures, roadStops, type RoadStop, type RoadPanel } from './components/MerchantRoad';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -229,7 +232,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'koszary' || place === 'targ' || place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
+  const startAtInn = place === 'lazaret' || place === 'koszary' || place === 'targ' || place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -270,9 +273,9 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const innTown = (place === 'koszary' || place === 'karczma' || place === 'jarmark' || place === 'targ') && new URLSearchParams(window.location.search).get('miasto') === 'zelazna_kuznia' ? 'zelazna_kuznia' : 'krolewska_przystan';
+  const innTown = (place === 'lazaret' || place === 'koszary' || place === 'karczma' || place === 'jarmark' || place === 'targ') && new URLSearchParams(window.location.search).get('miasto') === 'zelazna_kuznia' ? 'zelazna_kuznia' : 'krolewska_przystan';
   const atRiver = place === 'dozynki' || place === 'pole' || place === 'flisacy' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
-  const innArrival: Record<string, InnTab> = { koszary:'garrison', targ:'barter', jarmark:'fair', dozynki:'feast', pole:'field', piloci:'pilots', stocznia:'shipyard', flisacy:'rafting', most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
+  const innArrival: Record<string, InnTab> = { lazaret:'ward', koszary:'garrison', targ:'barter', jarmark:'fair', dozynki:'feast', pole:'field', piloci:'pilots', stocznia:'shipyard', flisacy:'rafting', most:'bridge', gildia:'guild', mlyn:'mill', przewozy:'freight', 'kasa-gildii':'mutual' };
   const [inn,setInn] = useState<InnVisit|null>(startAtInn ? {
     city: atRiver ? 'srebrny_gaj' : innTown,
     tab: innArrival[place ?? ''] ?? 'board',
@@ -332,7 +335,16 @@ export default function App() {
   const acknowledged=useRef(zeroElsewhere);
   const walletSaveNumber=useRef(0);
   const sessionToken=useRef<string|null>(null);
-  const applyMillMark = React.useCallback((uid:string,next:MillMark)=>{
+  const wardRevision=useRef(0);
+  const applyWardSnapshot=React.useCallback((data?:WardSnapshot)=>{
+    const revision=data?.knight.wardRevision??0;
+    if(!data || revision<=wardRevision.current)return;
+    wardRevision.current=revision;
+    setKnight(data.knight);
+    setPlayerInventory(i=>({...i,smocza_luska:data.scales,mithril:data.mithril}));
+  },[]);
+  const applyMillMark = React.useCallback((uid:string,next:MillMark,snapshot?:WardSnapshot)=>{
+    if(millLedger.current.uid===uid)applyWardSnapshot(snapshot);
     const prior=millLedger.current;
     if(prior.uid!==uid||next.revision<=prior.mark.revision)return;
     millLedger.current={uid,mark:next};
@@ -340,7 +352,7 @@ export default function App() {
     setPlayerGold(g=>Math.round((g+next.gold-prior.mark.gold)*100)/100);
     setPlayerInventory(i=>({...i,zboze:i.zboze+next.grain-prior.mark.grain,zelazo:(i.zelazo??0)+(next.iron??0)-(prior.mark.iron??0),
       drewno_elfickie:(i.drewno_elfickie??0)+(next.wood??0)-(prior.mark.wood??0)}));
-  },[]);
+  },[applyWardSnapshot]);
   const [knight, setKnight] = useState<KnightState>(() => createInitialKnightState('ludzie'));
   const [duchy, setDuchy] = useState<DuchyState>(() => createInitialDuchyState('ludzie'));
   const [dragonSanctuary, setDragonSanctuary] = useState<DragonSanctuaryState>(() =>
@@ -684,6 +696,7 @@ export default function App() {
             inventory: playerInventory,
             unlockedTechIds,
             knight,
+            companionAttack:dragonBonuses.knightAttackBonus,
             duchy,
           }),
         });
@@ -700,6 +713,7 @@ export default function App() {
                 drewno_elfickie:(i.drewno_elfickie??0)+adjustment.wood-previous.wood}));
             }
           }
+          if(saved.profile?.knight)applyWardSnapshot({knight:saved.profile.knight,scales:saved.profile.inventory.smocza_luska,mithril:saved.profile.inventory.mithril});
           if(saved.profile?.millMark)applyMillMark(saved.profile.uid,saved.profile.millMark);
           setSyncStatusMsg(`Zapisano ${new Date().toLocaleTimeString('pl-PL')}`);
         } else {
@@ -756,6 +770,7 @@ export default function App() {
     tradesExecutedCount,
     profitableTradesCount,
     knight,
+    dragonBonuses.knightAttackBonus,
     duchy,
     backendToken,
     firebaseUser,
@@ -1295,169 +1310,60 @@ export default function App() {
     );
   };
 
-  const executeSingleCombatTurn = (
-    currentKnight: KnightState,
-    questSpec: MonsterQuestSpec,
-    tactic: 'aggressive' | 'balanced' | 'defensive',
-    isFirstTurn: boolean,
-  ) => {
-    const derived = computeDerivedHeroStats(currentKnight);
-    const activeQ = isFirstTurn
-      ? {
-          questId: questSpec.id,
-          currentStep: 1,
-          totalSteps: questSpec.turnsRequired,
-          monsterCurrentHp: questSpec.monsterMaxHp,
-          monsterMaxHp: questSpec.monsterMaxHp,
-          combatLogs: [`[Wyprawa rozpoczęta] ${currentKnight.name} wkracza do: ${questSpec.name}!`],
-          status: 'in_progress' as const,
-        }
-      : currentKnight.activeQuest!;
-
-    const stanceAtkMult = tactic === 'aggressive' ? 1.3 : tactic === 'defensive' ? 0.85 : 1.05;
-    const stanceDefMult = tactic === 'defensive' ? 1.35 : tactic === 'aggressive' ? 0.8 : 1.0;
-
-    const critBonus = 1 + derived.effectiveTactics * 0.008 + techModifiers.combatEscortBonus * 0.35;
-    const rawPlayerDmg =
-      derived.effectiveStrength * 1.45 * stanceAtkMult * critBonus +
-      derived.arcaneBonusDmg +
-      dragonBonuses.knightAttackBonus -
-      questSpec.monsterDefense * 0.35;
-    const playerDmg = Math.max(12, Math.round(rawPlayerDmg));
-
-    const nextMonsterHp = Math.max(0, activeQ.monsterCurrentHp - playerDmg);
-
-    const rawMonsterDmg =
-      questSpec.monsterAttack * 0.75 - derived.effectiveDefense * 0.55 * stanceDefMult;
-    const monsterDmg = nextMonsterHp === 0 ? 0 : Math.max(6, Math.round(rawMonsterDmg));
-
-    const healAfterTurn = 6 + derived.turnHealBonus;
-    const nextKnightHp = Math.max(
-      15,
-      Math.min(derived.effectiveMaxHp, currentKnight.hp - monsterDmg + healAfterTurn),
-    );
-
-    const turnLog = `Tura ${activeQ.currentStep}/${activeQ.totalSteps}: ${currentKnight.name} zadaje ${playerDmg} obr.${
-      derived.arcaneBonusDmg > 0 ? ` (w tym +${derived.arcaneBonusDmg} runicznych)` : ''
-    }! ${
-      monsterDmg > 0 ? `${questSpec.monsterName} kontratakuje za ${monsterDmg} HP.` : 'Wróg powalony!'
-    }`;
-
-    const isVictory = nextMonsterHp <= 0;
-    const isOutOfTurnsRetreat = !isVictory && activeQ.currentStep >= activeQ.totalSteps;
-
-    if (isVictory) {
-      soundEngine.playTechUnlock();
-      const goldReward = Math.round(questSpec.rewardGold * (1 + derived.goldLootBonusPct / 100));
-      setPlayerGold((g) => g + goldReward);
-      setPlayerInventory((inv) => {
-        const nextInv = { ...inv };
-        for (const item of questSpec.rewardCommodities) {
-          nextInv[item.id] = (nextInv[item.id] ?? 0) + item.qty;
-        }
-        return nextInv;
-      });
-
-      const drop = rollLootDrop({
-        source: 'quest',
-        lootFindBonusPct: derived.lootFindBonusPct,
-        ownedItemIds: currentKnight.ownedItemIds ?? [],
-        seed: Date.now() + currentKnight.monstersDefeated * 53,
-      });
-      if (drop.duplicateBonusGold > 0) {
-        setPlayerGold((g) => g + drop.duplicateBonusGold);
-      }
-
-      const totalXp = currentKnight.xp + questSpec.rewardXp;
-      const leveledUp = totalXp >= currentKnight.xpToNextLevel;
-      const nextLvl = leveledUp ? currentKnight.level + 1 : currentKnight.level;
-      const nextBaseMaxHp = leveledUp ? currentKnight.maxHp + 30 : currentKnight.maxHp;
-
-      pushNotification(
-        `Zwycięstwo: ${questSpec.name}!`,
-        `Pokonano ${questSpec.monsterName}! +${goldReward} zł, surowce${
-          drop.foundItem && !drop.isDuplicate ? ` oraz artefakt ${drop.foundItem.name}!` : '.'
-        }`,
-        'event',
-      );
-
-      const nextOwned =
-        drop.foundItem && !drop.isDuplicate
-          ? [...(currentKnight.ownedItemIds ?? []), drop.foundItem.id]
-          : currentKnight.ownedItemIds ?? [];
-
-      const updatedWinner: KnightState = {
-        ...currentKnight,
-        level: nextLvl,
-        xp: leveledUp ? totalXp - currentKnight.xpToNextLevel : totalXp,
-        xpToNextLevel: leveledUp ? Math.round(currentKnight.xpToNextLevel * 1.35) : currentKnight.xpToNextLevel,
-        maxHp: nextBaseMaxHp,
-        strength: leveledUp ? currentKnight.strength + 4 : currentKnight.strength,
-        defense: leveledUp ? currentKnight.defense + 3 : currentKnight.defense,
-        tactics: leveledUp ? currentKnight.tactics + 3 : currentKnight.tactics,
-        skillPoints: (currentKnight.skillPoints ?? 0) + (leveledUp ? 1 : 0),
-        availableTurns: Math.max(0, currentKnight.availableTurns - 1),
-        monstersDefeated: currentKnight.monstersDefeated + 1,
-        totalLootGold: currentKnight.totalLootGold + goldReward,
-        ownedItemIds: nextOwned,
-        recentLootLog: [
-          `Pokonano ${questSpec.monsterName}: +${goldReward} zł. ${drop.narrative}`,
-          ...(currentKnight.recentLootLog ?? []).slice(0, 14),
-        ],
-        activeQuest: null,
-      };
-      const winnerDerived = computeDerivedHeroStats(updatedWinner);
-      return {
-        ...updatedWinner,
-        hp: leveledUp ? winnerDerived.effectiveMaxHp : nextKnightHp,
-      };
-    }
-
-    if (isOutOfTurnsRetreat) {
-      soundEngine.playCaravanHorn();
-      const partialXp = Math.round(questSpec.rewardXp * 0.3);
-      pushNotification(
-        `Taktyczny Odwrót: ${questSpec.name}`,
-        `${questSpec.monsterName} przetrwał z ${nextMonsterHp} HP! Zdobyto +${partialXp} XP — wzmocnij ekwipunek lub ścieżkę rozwoju i wróć.`,
-        'event',
-      );
-      return {
-        ...currentKnight,
-        xp: currentKnight.xp + partialXp,
-        hp: nextKnightHp,
-        availableTurns: Math.max(0, currentKnight.availableTurns - 1),
-        recentLootLog: [
-          `Taktyczny odwrót z ${questSpec.name} (wróg miał ${nextMonsterHp} HP, +${partialXp} XP).`,
-          ...(currentKnight.recentLootLog ?? []).slice(0, 14),
-        ],
-        activeQuest: null,
-      };
-    }
-
-    soundEngine.playCaravanHorn();
-    return {
-      ...currentKnight,
-      hp: nextKnightHp,
-      availableTurns: Math.max(0, currentKnight.availableTurns - 1),
-      activeQuest: {
-        ...activeQ,
-        currentStep: activeQ.currentStep + 1,
-        monsterCurrentHp: nextMonsterHp,
-        combatLogs: [turnLog, ...activeQ.combatLogs],
-      },
-    };
+  const executeSingleCombatTurn = (current: KnightState, quest: MonsterQuestSpec, stance: Stance, first: boolean) => {
+    const turn = resolveQuestTurn(current, quest, stance, first, techModifiers.combatEscortBonus, dragonBonuses.knightAttackBonus, Date.now());
+    if (turn.gold) setPlayerGold(g => g + turn.gold);
+    if (turn.goods.length) setPlayerInventory(previous => {
+      const next = {...previous};
+      for (const {id,qty} of turn.goods) next[id] = (next[id] ?? 0) + qty;
+      return next;
+    });
+    if (turn.outcome === 'victory') soundEngine.playTechUnlock(); else soundEngine.playCaravanHorn();
+    if (turn.notice) pushNotification(turn.notice[0], turn.notice[1], 'event');
+    return turn.knight;
   };
 
-  const handleStartKnightQuest = (quest: MonsterQuestSpec) => {
+  const enteringQuest=useRef(false);
+  async function openWardForQuest(onlyWhenBusy=false) {
+    if(!backendToken || enteringQuest.current)return true;
+    enteringQuest.current=true;
+    const token=backendToken;
+    try {
+      const city=selectedCityId==='zelazna_kuznia'?'zelazna_kuznia':'krolewska_przystan';
+      const res=await gameRequest('/api/mill/'+city,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+      if(!res.ok)throw Error();
+      const page:MillBook=await res.json();
+      if(sessionToken.current!==token)return true;
+      const mine=page.infirmary?.mine;
+      if(!mine)throw Error();
+      const last=mine.last;
+      const healing=waitingForCare(last,page.infirmary!.now);
+      const out=last?.state==='march'||healing;
+      if(onlyWhenBusy && !out)return false;
+      const destination=out&&last?last.town:city;
+      await syncProfileToCloudAndBackend();
+      if(sessionToken.current!==token)return true;
+      visitStop(destination==='zelazna_kuznia'?roadStops[2]:roadStops[0]);
+      setInn({city:destination,tab:'ward'});
+      return true;
+    } catch {
+      pushNotification('Księga rycerza','Nie udało się sprawdzić gotowości rycerza. Spróbuj ponownie.','event');
+      return true;
+    } finally {enteringQuest.current=false;}
+  }
+  const handleStartKnightQuest = async (quest: MonsterQuestSpec) => {
+    if (knight.activeQuest) return;
+    if(backendToken && await openWardForQuest(quest.id!==ignisQuest))return;
     if (knight.availableTurns <= 0) return;
-    setKnight((prev) => executeSingleCombatTurn(prev, quest, 'balanced', true));
+    setKnight(executeSingleCombatTurn(knight, quest, 'balanced', true));
   };
 
   const handleExecuteKnightTurn = (tactic: 'aggressive' | 'balanced' | 'defensive') => {
+    if(backendToken && knight.activeQuest?.questId===ignisQuest){void openWardForQuest();return;}
     if (knight.availableTurns <= 0 || !knight.activeQuest) return;
     const questSpec =
       MONSTER_QUESTS.find((q) => q.id === knight.activeQuest?.questId) ?? MONSTER_QUESTS[0];
-    setKnight((prev) => executeSingleCombatTurn(prev, questSpec, tactic, false));
+    setKnight(executeSingleCombatTurn(knight, questSpec, tactic, false));
   };
 
   const handleRestockKnightTurnsWithGrain = (grainCost: number, goldCost: number) => {
@@ -2639,7 +2545,7 @@ export default function App() {
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
         <MerchantInn onHarbor={()=>{setInn(null);visitStop(roadStops[0]);setAtWorks(true);}} onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={(tab,town)=>setInn({city:town ?? (tab==='shipyard'||tab==='pilots'?'krolewska_przystan':tab==='rafting'||tab==='freight'||tab==='mutual'||tab==='field'||tab==='feast'||tab==='bridge'?'srebrny_gaj':inn.city),tab})}
           muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>{
-            if (inn.tab==='fair' || inn.tab==='barter' || inn.tab==='garrison') visitStop(roadStops.find(s=>s.city===inn.city)??roadStops[0]);
+            if (inn.tab==='fair' || inn.tab==='barter' || inn.tab==='garrison' || inn.tab==='ward') visitStop(roadStops.find(s=>s.city===inn.city)??roadStops[0]);
             setInn(null);
           }}
           onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
@@ -3307,6 +3213,7 @@ export default function App() {
                       millLedger.current={uid:profile.uid,mark:profile.millMark??emptyMark};
                       setSettledMark(millLedger.current.mark);
                       sessionToken.current=token;acknowledged.current=zeroElsewhere;setElsewhere(zeroElsewhere);walletSaveNumber.current=0;
+                      wardRevision.current=profile.knight?.wardRevision??0;
                       setBackendToken(token);
                       setBackendUid(profile.uid);
                       setBackendUsername(profile.username);
@@ -3350,6 +3257,7 @@ export default function App() {
                         }).catch(() => {});
                       }
                       millLedger.current={uid:'',mark:emptyMark};setSettledMark(emptyMark);sessionToken.current=null;
+                      wardRevision.current=0;
                       setBackendToken(null);setPlayerGuildId('');
                       setBackendUid(null);
                       setBackendUsername(null);

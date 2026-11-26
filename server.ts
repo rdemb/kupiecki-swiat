@@ -66,6 +66,7 @@ export interface ServerPlayerAccount {
   guildId: string;
   gold: number;
   millMark?: MillMark;
+  companionAttack?: number;
   bondsGold: number;
   netWorth: number;
   tradesExecutedCount: number;
@@ -1066,6 +1067,7 @@ async function startServer() {
       duchy,
     } = req.body;
 
+    const sameKnight = (knight?.wardRevision ?? 0) === (acc.knight.wardRevision ?? 0);
     if (typeof displayName === 'string' && displayName.trim().length >= 2) {
       acc.displayName = displayName.trim().slice(0, 50);
     }
@@ -1125,6 +1127,7 @@ async function startServer() {
     if (inventory && typeof inventory === 'object') {
       for (const spec of COMMODITIES) {
         if ((spec.id === 'zboze' || spec.id === 'zelazo' || spec.id === 'drewno_elfickie') && !alignedMill) continue;
+        if (!sameKnight && (spec.id === 'smocza_luska' || spec.id === 'mithril')) continue;
         const val = Number(inventory[spec.id]);
         if (Number.isFinite(val) && val >= 0) {
           acc.inventory[spec.id] = Math.round(val);
@@ -1134,7 +1137,17 @@ async function startServer() {
     if (Array.isArray(unlockedTechIds)) {
       acc.unlockedTechIds = unlockedTechIds.map((x) => String(x).slice(0, 40)).slice(0, 20);
     }
-    if (knight && typeof knight === 'object') {
+    if (Number.isSafeInteger(req.body.companionAttack) && req.body.companionAttack>=0 && req.body.companionAttack<=10000) acc.companionAttack=req.body.companionAttack;
+    if (sameKnight && knight && typeof knight === 'object') {
+      const march=acc.knight.activeQuest?.questId==='quest_smok_szczyt' && mill.ward.occupied(acc.uid,Date.now());
+      let activeQuest=knight.activeQuest || null;
+      if(march){
+        // A court spell may reduce the current opponent's HP. Only the encounter advances its turn.
+        const trusted=acc.knight.activeQuest!;
+        activeQuest={...trusted};
+        if(knight.activeQuest?.questId===trusted.questId && knight.activeQuest?.currentStep===trusted.currentStep && Number.isFinite(knight.activeQuest.monsterCurrentHp))
+          activeQuest.monsterCurrentHp=Math.min(trusted.monsterCurrentHp,Math.max(5,knight.activeQuest.monsterCurrentHp));
+      } else if(activeQuest && (mill.ward.resting(acc.uid,Date.now()) || (activeQuest.questId==='quest_smok_szczyt' && acc.knight.activeQuest?.questId!==activeQuest.questId)))activeQuest=null;
       acc.knight = {
         ...acc.knight,
         name: String(knight.name || acc.knight.name).slice(0, 50),
@@ -1153,7 +1166,12 @@ async function startServer() {
         equippedIds: Array.isArray(knight.equippedIds) ? knight.equippedIds.slice(0, 10) : [],
         monstersDefeated: Math.max(0, Number(knight.monstersDefeated) || 0),
         totalLootGold: Math.max(0, Number(knight.totalLootGold) || 0),
-        activeQuest: knight.activeQuest || null,
+        activeQuest,
+        ...(Array.isArray(knight.ownedItemIds) && {ownedItemIds: [...new Set<string>(knight.ownedItemIds.filter((v:unknown)=>typeof v==='string'))].slice(0,150)}),
+        ...(knight.equippedSlots && typeof knight.equippedSlots==='object' && {equippedSlots:Object.fromEntries(Object.entries(knight.equippedSlots).filter(([k,v])=>['weapon','armor','mount','relic'].includes(k)&&typeof v==='string'))}),
+        ...(knight.pathLevels && {pathLevels:Object.fromEntries(['paladyn','kupiec_magnat','arcymag','zwiadowca'].map(k=>[k,Math.max(0, Math.min(100,Math.trunc(Number(knight.pathLevels[k])||0)))])) as KnightState['pathLevels']}),
+        ...(Number.isSafeInteger(knight.skillPoints)&&knight.skillPoints>=0&&{skillPoints:knight.skillPoints}),
+        ...(Array.isArray(knight.recentLootLog)&&{recentLootLog:knight.recentLootLog.filter((v:unknown)=>typeof v==='string').slice(0,15)}),
       };
     }
     if (duchy && typeof duchy === 'object') {
@@ -1173,7 +1191,7 @@ async function startServer() {
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
-  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table, (city,now)=>mill.fairBook(city,now), (city,now) => mill.newsLetters(city,now), city => mill.barterCalls(city));
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table, (city,now)=>mill.fairBook(city,now), (city,now) => mill.newsLetters(city,now), (city,now)=>mill.ward.calls(city,now), city => mill.barterCalls(city));
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;

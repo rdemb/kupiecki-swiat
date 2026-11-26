@@ -32,6 +32,8 @@ export interface MillOrder {
   expires: number;
 }
 export interface MillBook {
+  infirmary?: import('./infirmary').WardBook;
+  wardSnapshot?: import('./infirmary').WardSnapshot;
   garrison?: import('./garrison').GarrisonBook;
   barter?: import('./barter').BarterBook;
   fair?: import('./harvestFair').FairBook;

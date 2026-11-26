@@ -78,7 +78,7 @@ function Signatures({ loaf }: { loaf: Loaf }) {
   );
 }
 
-export type FeastVisit = (tab: 'field' | 'feast' | 'board' | 'fair', city?: FeastTown) => void;
+export type FeastVisit = (tab: 'field' | 'feast' | 'board' | 'fair' | 'ward', city?: FeastTown) => void;
 
 export function HarvestTable({ loaves, visit }: { loaves: Loaf[]; visit: FeastVisit }) {
   const heading = useRef<HTMLHeadingElement>(null);

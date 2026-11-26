@@ -663,6 +663,7 @@ export interface ActiveKnightQuestState {
 }
 
 export interface KnightState {
+  wardRevision?: number;
   name: string;
   title: string;
   level: number;
