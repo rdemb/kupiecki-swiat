@@ -313,7 +313,8 @@ export type ContinentId =
   | 'obsydian_wulkan'
   | 'nowa_nadzieja'
   | 'kresy_nadziei'
-  | 'morze_wylin';
+  | 'morze_wylin'
+  | 'poludniowe_trakty';
 
 export interface CityNode {
   id: string;

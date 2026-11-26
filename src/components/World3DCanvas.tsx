@@ -278,7 +278,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     scene.environment = reflections.texture;
 
 
-    const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 1550);
+    const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 3400);
     camera.position.set(16, 152, 266);
 
     function isHarbourView() {
@@ -290,7 +290,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     controls.dampingFactor = 0.065;
     controls.maxPolarAngle = isHarbourView() ? Math.PI * .525 : Math.PI / 2.12;
     controls.minDistance = 16;
-    controls.maxDistance = 460;
+    controls.maxDistance = 1800;
     controls.target.set(4, 3, 12);
 
     // On a tall screen keep both the quay and the nearest ship in frame.
@@ -660,6 +660,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const playerDragonRig = new THREE.Group();
     const playerDragonModels: Record<DragonSpeciesId, THREE.Group> = {
+      blekitny_legendarny:buildArticulatedDragon(materials,'deltaSail'),
+      zloty_legendarny:buildArticulatedDragon(materials,'ochreCrown'),
       dwuglowy_brazowy:buildArticulatedDragon(materials,'ochreTwin'),
       dwuglowy_czerwony:buildArticulatedDragon(materials,'redTwin'),
       brazowy: buildArticulatedDragon(materials,'umber'),
@@ -671,6 +673,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       szmaragd: buildArticulatedDragon(materials, 'emerald'),
       zloto: buildArticulatedDragon(materials, 'gold'),
     };
+    playerDragonModels.blekitny_legendarny.scale.set(1.42,.94,1.63);
+    playerDragonModels.zloty_legendarny.scale.set(1.53,1.41,1.18);
     playerDragonModels.dwuglowy_brazowy.scale.set(1.42,1.08,.94);
     playerDragonModels.dwuglowy_czerwony.scale.set(1.12,1.24,1.36);
     playerDragonModels.brazowy.scale.set(1.48,1.08,1.12);
@@ -1291,7 +1295,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const homeReg = WORLD_REGIONS.find((r) => r.id === selectedRegionIdRef.current) ?? WORLD_REGIONS[0];
         const [hx, hz] = homeReg.position2D;
         const hy = Math.max(2.0, getTerrainHeight(hx, hz));
-        const sight=nestRef.current;
+        const sight=homeReg.id==='prom_lnu'?{site:homeReg.id,species:'blekitny_legendarny' as const}
+          :homeReg.id==='wrota_plaskowyzu'?{site:homeReg.id,species:'zloty_legendarny' as const}:nestRef.current;
         rookery.visible=!!sight && sight.site===homeReg.id;
         if(rookery.visible && sight) {
           if(wildSpecies!==sight.species) {

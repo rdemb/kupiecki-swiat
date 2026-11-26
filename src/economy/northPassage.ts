@@ -13,6 +13,8 @@ export const northernSites:Worksite[] = [
 
 export const nestingSites=northernSites.slice(2);
 export const nestSpecies={
+  blekitny_legendarny:'Legendarny błękitny smok',
+  zloty_legendarny:'Legendarny złoty smok',
   dwuglowy_brazowy:'Brązowy smok dwugłowy',
   dwuglowy_czerwony:'Czerwony smok dwugłowy',
   dwuglowy:'Dwugłowy zielony smok',

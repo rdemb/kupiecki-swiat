@@ -1216,11 +1216,13 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
  */
 export function buildArticulatedDragon(
   materials: SharedWorldMaterials,
-  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' = 'crimson',
+  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown' = 'crimson',
 ): THREE.Group {
   const dragon = new THREE.Group();
 
   const palette = {
+    deltaSail:{body:0x326789,wing:0x32577d,emissive:0x5386b2,roughness:.49,metalness:.21},
+    ochreCrown:{body:0x9e7336,wing:0x604526,emissive:0x8d5e2c,roughness:.65,metalness:.35},
     ochreTwin: {body:0x6e5947,wing:0x604837,emissive:0x392719,roughness:.94,metalness:.08},
     redTwin: {body:0x9a483a,wing:0x772f25,emissive:0x782d18,roughness:.54,metalness:.32},
     umber: {body:0x593922,wing:0x4d322a,emissive:0x48291b,roughness:.88,metalness:.08},
@@ -1301,6 +1303,18 @@ export function buildArticulatedDragon(
   }
   for(const [z,x,y,w,h] of stations.slice(2,twoHeads?10:13)){
     spur(dragon,[x,y+h*.86,z],[x,y+h+.09+w*.44,z-.24-w*.19],.045+w*.11,.008);
+  }
+  if (variant==='deltaSail') {
+    const fin=new THREE.BufferGeometry();
+    fin.setAttribute('position',new THREE.Float32BufferAttribute([-0.01,.7,-3, 0,2.65,-1.4, 0,1.05,.55, 0,1.85,.8, 0,.75,1.6],3));
+    fin.setIndex([0,1,2,2,3,4]);fin.computeVertexNormals();dragon.add(new THREE.Mesh(fin,wingMembrane));
+  }
+  if (variant==='ochreCrown') {
+    for(let i=-2;i<=2;i++){
+      const plate=new THREE.Mesh(new THREE.SphereGeometry(1,12,8),scaleMat);
+      plate.scale.set(.39,.79,.12);plate.position.set(i*.28,1.55-.07*Math.abs(i),2.87);
+      plate.rotation.z=-i*.39;plate.rotation.x=-.38;dragon.add(plate);
+    }
   }
   const wing=new THREE.Group();
   const wrist=new THREE.Vector3(2.42,.98,1.56);

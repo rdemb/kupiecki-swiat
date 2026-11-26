@@ -8,7 +8,7 @@ import { imageUrl } from '../utils/imageUrl';
 
 import type { CommodityId } from './economyEngine';
 
-export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony';
+export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy' | 'dwuglowy_brazowy' | 'dwuglowy_czerwony' | 'blekitny_legendarny' | 'zloty_legendarny';
 
 export type DragonLifeStage = 1 | 2 | 3 | 4 | 5;
 
@@ -18,7 +18,7 @@ export interface DragonSpeciesSpec {
   elementLabel: string;
   originContinentName: string;
   artworkUrl: string;
-  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin';
+  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' | 'ochreTwin' | 'redTwin' | 'deltaSail' | 'ochreCrown';
   accentHex: string;
   favoriteCommodity: CommodityId;
   favoriteCommodityName: string;
@@ -30,6 +30,18 @@ export interface DragonSpeciesSpec {
 }
 
 export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
+  blekitny_legendarny: {
+    id:'blekitny_legendarny',name:'Legendarny błękitny smok',elementLabel:'Mgła i nurt',originContinentName:'Delta Perłowa',
+    artworkUrl:imageUrl('legendarny-blekitny.webp'),variant3D:'deltaSail',accentHex:'#84bad9',favoriteCommodity:'krysztaly_many',favoriteCommodityName:'Kryształy Many',
+    specialtySummary:'Płetwa grzbietowa pozwala szybować nad deltą. Eskorta powietrzna kosztuje 12 punktów energii mniej. Jajo wymaga dorosłego błękitnego smoka przypływu.',
+    baseFirePower:28,baseFlightSpeed:35,baseHoardGreed:18,eggCostGold:4100,
+  },
+  zloty_legendarny: {
+    id:'zloty_legendarny',name:'Legendarny złoty smok',elementLabel:'Ochra i słońce',originContinentName:'Wrota Płaskowyżu',
+    artworkUrl:imageUrl('legendarny-zloty.webp'),variant3D:'ochreCrown',accentHex:'#dab665',favoriteCommodity:'mithril',favoriteCommodityName:'Mithril',
+    specialtySummary:'Podczas zwiadu skarbca odnajduje dwa dodatkowe pergaminy. Jajo wymaga dorosłego złotego smoka skarbca.',
+    baseFirePower:32,baseFlightSpeed:17,baseHoardGreed:35,eggCostGold:4600,
+  },
   dwuglowy_brazowy: {
     id:'dwuglowy_brazowy',name:'Brązowy smok dwugłowy',elementLabel:'Kamień i sól',originContinentName:'Morze Wylin',
     artworkUrl:imageUrl('dwuglowy-brazowy.webp'),variant3D:'ochreTwin',accentHex:'#c5a683',favoriteCommodity:'zelazo',favoriteCommodityName:'Żelazo',
@@ -232,6 +244,8 @@ export const DRAGON_MISSIONS: DragonMissionSpec[] = [
 ];
 
 const DRAGON_NAMES_BY_SPECIES: Record<DragonSpeciesId, string[]> = {
+  blekitny_legendarny:['Opar','Szafir','Rusał'],
+  zloty_legendarny:['Wachlarz','Talarek','Aurek'],
   dwuglowy_brazowy:['Dwułom','Łupek','Rogacz'],
   dwuglowy_czerwony:['Dwużar','Skoria','Iskra'],
   brazowy:['Rdzawiec','Skalnik','Krzemień'],
@@ -531,6 +545,10 @@ export function purchaseOrBreedDragonEgg(params: {
   }
 
   const spec = DRAGON_SPECIES[speciesId];
+  const ancestor = speciesId==='blekitny_legendarny'?'blekit':speciesId==='zloty_legendarny'?'zloto':null;
+  if (ancestor && !sanctuary.dragons.some(d=>d.speciesId===ancestor && d.stage>=3)) {
+    return {success:false,errorMessage:'Wychowaj dorosłego smoka z linii „'+DRAGON_SPECIES[ancestor].name+'”.',goldCost:0,nextSanctuary:sanctuary,logMessage:''};
+  }
   const goldCost = isCrossBreed ? 1400 : spec.eggCostGold;
   if (isCrossBreed && sanctuary.dragons.length < 2) {
     return {
@@ -615,10 +633,13 @@ export function dispatchDragonMission(params: {
     };
   }
 
-  if (dragon.energy < mission.energyCost) {
+  const energyCost = dragon.speciesId==='blekitny_legendarny' && missionId==='eskorta_powietrzna' ? mission.energyCost-12 : mission.energyCost;
+  const rewardCommodity = dragon.speciesId==='zloty_legendarny' && missionId==='zwiad_skarbca'
+    ? {...mission.commodityReward,qty:mission.commodityReward.qty+2} : mission.commodityReward;
+  if (dragon.energy < energyCost) {
     return {
       success: false,
-      errorMessage: `Smok potrzebuje odpoczynku lub karmienia (Energia ${dragon.energy}/${mission.energyCost}).`,
+      errorMessage: `Smok potrzebuje odpoczynku lub karmienia (Energia ${dragon.energy}/${energyCost}).`,
       rewardGold: 0,
       nextSanctuary: sanctuary,
       logMessage: '',
@@ -634,17 +655,17 @@ export function dispatchDragonMission(params: {
     ...dragon,
     xp: nextXp,
     stage: nextStage,
-    energy: Math.max(0, dragon.energy - mission.energyCost),
+    energy: Math.max(0, dragon.energy - energyCost),
     bondPct: Math.min(100, dragon.bondPct + 4),
     missionsCompleted: dragon.missionsCompleted + 1,
   };
 
-  const log = `${dragon.name} wrócił z misji „${mission.name}”: +${rewardGold} zł oraz +${mission.commodityReward.qty}x surowca!`;
+  const log = `${dragon.name} wrócił z misji „${mission.name}”: +${rewardGold} zł oraz +${rewardCommodity.qty}x surowca!`;
 
   return {
     success: true,
     rewardGold,
-    rewardCommodity: mission.commodityReward,
+    rewardCommodity,
     nextSanctuary: {
       ...sanctuary,
       dragons: sanctuary.dragons.map((d) => (d.id === dragonId ? updated : d)),

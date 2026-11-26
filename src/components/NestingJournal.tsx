@@ -71,7 +71,7 @@ export function NestingJournal({site,token,choose,onSighting,onPost}:{onPost:()=
             <button type="button" disabled={busy||book.storm} onClick={()=>void act('join')}>Potwierdź obserwację gildii</button>)}</aside>}
         {!!book.album.length && <details><summary>Mój atlas wylin ({book.album.length})</summary>{book.album.map(a=><figure key={a.edition}>
           <img alt={nestSpecies[a.species]} src={DRAGON_SPECIES[a.species].artworkUrl}/><figcaption>{nameOf(a.site)} · {nestSpecies[a.species]}<br/>
-          Sezon {a.edition} · {witnesses[a.witness].name}</figcaption></figure>)}</details>}
+          Sezon {a.edition} · {witnesses[a.witness].name}</figcaption></figure>)}{buttons('Zanieś odcisk do Domu Matryc',()=>choose('dom_matryc'))}</details>}
         {!!book.history.length && <details><summary>Kronika minionych lęgowisk</summary>{book.history.map(h=><p key={h.edition+h.guildName}>
           Sezon {h.edition} · {h.guildName} · {nameOf(h.site)} · {nestSpecies[h.species]}</p>)}</details>}
       </>}

@@ -1,3 +1,4 @@
+import { installCabinet } from './cabinet';
 import { installReturnFreight, ReturnRule } from './returnFreight';
 import { installNestingGrounds } from './nestingGrounds';
 import { installSeaMail } from './seaMail';
@@ -72,6 +73,7 @@ export function installShipyard(
   const returns = installReturnFreight(db, transfer);
   const mail = installSeaMail(db,gold);
   const nests=installNestingGrounds(app,db,auth,gold,mail);
+  installCabinet(app,db,auth);
   function sealReport(uid: string, sender: string, destination: string, topic: unknown, now: number) {
     if (topic==='nest') return nests.seal(uid,sender,destination,now);
     const body = topic === 'grain' ? mail.grainReport()

@@ -1,3 +1,4 @@
+import { southernInns } from './southernTrail';
 import {northernSites} from './northPassage';
 
 export const crafts = {
@@ -22,6 +23,7 @@ export const worksites: Worksite[] = [
   {id:'pustelnia_solna',name:'Pustelnia Solna',craft:'warzelnik',x:1930,z:-25,description:'Nad źródłem wiszą wędzone ryby. Zapasy soli odmierzane tu o świcie trafiają na najdalszy odcinek wybrzeża.'},
   {id:'przyladek_dwoch_szyj',name:'Przylądek Dwóch Szyj',craft:'szkutnik',x:2040,z:-55,description:'Z pomostu widać mokradła. Piloci omijają trzcinę, gdy nad szuwarami podnoszą się jednocześnie dwie zielone głowy.'},
   ...northernSites,
+  ...southernInns,
 ];
 export function craftRank(completed:number) {
   return completed >= 8 ? 'Mistrz' : completed >= 3 ? 'Czeladnik' : 'Uczeń';

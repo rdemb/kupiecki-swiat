@@ -1,0 +1,6 @@
+.curio{border:1px solid #80684a;border-radius:.55rem;background:#201d17;color:#eae1cf;overflow:hidden;font:14px/1.5 Georgia,serif}
+.curio header{min-height:118px;display:flex;flex-direction:column;justify-content:flex-end;padding:13px;background-size:cover;background-position:center 42%;text-shadow:0 1px 3px #261b0b}
+.curio header h3{font-size:24px;color:#fff3d6;max-width:14em;line-height:1.1}.curio header p{color:#e5c58e}
+.curio-body{padding:12px}.curio-body h4{font-weight:bold;color:#f4dba6}.curio-body p{margin:.45em 0}.curio-practice{border-top:1px solid #5b4b37;margin-top:12px;padding-top:10px}
+.curio button,.curio select{margin:3px 4px 3px 0;padding:5px 8px;font:12px/1.4 system-ui,sans-serif;background:#393125;border:1px solid #776448;color:#ffebc8;border-radius:4px}.curio button:hover,.curio button[aria-pressed=true]{background:#625037}.curio button:disabled{opacity:.55}.curio-route{list-style:none;padding:0}.curio-route li{display:inline-block}.curio summary{cursor:pointer}.curio [role=status]{color:#ffd595}
+.curio-stamps{display:flex;list-style:none;flex-wrap:wrap;padding:4px 0}.curio-stamps button{border:3px double #ab9063;border-radius:40%;padding:6px 12px;color:#dcc396}

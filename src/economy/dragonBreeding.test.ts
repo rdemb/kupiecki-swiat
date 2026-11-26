@@ -27,7 +27,7 @@ test('Dragon Sanctuary initializes with starter Fire Dragon, incubating Frost Eg
   const s = createInitialDragonSanctuary();
   assert.equal(s.dragons.length, 1);
   assert.equal(s.eggs.length, 1);
-  assert.equal(Object.keys(DRAGON_SPECIES).length, 10);
+  assert.equal(Object.keys(DRAGON_SPECIES).length, 12);
 
   const bonuses = computeDragonGlobalBonuses(s);
   assert.ok(bonuses.knightAttackBonus > 0);
@@ -128,5 +128,25 @@ test('Coastal eggs hatch into companions with distinct travel and weather bonuse
     assert.equal(bonus.duchyIncomeBonusPct-neutral.duchyIncomeBonusPct,speciesId==='dwuglowy_brazowy'?6:0);
     assert.equal(bonus.caravanSpeedBonusPct - neutral.caravanSpeedBonusPct, speciesId === 'pseudosmok' ? 4 : speciesId === 'dwuglowy' ? 5 : 0);
     assert.equal(bonus.disasterResistancePct - neutral.disasterResistancePct, speciesId === 'blekit' ? 8 : speciesId === 'brazowy' ? 5 : 0);
+  }
+});
+
+test('Legendarne linie wymagają dorosłego przodka i mają odrębne skutki na wyprawie',()=>{
+  for(const speciesId of ['blekitny_legendarny','zloty_legendarny'] as const){
+    const base=createInitialDragonSanctuary();
+    const parent=speciesId==='blekitny_legendarny'?'blekit':'zloto';
+    const buy=()=>purchaseOrBreedDragonEgg({sanctuary:base,speciesId,playerGold:9000});
+    assert.equal(buy().success,false);
+    base.dragons[0]={...base.dragons[0],speciesId:parent,stage:3};
+    const bought=buy();assert.ok(bought.success);
+    const egg=bought.nextSanctuary.eggs.at(-1)!;
+    const warm=incubateOrHatchEgg({sanctuary:bought.nextSanctuary,eggId:egg.id,playerGold:1000});
+    const hatch=incubateOrHatchEgg({sanctuary:warm.nextSanctuary,eggId:egg.id,playerGold:1000});
+    const dragon=hatch.hatchedDragon!;assert.equal(dragon.speciesId,speciesId);
+    const fly=(energy:number)=>dispatchDragonMission({sanctuary:{...base,dragons:[{...dragon,stage:2,energy}]},dragonId:dragon.id,
+      missionId:speciesId==='blekitny_legendarny'?'eskorta_powietrzna':'zwiad_skarbca'});
+    if(speciesId==='blekitny_legendarny'){
+      assert.equal(fly(22).success,false);assert.equal(fly(23).nextSanctuary.dragons[0].energy,0);
+    } else assert.deepEqual(fly(100).rewardCommodity,{id:'runiczny_pergamin',qty:5});
   }
 });

@@ -1,3 +1,4 @@
+import {southBounds} from './southernTrail';
 import {worksites, crafts} from './newHope';
 import sanJuanElevation from '../assets/terrain/san-juan.json';
 import { CITIES, CommodityId, ContinentId } from './economyEngine';
@@ -96,6 +97,8 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     cameraOverviewLook: [154, 7, 156],
     capitalRegionId: 'obsydianowa_cytadela',
   },
+  {id:'poludniowe_trakty',name:'Południowe Trakty Nowej Nadziei',shortName:'Południowe Trakty',subtitle:'Od delty pereł do złotych stołów skalnych',climate:'Rzeczny i stepowy',
+    colorHex:'#dfb675',description:'Gospody na trzech szlakach przyjmują wędrowny gabinet. Jego drogę wyznaczają kupcy.',cameraOverviewPos:[910,960,1760],cameraOverviewLook:[910,5,925],capitalRegionId:'dom_matryc'},
   {id:'morze_wylin',name:'Morze Wylin · północny szlak',shortName:'Morze Wylin',subtitle:'Od fiordu do ciepłych kominów',climate:'Chłodny morski',
     colorHex:'#8dc9d0',description:'Północny szlak między wyspami. Po sztormach kupcy nanoszą nowe lęgowiska na swoje mapy.',
     cameraOverviewPos:[925,510,-112],cameraOverviewLook:[925,0,-614],capitalRegionId:'sieci_matyldy'},
@@ -115,6 +118,7 @@ export interface WorldRegionNode {
   type: WorldRegionType;
   typeLabel: string;
   biome:
+    | 'Delta Perłowa' | 'Solne tarasy' | 'Ochrowe płaskowyże'
     | NorthernBiome
     | 'Nadmorska Nizina'
     | 'Zaczarowana Puszcza'
@@ -630,9 +634,9 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     featuredCommodity: 'mithril',
   },
   ...worksites.map((site):WorldRegionNode=>({
-    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
-    typeLabel:'Warsztat kupiecki',biome:site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
-    atlasPercent:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
+    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.z>310?'poludniowe_trakty':site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
+    typeLabel:'Warsztat kupiecki',biome:site.z>310 ? southBiome(site.x) : site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
+    atlasPercent:site.z>310?[(site.x-southBounds.west)*100/(southBounds.east-southBounds.west),(site.z-southBounds.near)*100/(southBounds.far-southBounds.near)]:site.z < -310?[(site.x+310)/24.8,(site.z+930)/6.2]:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
     dangerLabel:'Osada rzemieślnicza',loreDescription:site.description,colorHex:crafts[site.craft].color,
   })),
 ];
@@ -729,6 +733,9 @@ export interface ContinentBiomeWeights {
  * Pure geographic biome classifier across all 6 Continents in 620x620 world space.
  */
 export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWeights {
+  if (z>310) {
+    return {desert:x<560?0:.65,glacier:0,jade:0,oasis:x<560?.78:.12,volcanic:0};
+  }
   if (z < -310) {
     const zone = northernTerrain(x,z);
     return {desert:zone.biome==='dune'?.75:0,glacier:zone.biome==='fjord'?.78:0,jade:0,
@@ -804,7 +811,24 @@ function northHeight(x:number,z:number) {
   if(biome==='dune') relief=10+12*Math.sin(x*.09+noise*3);
   return -9+smoothstep(-.12,.32,land)*(15+Math.max(land,0)*relief);
 }
+function southBiome(x:number) {
+  return x<560?'Delta Perłowa':x<1240?'Solne tarasy':'Ochrowe płaskowyże';
+}
+// The three peninsulas are cut by tidal channels. The same height field feeds the paper atlas.
+function southHeight(x:number,z:number) {
+  const bend=42*Math.sin(z*.011)+18*Math.sin(x*.026);
+  const peninsula=(cx:number,cz:number,rx:number,rz:number)=>1-Math.hypot((x+bend-cx)/rx,(z-cz)/rz);
+  const land=Math.max(peninsula(210,925,445,445),peninsula(900,932,405,560),peninsula(1640,935,524,505));
+  if(land<-.08) return -9;
+  const relief=fbm2D(x*.012,z*.012,3);
+  const channel=Math.abs(x-(220+145*Math.sin(z*.013)));
+  const surface=x<560 ? 9+12*relief-17*Math.exp(-channel*channel/85)
+    : x<1240 ? 13+6*Math.floor(5*(land+.3*relief))
+    : 15+52*smoothstep(.24,.46,land+relief*.32)+12*Math.sin(z*.025);
+  return -9+smoothstep(-.08,.16,land)*surface;
+}
 export function getTerrainHeight(x: number, z: number): number {
+  if(z>310) return southHeight(x,z);
   if(z < -310) return northHeight(x,z);
   if(x>930) {
     const wx=x+12*Math.sin(z*.046), wz=z+16*Math.cos(x*.028);

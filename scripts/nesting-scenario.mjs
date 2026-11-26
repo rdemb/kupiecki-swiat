@@ -1,3 +1,4 @@
+import {exerciseCabinet} from './cabinet-scenario.mjs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 
@@ -32,6 +33,7 @@ export async function exerciseNests({request,db,account,setSky,read,post}) {
   await doAt(scribe,'observe',net,{choice:correct},409);
   assert.equal((await doAt(scribe,'observe',site,{choice:correct})).album[0].species,species);
   assert.deepEqual((await book(buyer)).album,[]);
+  await exerciseCabinet({request,db,owner:scribe,guest:buyer,voter:guide,edition,post,guild});
   const seal=async()=> (await post(scout,'sealPost',{kind:'nest',groupId:guild,nonce:randomUUID()})).seaMail.sent[0];
   const first=await seal();await post(scout,'recallPost',{notice:first.id});
   assert.equal((await book(scout)).stage,'identified');
@@ -52,6 +54,9 @@ export async function exerciseNests({request,db,account,setSky,read,post}) {
   // Server sessions are reset by the isolated fixture restart.
   const relog=async a=>{a.token=(await request('/api/auth/login',200,a.credentials)).token;};
   await relog(scout);await relog(scribe);
+  const archive=await request('/api/cabinet/dom_matryc',200,undefined,scribe.token);
+  assert.ok(archive.shows[0].done && archive.shows[0].route.length===3);
+  assert.deepEqual(archive.stamps,['dom_matryc']);
   const next=await book(scout);
   assert.ok(next.edition>edition && next.storm);assert.equal(next.stage,'none');
   assert.equal(next.invitation,null);assert.deepEqual(next.history.map(h=>[h.edition,h.site]),[[edition,site]]);
