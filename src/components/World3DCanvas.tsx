@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { loadLanding } from '../world3d/coastalScenery';
 import { outdoorReflections } from '../world3d/outdoorReflections';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -63,6 +64,7 @@ interface World3DCanvasProps {
   onSelectRegion: (regionId: string) => void;
   activeCaravans: ActiveCaravan3D[];
   cameraPreset: CameraPresetId;
+  coastTracking?: boolean;
   trackedCaravanId?: string | null;
   activeSeason: SeasonId;
   lightingMood: LightingMoodId;
@@ -131,6 +133,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   onSelectRegion,
   activeCaravans,
   cameraPreset,
+  coastTracking = false,
   trackedCaravanId = null,
   activeSeason,
   lightingMood,
@@ -168,6 +171,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   const activeCaravansRef = useRef(activeCaravans);
   activeCaravansRef.current = activeCaravans;
 
+  const coastTrackingRef = useRef(coastTracking);
+  coastTrackingRef.current = coastTracking;
   const cameraPresetRef = useRef(cameraPreset);
   cameraPresetRef.current = cameraPreset;
 
@@ -263,11 +268,16 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = !isSoftwareGl;
     controls.dampingFactor = 0.065;
-    controls.maxPolarAngle = Math.PI / 2.12;
+    controls.maxPolarAngle = cameraPresetRef.current === 'coast' ? Math.PI * .525 : Math.PI / 2.12;
     controls.minDistance = 16;
     controls.maxDistance = 460;
     controls.target.set(4, 3, 12);
 
+    if(cameraPresetRef.current==='coast'){
+      const initial=computeStaticCameraPresetPose('coast',[0,0,0],'stary_kontynent');
+      camera.position.set(...initial.position);controls.target.set(...initial.target);controls.update();
+    }
+    let coastPhase=0,wasTracking=false;
     let userInteractingWithCamera = false;
     controls.addEventListener('start', () => {
       userInteractingWithCamera = true;
@@ -318,6 +328,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     // 5. Load PBR Textures & Build 4-Continent Sculpted Terrain, Ocean, Volumetric Cloud Sky & Mist
     const textures = loadWorldTextures(renderer);
     const materials = createSharedWorldMaterials(textures);
+    const closeLanding = loadLanding(scene);
     const settlements=charteredTowns(scene,materials);
     let lastTowns: Town[] | null=null;
 
@@ -327,7 +338,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     const terrain = buildSculptedTerrain(textures);
     scene.add(terrain.mesh);
 
-    const ocean = buildRealisticOcean();
+    const ocean = buildRealisticOcean(isSoftwareGl);
     scene.add(ocean.mesh);
 
     const mistBands = buildVolumetricMistBands();
@@ -367,8 +378,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     clickableProxies.push(...landmarks.clickableProxies);
 
     // 8. Build Multi-Biome Forests (460 trees), Desert Palms, Floating Icebergs & Boulders
-    const { forestGroup } = buildOrganicForestsAndBoulders(materials);
-    scene.add(forestGroup);
+    const scenery = buildOrganicForestsAndBoulders(materials);
+    scene.add(scenery.forestGroup);
 
     // 9. Soft Volumetric-Style Feathered Sprite Smoke Plume above Ignis's Caldera (82, y, -20)
     const smokeTexCanvas = document.createElement('canvas');
@@ -768,6 +779,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     // 15. Animation Loop (Zero GC, performance.now(), afterDraw on software WebGL)
     let frameId = 0;
     let disposed = false;
+    let shadowAtHarbour = false;
     let prevTimeMs = performance.now();
     let elapsed = 0;
 
@@ -795,7 +807,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     function updateProjectedLabels() {
       const w = renderer.domElement.clientWidth || window.innerWidth;
       const h = renderer.domElement.clientHeight || window.innerHeight;
-      const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current && cameraPresetRef.current !== 'quay';
+      const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current && cameraPresetRef.current !== 'quay' && cameraPresetRef.current !== 'coast';
       const camDist = camera.position.distanceTo(controls.target);
 
       for (const reg of WORLD_REGIONS) {
@@ -833,7 +845,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
       // Project clickable 3D Trail Event callout badges across the 4 continents
       const activeEvents = trailEventsRef.current;
-      const showEvents = gameStateRef.current === 'playing';
+      const showEvents = gameStateRef.current === 'playing' && cameraPresetRef.current !== 'coast';
       for (const ev of activeEvents) {
         const el = eventLabelRefs.current[ev.id];
         if (!el) continue;
@@ -1018,11 +1030,11 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           : THREE.MathUtils.damp(renderer.toneMappingExposure, atmo.exposure, 4.0, dt);
 
         // Boost city lantern windows & lights dramatically at Dusk / Night / Storm!
-        const lanternBoost = atmo.windowGlow + weatherParams.overcast * 1.15;
+        const lanternBoost = 0.045 + atmo.nightFactor * atmo.windowGlow + weatherParams.overcast * .18;
         materials.warmWindowGlow.emissiveIntensity = snapNow
           ? lanternBoost
           : THREE.MathUtils.damp(materials.warmWindowGlow.emissiveIntensity, lanternBoost, 4.5, dt);
-        const targetCityLight = 3.2 + atmo.nightFactor * 6.5 + weatherParams.overcast * 2.2;
+        const targetCityLight = 0.18 + atmo.nightFactor * 6.5 + weatherParams.overcast * 2.2;
         for (const pl of cityPointLights) {
           pl.intensity = snapNow
             ? targetCityLight
@@ -1043,6 +1055,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         }
 
         // Animate ocean Gerstner waves & ripples scaled by PBR weather choppiness
+        materials.sailCloth.userData.wind.value = elapsed;
         ocean.uniforms.uTime.value = elapsed;
         ocean.uniforms.uWaveChoppiness.value = snapNow
           ? weatherParams.waveChoppiness
@@ -1067,7 +1080,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         for (let i = 0; i < eventBeaconPool.length; i++) {
           const b = eventBeaconPool[i];
           const ev = activeTrailList[i];
-          if (!ev) {
+          if (!ev || cameraPresetRef.current === 'coast') {
             b.group.visible = false;
             b.proxy.userData.trailEventId = null;
             continue;
@@ -1126,7 +1139,9 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           s.curve.getPointAt(s.t, _actorPos);
           s.curve.getPointAt((s.t + 0.02) % 1, _actorLook);
           s.mesh.position.set(_actorPos.x, 0.12 + Math.sin(elapsed * 2.2 + s.t * 15) * 0.09, _actorPos.z);
-          s.mesh.lookAt(_actorLook.x, 0.12, _actorLook.z);
+          s.mesh.lookAt(_actorLook.x, s.mesh.position.y, _actorLook.z);
+          s.mesh.rotateZ(Math.sin(elapsed*1.15+s.t*31) * .024 * weatherParams.waveChoppiness);
+          s.mesh.rotateX(Math.cos(elapsed*.88+s.t*22) * .012 * weatherParams.waveChoppiness);
         }
 
         // Animate Continental Caravans (speed governed by Season + Disaster physics!)
@@ -1256,6 +1271,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const [ax, az] = activeRegion.position2D;
         const ay = Math.max(0.35, getTerrainHeight(ax, az));
 
+        controls.maxPolarAngle = cameraPresetRef.current === 'coast' ? Math.PI * .525 : Math.PI / 2.12;
         const ringTargetX =
           cameraPresetRef.current === 'caravan' && hasTrackedCaravan ? _trackedPos.x : ax;
         const ringTargetZ =
@@ -1265,7 +1281,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             ? _trackedPos.y + 0.35
             : ay + 0.38;
 
-        selectionRing.visible = cameraPresetRef.current !== 'quay';
+        selectionRing.visible = cameraPresetRef.current !== 'quay' && cameraPresetRef.current !== 'coast';
         selectionRing.position.x = THREE.MathUtils.damp(selectionRing.position.x, ringTargetX, 7, dt);
         selectionRing.position.z = THREE.MathUtils.damp(selectionRing.position.z, ringTargetZ, 7, dt);
         selectionRing.position.y = THREE.MathUtils.damp(selectionRing.position.y, ringTargetY, 7, dt);
@@ -1322,6 +1338,9 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             controls.target.x += panSpeed;
           }
 
+          if (wasTracking !== coastTrackingRef.current) {
+            wasTracking=coastTrackingRef.current;userInteractingWithCamera=false;
+          }
           if (!userInteractingWithCamera) {
             const preset = cameraPresetRef.current;
             if (preset === 'caravan' && hasTrackedCaravan) {
@@ -1345,6 +1364,12 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
               );
               _targetPos.set(...staticPose.position);
               _targetLook.set(...staticPose.target);
+              if(preset==='coast'){
+                if(coastTrackingRef.current)coastPhase+=dt*.19;
+                _targetPos.x+=Math.sin(coastPhase)*3.1;
+                _targetPos.z+=Math.sin(coastPhase*.68)*3.2;
+                _targetLook.x+=Math.sin(coastPhase)*1.6;
+              } else coastPhase=0;
             }
 
             const distToTarget = camera.position.distanceTo(_targetPos);
@@ -1370,6 +1395,18 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         }
       }
 
+      const quayDetail = cameraPresetRef.current === 'coast';
+      if (shadowAtHarbour !== quayDetail) {
+        shadowAtHarbour = quayDetail;
+        const shadowCamera=sunLight.shadow.camera;
+        const radius = quayDetail ? 37 : d;
+        shadowCamera.left=shadowCamera.bottom=-radius;
+        shadowCamera.right=shadowCamera.top=radius;
+        shadowCamera.updateProjectionMatrix();
+        sunLight.shadow.needsUpdate=true;
+      }
+      scenery.update(camera.position.y, elapsed);
+      ocean.updateReflection(renderer, scene, camera, performance.now());
       if (composer && !isSoftwareGl) {
         composer.render();
       } else {
@@ -1395,8 +1432,15 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       renderer.domElement.removeEventListener('click', handlePointerClick);
+      materials.sailCloth.bumpMap?.dispose();
+      materials.sailCloth.dispose();
       materials.timberWood.map?.dispose();
+      materials.timberWood.dispose();
       settlements.dispose();
+      closeLanding();
+      ocean.dispose();
+      skyDome.dispose();
+      scenery.dispose();
       composer?.passes.forEach(pass=>pass.dispose());
       composer?.dispose();
       weatherParticles.dispose();

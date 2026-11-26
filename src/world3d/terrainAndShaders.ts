@@ -1,4 +1,5 @@
 import { imageUrl } from '../utils/imageUrl';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 import * as THREE from 'three';
 import { CITIES, SeasonId } from '../economy/economyEngine';
 import {
@@ -19,6 +20,9 @@ export interface WorldTexturePack {
   masonryNormal: THREE.Texture;
   masonryRoughness: THREE.Texture;
   slateRoof: THREE.Texture;
+  slateNormal: THREE.Texture;
+  clayTiles: THREE.Texture;
+  clayNormal: THREE.Texture;
   forestFoliage: THREE.Texture;
   desertSand: THREE.Texture;
   glacierIce: THREE.Texture;
@@ -140,7 +144,10 @@ export function loadWorldTextures(
     castleStone: loadTex(scans + 'mur.webp', 3, 2),
     masonryNormal: loadTex(scans + 'mur-normal.webp', 3, 2, THREE.NoColorSpace),
     masonryRoughness: loadTex(scans + 'mur-szorstkosc.webp', 3, 2, THREE.NoColorSpace),
-    slateRoof: loadTex(imageUrl('pbr_slate_roof_seamless_1795643331651.jpg'), 2, 2),
+    slateRoof: loadTex(scans + 'lupek-kolor.webp', 2, 1),
+    slateNormal: loadTex(scans + 'lupek-normal.webp', 2, 1, THREE.NoColorSpace),
+    clayTiles: loadTex(scans + 'dachowka-kolor.webp', 2, 1),
+    clayNormal: loadTex(scans + 'dachowka-normal.webp', 2, 1, THREE.NoColorSpace),
     forestFoliage: loadTex(imageUrl('pbr_forest_foliage_seamless_1795643350683.jpg'), 2, 2),
     desertSand: loadTex(imageUrl('pbr_desert_sand_seamless_1795644303427.jpg'), 26, 26),
     glacierIce: loadTex(imageUrl('pbr_glacier_ice_seamless_1795644303312.jpg'), 24, 24),
@@ -328,19 +335,19 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         `
         #include <color_fragment>
         // Multi-scale macro + micro UV sampling to eliminate tiling repetition across 520m continents
-        vec2 uvGrass = vWorldPos.xz * 0.052;
+        vec2 uvGrass = vWorldPos.xz * 0.31;
         vec2 uvGrassMacro = vWorldPos.xz * 0.011;
         vec2 uvDesert = vWorldPos.xz * 0.058;
         vec2 uvGlacier = vWorldPos.xz * 0.044;
-        vec2 uvCobble = vWorldPos.xz * 0.125;
+        vec2 uvCobble = vWorldPos.xz * 0.54;
 
         // True Triplanar Rock Projection for steep mountain cliffs & karst spires (Zero stretching!)
         vec3 triW = abs(vWorldNorm);
         triW = pow(triW, vec3(4.0));
         triW /= max(dot(triW, vec3(1.0)), 0.0001);
-        vec3 rockX = texture2D(uRockTex, vWorldPos.zy * 0.052).rgb;
-        vec3 rockY = texture2D(uRockTex, vWorldPos.xz * 0.052).rgb;
-        vec3 rockZ = texture2D(uRockTex, vWorldPos.xy * 0.052).rgb;
+        vec3 rockX = texture2D(uRockTex, vWorldPos.zy * 0.15).rgb;
+        vec3 rockY = texture2D(uRockTex, vWorldPos.xz * 0.15).rgb;
+        vec3 rockZ = texture2D(uRockTex, vWorldPos.xy * 0.15).rgb;
         vec3 rockCol = rockX * triW.x + rockY * triW.y + rockZ * triW.z;
 
         vec3 grassDetail = texture2D(uGrassTex, uvGrass).rgb;
@@ -360,11 +367,11 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         float oasisW = vContinent.w;
 
         // Vibrant spring emerald & wildflower tint during Wiosna
-        vec3 springTint = vec3(grassCol.r * 0.92, grassCol.g * 1.24 + 0.04, grassCol.b * 0.88);
+        vec3 springTint = vec3(grassCol.r * 0.92, grassCol.g * 1.12 + 0.01, grassCol.b * 0.88);
         grassCol = mix(grassCol, springTint, uSeasonSpring * 0.62 * (1.0 - desertW));
 
         // Subtle autumn gold & copper warmth on temperate meadows
-        vec3 autumnTint = vec3(grassCol.r * 1.32 + 0.09, grassCol.g * 0.88, grassCol.b * 0.52);
+        vec3 autumnTint = vec3(grassCol.r * 1.19 + 0.03, grassCol.g * 0.88, grassCol.b * 0.52);
         grassCol = mix(grassCol, autumnTint, uSeasonAutumn * 0.74 * (1.0 - jadeW * 0.5) * (1.0 - desertW));
 
         // Emerald Jade Highlands tint for Aetheris East & Valoria West Continents
@@ -386,7 +393,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         float cliffWeight = 1.0 - smoothstep(0.62, 0.88, flatness);
 
         // Wet shoreline darkening + coastal sand transition
-        vec3 wetSand = vec3(0.32, 0.28, 0.21);
+        vec3 wetSand = mix(vec3(.095,.083,.065),rockCol, .48);
         vec3 drySand = desertCol * 1.04;
         vec3 beachCol = mix(wetSand, drySand, smoothstep(-0.25, 0.95, h));
         float beachMask = (1.0 - smoothstep(0.25, 1.55, h)) * (1.0 - glacierW * 0.85);
@@ -505,42 +512,43 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   return { mesh, uniforms };
 }
 
-/**
- * Builds the 1040x1040 UE5-Grade Animated Ocean with Multi-Directional Gerstner Waves,
- * 4-Octave Sparkling Normals, Subsurface Turquoise Scattering, Fresnel Sky Reflections,
- * Golden Sun Glitter Road, and Dynamic Breaking Shoreline Foam around all 4 Continents.
- */
-export function buildRealisticOcean(): {
-  mesh: THREE.Mesh;
-  uniforms: {
-    uTime: { value: number };
-    uSunDir: { value: THREE.Vector3 };
-    uSkyHorizon: { value: THREE.Color };
-    uSkyZenith: { value: THREE.Color };
-    uSunColor: { value: THREE.Color };
-    uWaveChoppiness: { value: number };
-  };
-} {
-  const geo = new THREE.PlaneGeometry(1240, 1240, 148, 148);
+/** Water mesh with more shoreline samples in the central trading archipelago. */
+export function buildRealisticOcean(softwareRenderer: boolean) {
+  const geo = new THREE.PlaneGeometry(1240, 1240, 192, 192);
   geo.rotateX(-Math.PI / 2);
-
-  // Store exact seabed depth at every ocean vertex for turquoise coral shallows & surf foam!
   const pos = geo.attributes.position;
   const depths = new Float32Array(pos.count);
+  function gridCoordinate(n: number) {
+    const t = Math.abs(n) / 620;
+    return Math.sign(n) * (t < 0.65 ? t * 150 : 97.5 + (t - 0.65) * (522.5 / 0.35));
+  }
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-    const groundY = getTerrainHeight(x, z);
-    depths[i] = Math.max(0, -groundY);
+    const x = gridCoordinate(pos.getX(i));
+    const z = gridCoordinate(pos.getZ(i));
+    pos.setXYZ(i, x, 0, z);
+    depths[i] = -getTerrainHeight(x, z);
   }
   geo.setAttribute('aDepth', new THREE.BufferAttribute(depths, 1));
 
+  const size = softwareRenderer ? 256 : 640;
+  const mirror = new Reflector(new THREE.PlaneGeometry(1, 1), {
+    textureWidth: size, textureHeight: size, clipBias: 0.002, multisample: 0,
+  });
+  mirror.rotation.x = -Math.PI / 2;
+  mirror.updateMatrixWorld();
+  const mirrorMaterial = mirror.material as THREE.ShaderMaterial;
+  // Reflector implements the renderer hook with these three arguments.
+  const captureMirror = mirror.onBeforeRender.bind(mirror) as
+    (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) => void;
   const uniforms = {
     uTime: { value: 0 },
     uSunDir: { value: new THREE.Vector3(0.58, 0.34, -0.68).normalize() },
     uSkyHorizon: { value: new THREE.Color(0xe6be8a) },
     uSkyZenith: { value: new THREE.Color(0x1b4678) },
     uSunColor: { value: new THREE.Color(0xfff1cc) },
+    uMirror: {value: mirror.getRenderTarget().texture},
+    uMirrorMatrix: {value: mirrorMaterial.uniforms.textureMatrix.value},
+    uMirrorWeight: {value: 0},
     uWaveChoppiness: { value: 1.0 },
   };
 
@@ -548,6 +556,8 @@ export function buildRealisticOcean(): {
     uniforms,
     transparent: true,
     vertexShader: `
+      uniform mat4 uMirrorMatrix;
+      varying vec4 vMirror;
       attribute float aDepth;
       uniform float uTime;
       uniform float uWaveChoppiness;
@@ -556,6 +566,7 @@ export function buildRealisticOcean(): {
       varying vec3 vWorldPos;
 
       void main() {
+        vMirror = uMirrorMatrix * vec4(position.x, -position.z, 0., 1.);
         vDepth = aDepth;
         vec3 p = position;
         float waveMask = smoothstep(0.0, 2.4, aDepth);
@@ -577,6 +588,9 @@ export function buildRealisticOcean(): {
     fragmentShader: `
       uniform float uTime;
       uniform vec3 uSunDir;
+      uniform sampler2D uMirror;
+      uniform float uMirrorWeight;
+      varying vec4 vMirror;
       uniform vec3 uSkyHorizon;
       uniform vec3 uSkyZenith;
       uniform vec3 uSunColor;
@@ -596,30 +610,40 @@ export function buildRealisticOcean(): {
         float a4 = dot(wp, vec2(-1.31, -1.07)) - uTime * 2.85;
         float nx = (cos(a1) * 0.055 + sin(a2) * 0.038 + cos(a3) * 0.022 + sin(a4) * 0.011) * rippleAtten;
         float nz = (sin(a1 * 1.13) * 0.055 + cos(a2 * 0.91) * 0.038 + sin(a3 * 1.07) * 0.022 + cos(a4 * 0.89) * 0.011) * rippleAtten;
-        vec3 N = normalize(vec3(nx, 1.0, nz));
+        float detail = (1.0-smoothstep(12.0,65.0,distCamInit)) * rippleAtten;
+        vec2 capillary = vec2(cos(dot(wp,vec2(7.1,4.3))+a1-uTime*3.1),
+                             sin(dot(wp,vec2(-3.2,5.1))+a2+uTime*2.7));
+        vec3 N = normalize(vec3(nx + capillary.x*.018*detail, 1.0, nz + capillary.y*.015*detail));
         vec3 V = normalize(cameraPosition - vWorldPos);
         vec3 L = normalize(uSunDir);
 
         // Depth-based optical absorption (Coral Turquoise Lagoon -> Sapphire -> Deep Abyssal Ocean)
-        vec3 shallowCol = vec3(0.06, 0.58, 0.62);
-        vec3 midSeaCol  = vec3(0.04, 0.27, 0.45);
-        vec3 deepSeaCol = vec3(0.018, 0.095, 0.21);
+        vec3 shallowCol = vec3(0.079, 0.124, 0.091);
+        vec3 midSeaCol  = vec3(0.030, 0.076, 0.079);
+        vec3 deepSeaCol = vec3(0.009, 0.033, 0.047);
 
         float shallowT = smoothstep(0.0, 2.8, vDepth);
         float deepT = smoothstep(2.6, 8.2, vDepth);
         vec3 waterCol = mix(shallowCol, midSeaCol, shallowT);
-        waterCol = mix(waterCol, deepSeaCol, deepT);
+        waterCol = mix(waterCol, deepSeaCol, deepT) * (0.26 + 0.94 * sqrt(dot(uSkyHorizon,vec3(.21,.72,.07))));
 
         // Subsurface emerald wave-crest translucency when sunlit!
         float sss = pow(max(dot(V, -L + N * 0.4), 0.0), 4.0) * vWaveCrest;
-        waterCol += vec3(0.04, 0.38, 0.40) * sss * (1.0 - deepT * 0.55) * 0.75;
+        waterCol += vec3(0.01, 0.067, 0.058) * sss * (1.0 - deepT * 0.55) * 0.75;
 
         // Schlick Fresnel reflection of actual zenith-to-horizon sky gradient
         float cosTheta = max(dot(N, V), 0.0);
         float fresnel = 0.0204 + 0.9796 * pow(1.0 - cosTheta, 5.0);
         vec3 R = reflect(-V, N);
         vec3 skyRefl = mix(uSkyHorizon, uSkyZenith, pow(clamp(R.y, 0.0, 1.0), 0.55));
-        vec3 col = mix(waterCol, skyRefl, clamp(fresnel * 0.88, 0.06, 0.88));
+        if (uMirrorWeight > 0.0 && vMirror.w > 0.0) {
+          vec2 uv = vMirror.xy / vMirror.w;
+          vec2 edge = min(uv, 1.0 - uv);
+          vec2 distort = vec2(N.x+.55*N.z,N.z-.35*N.x) * (.025 + .065/(1.+distCamInit*.03));
+          vec3 sceneReflection = texture2D(uMirror,clamp(uv+distort,.002,.998)).rgb;
+          skyRefl = mix(skyRefl,sceneReflection,uMirrorWeight*smoothstep(0.,.035,min(edge.x,edge.y)));
+        }
+        vec3 col = mix(waterCol, skyRefl, .10 + .86 * fresnel);
 
         // Dual-lobe UE5 Sun Specular Glitter (sharp pinpoint sun path + broad warm sheen)
         vec3 H = normalize(L + V);
@@ -629,7 +653,7 @@ export function buildRealisticOcean(): {
         float power = mix(340.0, 64.0, spread);
         float specSharp = pow(ndh, power) * (power / 145.0);
         float specBroad = pow(ndh, 36.0) * 0.32;
-        col += uSunColor * (specSharp + specBroad);
+        col += uSunColor * (specSharp * 0.48 + specBroad * 0.35);
 
         // Dynamic Breaking Shoreline Surf Foam Rings + Storm Whitecaps
         float waveBreak = sin(vDepth * 8.5 - uTime * 2.8 + sin(wp.x * 0.35 + wp.y * 0.25) * 1.6);
@@ -638,8 +662,8 @@ export function buildRealisticOcean(): {
         float stormWhitecaps = smoothstep(0.76, 0.97, vWaveCrest) * clamp((uWaveChoppiness - 1.2) * 0.45, 0.0, 0.65);
         float lace = sin(wp.x * 2.1 + uTime + sin(wp.y * 1.7)) * cos(wp.y * 2.6 - 0.55 * uTime);
         float pores = mix(0.40, 1.0, smoothstep(-0.45, 0.65, lace));
-        float foam = pores * clamp(shoreEdge * 0.82 + foamBands * 0.48 + stormWhitecaps, 0.0, 0.95);
-        col = mix(col, mix(vec3(0.92, 0.97, 0.99), uSunColor, 0.16), foam);
+        float foam = pores * clamp(shoreEdge * 0.26 + foamBands * 0.23 + stormWhitecaps, 0.0, 0.95);
+        col = mix(col, mix((vec3(.21,.23,.22)+uSkyHorizon*.44), uSunColor, 0.16), foam);
 
         // Seamless UE5 Atmospheric Horizon Haze Blend
         float distCam = length(cameraPosition.xz - wp);
@@ -655,29 +679,47 @@ export function buildRealisticOcean(): {
   });
 
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.y = 0.0;
-  return { mesh, uniforms };
+  let lastCapture = -Infinity;
+  function updateReflection(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, now: number) {
+    const weight = 1 - THREE.MathUtils.smoothstep(camera.position.y, 20, 38);
+    uniforms.uMirrorWeight.value = camera.position.y > 0 ? weight : 0;
+    if (uniforms.uMirrorWeight.value === 0) {
+      lastCapture = -Infinity;
+      return;
+    }
+    if (now - lastCapture < (softwareRenderer ? 240 : 75)) return;
+    lastCapture = now;
+    camera.updateMatrixWorld();
+    mesh.visible = false;
+    try {
+      captureMirror(renderer, scene, camera);
+    } finally {
+      mesh.visible = true;
+    }
+  }
+  function dispose() {
+    mirror.dispose();
+    mirror.geometry.dispose();
+    geo.dispose();
+    mat.dispose();
+  }
+  return { mesh, uniforms, updateReflection, dispose };
 }
 
 /**
  * Builds an Unreal-Engine-5-Style Atmospheric Sky Dome with Procedural Volumetric
  * Sunlit FBM Cloud Canopy, Mie Solar Halo, Night Starfield & Northern Aurora Borealis!
  */
-export function buildAtmosphericSkyDome(): {
-  mesh: THREE.Mesh;
-  uniforms: {
-    uTime: { value: number };
-    uTopColor: { value: THREE.Color };
-    uHorizonColor: { value: THREE.Color };
-    uSunColor: { value: THREE.Color };
-    uSunDir: { value: THREE.Vector3 };
-    uNightFactor: { value: number };
-    uOvercast: { value: number };
-    uLightning: { value: number };
-  };
-} {
+export function buildAtmosphericSkyDome() {
   const geo = new THREE.SphereGeometry(680, 40, 28);
+  const photoReady = { value: 0 };
+  const skyPhoto = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'materials/niebo-przystani.webp',
+    () => { photoReady.value = 1; });
+  skyPhoto.colorSpace = THREE.SRGBColorSpace;
+  skyPhoto.wrapS = THREE.RepeatWrapping;
   const uniforms = {
+    uSkyPhoto: {value: skyPhoto},
+    uPhotoReady: photoReady,
     uTime: { value: 0 },
     uTopColor: { value: new THREE.Color(0x1a4475) },
     uHorizonColor: { value: new THREE.Color(0xe6be8a) },
@@ -701,6 +743,8 @@ export function buildAtmosphericSkyDome(): {
     `,
     fragmentShader: `
       uniform float uTime;
+      uniform sampler2D uSkyPhoto;
+      uniform float uPhotoReady;
       uniform vec3 uTopColor;
       uniform vec3 uHorizonColor;
       uniform vec3 uSunColor;
@@ -780,6 +824,16 @@ export function buildAtmosphericSkyDome(): {
           sky = mix(sky, cloudCol, density * mix(0.72, 0.94, uOvercast));
         }
 
+        // Latitude-longitude photograph. Keep the authored weather, dusk and night lighting.
+        vec2 skyUV = vec2(atan(d.z,d.x)/6.283185+.54 + uTime*.00009,
+                          .5+asin(clamp(d.y,-1.,1.))/3.141593);
+        vec3 clouds = texture2D(uSkyPhoto, skyUV).rgb;
+        float luminance = dot(clouds,vec3(.2126,.7152,.0722));
+        clouds = mix(clouds,vec3(luminance),.18+uOvercast*.58);
+        clouds *= mix(vec3(.97,1.01,1.05),uSunColor*.63+.22,uNightFactor);
+        clouds *= (1.-uOvercast*.45)*(1.-uNightFactor*.89);
+        float photoMix = smoothstep(-.008,.065,d.y)*uPhotoReady*(.95-.33*uNightFactor);
+        sky = mix(sky,clouds,photoMix);
         // Starfield & Shimmering Northern Aurora Borealis over Frostheim at Dusk/Night!
         if (uNightFactor > 0.1 && d.y > 0.08 && uOvercast < 0.75) {
           float clearSkyMult = 1.0 - uOvercast;
@@ -806,7 +860,7 @@ export function buildAtmosphericSkyDome(): {
   });
 
   const mesh = new THREE.Mesh(geo, mat);
-  return { mesh, uniforms };
+  return { mesh, uniforms, dispose() {skyPhoto.dispose(); mat.dispose(); geo.dispose();} };
 }
 
 /**

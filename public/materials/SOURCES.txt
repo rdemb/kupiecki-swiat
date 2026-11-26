@@ -5,3 +5,16 @@ bruk: Mossy Cobblestone. https://polyhaven.com/a/mossy_cobblestone
 laka: Aerial Grass Rock. https://polyhaven.com/a/aerial_grass_rock
 
 waga-braz.webp, waga-len.webp — autorskie tekstury wygenerowane w ImageGen dla komory celnej. Wzory przedstawiają patynowany brąz i splot płótna workowego.
+
+niebo-przystani.webp — panorama fotograficzna Kloppenheim 06 (Pure Sky), Poly Haven, CC0.
+https://polyhaven.com/a/kloppenheim_06_puresky
+skaly-zatoki.glb, glaz-*.webp — trzy uproszczone skany z Rock Moss Set 01, Poly Haven, CC0.
+https://polyhaven.com/a/rock_moss_set_01
+drzewa-zatoki.webp — osiem ujęć tego samego modelu Island Tree 02 z oryginalnym drewnem i listowiem, Poly Haven, CC0.
+https://polyhaven.com/a/island_tree_02
+lupek-{kolor,normal}.webp oraz dachowka-{kolor,normal}.webp — pomniejszone mapy koloru i wypukłości dachu, Poly Haven, CC0.
+https://polyhaven.com/a/roof_slates_02
+https://polyhaven.com/a/clay_roof_tiles_02
+przystan-ladunkowa.glb — pomost i beczki z Modular Wooden Pier oraz Wooden Barrels 01, Poly Haven, CC0.
+https://polyhaven.com/a/modular_wooden_pier
+https://polyhaven.com/a/wooden_barrels_01

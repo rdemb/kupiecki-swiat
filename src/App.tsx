@@ -223,12 +223,13 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const startAtPort = new URLSearchParams(window.location.search).get('miejsce') === 'waga-portowa';
+  const startAtCoast = new URLSearchParams(window.location.search).get('miejsce') === 'zatoka';
   const isAutostart =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>(
-    isAutostart || startAtPort ? 'playing' : 'title',
+    isAutostart || startAtPort || startAtCoast ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
   const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>('all');
@@ -237,7 +238,7 @@ export default function App() {
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
-  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>('world');
+  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>(startAtCoast ? 'coast' : 'world');
   const [trackedCaravanId, setTrackedCaravanId] = useState<string | null>(null);
   const [lightingMood, setLightingMood] = useState<LightingMoodId>('golden_hour');
   const [pbrWeather, setPbrWeather] = useState<PbrWeatherId>('clear');
@@ -261,7 +262,9 @@ export default function App() {
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   const returnToPort = useRef(false);
   const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
-  const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart);
+  const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
+  const [coastView,setCoastView] = useState(startAtCoast);
+  const [coastTracking,setCoastTracking] = useState(false);
   const playedIntro = useRef(false);
   const [cityInteriorOpen, setCityInteriorOpen] = useState<boolean>(false);
   const [cityInteriorMode, setCityInteriorMode] = useState<'plaza' | 'arena'>('plaza');
@@ -835,9 +838,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [gameState, showCinematicIntro, activeTrailEvent, selectedRaceId, backendUsername, firebaseUser]);
 
+  function enterCoast() {
+    setOnRoad(false);setHasOpenedMap(true);setCoastView(true);setCoastTracking(false);
+    setSelectedCityId('krolewska_przystan');setSelectedRegionId('krolewska_przystan');
+    setCinematicTourActive(false);setCameraPreset('coast');setTrackedCaravanId(null);
+  }
+
   const visitStop = (stop: RoadStop) => {
     returnToPort.current = false;
     setAtPort(false);
+    setCoastView(false);
     setRoadStop(stop);
     setSelectedCityId(stop.city);
     setSelectedRegionId(stop.city);
@@ -2426,6 +2436,7 @@ export default function App() {
         selectedRegionId={selectedRegionId}
         selectedContinentId={selectedContinentId}
         onSelectRegion={(regionId) => {
+          if(coastView)return;
           setSelectedRegionId(regionId);
           const reg = WORLD_REGIONS.find((r) => r.id === regionId);
           if (reg) {
@@ -2437,6 +2448,7 @@ export default function App() {
         }}
         activeCaravans={activeCaravans}
         cameraPreset={cameraPreset}
+        coastTracking={coastTracking && coastView}
         trackedCaravanId={trackedCaravanId}
         activeSeason={macro.activeSeason}
         activeDisaster={macro.activeDisaster}
@@ -2541,7 +2553,7 @@ export default function App() {
         <MerchantRoad
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
-          onTravel={visitStop} onMenu={openRoadPanel}
+          onTravel={visitStop} onMenu={openRoadPanel} onCoast={enterCoast}
           onWeighhouse={moving => {setPortMotion(moving);setAtPort(true);}}
           onBuy={commodityId => void handleExecuteTrade({ commodityId, quantity: 1, side: 'buy', cityId: roadStop.city })}
           onFilm={() => setShowCinematicIntro(true)}
@@ -2549,7 +2561,20 @@ export default function App() {
       )}
 
       {/* ==================== 2. PLAYING HUD (WORLD-MATCHED, LOW-OCCLUSION) ==================== */}
-      {showMap && (
+      {showMap && coastView && (
+        <nav className="coast-view" aria-label="Widok zatoki">
+          <div><span>Królewska Przystań</span><h1>Centralna Zatoka</h1></div>
+          <div className="coast-tools">
+            <button onClick={()=>setCoastTracking(!coastTracking)} aria-pressed={coastTracking}>{coastTracking?'Zatrzymaj najazd':'Najazd kamery'}</button>
+            <select aria-label="Światło zatoki" value={lightingMood} onChange={e=>setLightingMood(e.target.value as LightingMoodId)}>
+              <option value="golden_hour">Złota godzina</option><option value="midday">Południe</option><option value="dusk">Zmierzch</option><option value="night">Noc</option>
+            </select>
+            <button onClick={()=>{setCoastView(false);setCoastTracking(false);setCameraPreset('world');setActiveTab('world_map');setDockCollapsed(false);}}>Atlas</button>
+            <button onClick={()=>visitStop(roadStops[0])}>Na targ</button>
+          </div>
+        </nav>
+      )}
+      {showMap && !coastView && (
         <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-3 md:p-4">
           {/* Top Perimeter Bar */}
           <div className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-2">

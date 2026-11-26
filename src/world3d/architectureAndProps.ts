@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { buildGalleonMesh } from './merchantShip';
+export { buildGalleonMesh } from './merchantShip';
+import { shoreTrees, scannedRocks } from './coastalScenery';
 import { merchantCraft, palmFronds, harbourTimber } from './merchantCraft';
 import { CITIES, CityNode } from '../economy/economyEngine';
 import {
@@ -33,6 +36,31 @@ export interface SharedWorldMaterials {
 
 export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWorldMaterials {
   const grain = harbourTimber();
+  const canvas = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'materials/waga-len.webp');
+  canvas.colorSpace = THREE.SRGBColorSpace;
+  canvas.wrapS = canvas.wrapT = THREE.RepeatWrapping;
+  canvas.repeat.set(5, 4);
+  const wind = {value: 0};
+  const sailCloth = new THREE.MeshStandardMaterial({
+    bumpMap: canvas, bumpScale: .006, roughness: .91, side: THREE.DoubleSide, color: 0xeee4d0,
+  });
+  sailCloth.userData.wind = wind;
+  sailCloth.onBeforeCompile = shader => {
+    shader.uniforms.uSailTime = wind;
+    shader.vertexShader = 'uniform float uSailTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
+      #include <begin_vertex>
+      float freeEdge = smoothstep(0., .8, 1.-uv.y);
+      transformed.z += freeEdge * (.037*sin(5.*uv.x + 1.6*uSailTime) + .014*sin(24.*uv.x - 2.3*uSailTime));
+    `);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      vec2 sheet = vBumpMapUv / vec2(5.,4.);
+      float grain = texture2D(bumpMap,vBumpMapUv).r;
+      float panel = abs(fract(sheet.x*7.+.5)-.5);
+      float seam = 1.-smoothstep(.005,.025+fwidth(sheet.x)*6.,panel);
+      diffuseColor.rgb *= (.84 + min(.18,grain*2.5)) * (1.-seam*.23);
+    `);
+  };
   return {
     castleStone: new THREE.MeshStandardMaterial({
       map: textures.castleStone,
@@ -89,14 +117,16 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
     }),
     slateRoof: new THREE.MeshStandardMaterial({
       map: textures.slateRoof,
-      normalMap: textures.rockNormal,
+      normalMap: textures.slateNormal,
       normalScale: new THREE.Vector2(0.5, 0.5),
       roughness: 0.54,
       metalness: 0.28,
     }),
     warmTerracottaRoof: new THREE.MeshStandardMaterial({
-      map: textures.slateRoof,
-      color: 0xc46b47,
+      map: textures.clayTiles,
+      normalMap: textures.clayNormal,
+      normalScale: new THREE.Vector2(.72,.72),
+      color: 0xf1dbca,
       roughness: 0.64,
       metalness: 0.12,
     }),
@@ -113,9 +143,9 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
       metalness: 0.08,
     }),
     warmWindowGlow: new THREE.MeshStandardMaterial({
-      color: 0xffd584,
+      color: 0x383a32,
       emissive: 0xff9b26,
-      emissiveIntensity: 1.75,
+      emissiveIntensity: 0.06,
       roughness: 0.22,
       metalness: 0.1,
     }),
@@ -160,12 +190,7 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
       roughness: 0.88,
       metalness: 0.08,
     }),
-    sailCloth: new THREE.MeshStandardMaterial({
-      color: 0xf7efe0,
-      roughness: 0.76,
-      metalness: 0.0,
-      side: THREE.DoubleSide,
-    }),
+    sailCloth,
     oasisWaterMat: new THREE.MeshPhysicalMaterial({
       color: 0x14b8a6,
       roughness: 0.12,
@@ -286,81 +311,6 @@ function buildImperialPagoda(
 }
 
 /**
- * Builds a realistic multi-masted Wooden Merchant Galleon with curved hull & billowing sails!
- */
-export function buildGalleonMesh(materials: SharedWorldMaterials, scale = 1.0): THREE.Group {
-  const ship = new THREE.Group();
-
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(-0.85, -2.1);
-  hullShape.quadraticCurveTo(-1.15, 0.2, 0, 2.75);
-  hullShape.quadraticCurveTo(1.15, 0.2, 0.85, -2.1);
-  hullShape.closePath();
-
-  const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
-    depth: 0.95,
-    bevelEnabled: true,
-    bevelThickness: 0.18,
-    bevelSize: 0.14,
-    bevelSegments: 2,
-  });
-  hullGeo.rotateX(Math.PI / 2);
-  const hull = new THREE.Mesh(hullGeo, materials.timberWood);
-  hull.position.y = 0.72;
-  hull.castShadow = true;
-  ship.add(hull);
-
-  const stern = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.75, 1.15), materials.timberWood);
-  stern.position.set(0, 1.05, -1.45);
-  ship.add(stern);
-
-  const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.3, 0.24), materials.warmWindowGlow);
-  lantern.position.set(0, 1.52, -2.02);
-  ship.add(lantern);
-
-  const bowsprit = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 1.7, 6), materials.timberWood);
-  bowsprit.rotation.x = Math.PI / 3;
-  bowsprit.position.set(0, 1.1, 2.7);
-  ship.add(bowsprit);
-
-  const makeBillowingSail = (w: number, h: number): THREE.Mesh => {
-    const sGeo = new THREE.PlaneGeometry(w, h, 6, 4);
-    const pos = sGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const sx = pos.getX(i) / (w * 0.5);
-      const sy = pos.getY(i) / (h * 0.5);
-      const billow = (1 - sx * sx * 0.35) * (1 - sy * sy * 0.75) * 0.42;
-      pos.setZ(i, billow);
-    }
-    sGeo.computeVertexNormals();
-    return new THREE.Mesh(sGeo, materials.sailCloth);
-  };
-
-  const mainMast = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 4.1, 6), materials.timberWood);
-  mainMast.position.set(0, 2.6, 0.1);
-  ship.add(mainMast);
-
-  const mainSail = makeBillowingSail(2.2, 1.65);
-  mainSail.position.set(0, 2.4, 0.2);
-  ship.add(mainSail);
-
-  const topSail = makeBillowingSail(1.45, 1.05);
-  topSail.position.set(0, 3.85, 0.2);
-  ship.add(topSail);
-
-  const foreMast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 3.0, 6), materials.timberWood);
-  foreMast.position.set(0, 2.1, 1.45);
-  ship.add(foreMast);
-
-  const foreSail = makeBillowingSail(1.55, 1.25);
-  foreSail.position.set(0, 2.25, 1.55);
-  ship.add(foreSail);
-
-  ship.scale.setScalar(scale);
-  return ship;
-}
-
-/**
  * Builds culturally authentic 35+ part Capital Cities across ALL 4 Continents:
  * - Stary Kontynent: Medieval Fortified European Citadels
  * - Solaria: Golden Sandstone Sultanate Palaces with Onion Domes, Minarets & Oasis
@@ -445,6 +395,10 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
     tower.rotation.y = -a1;
     tower.castShadow = true;
     group.add(tower);
+    if (city.id === 'krolewska_przystan') {
+      tower.updateMatrix();
+      craft.watchTower(tower.matrix, towerH);
+    }
 
     if (isDesertSultanate && domeGeo) {
       const dCap = new THREE.Mesh(domeGeo, i % 2 === 0 ? materials.gildedBrass : materials.emeraldRoof);
@@ -699,9 +653,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
  * - 36 Sculpted Crystalline Floating Icebergs in Frostheim's Arctic Strait
  * - 140+ Firmly Grounded Coastal Boulders & Karst Sea Stacks
  */
-export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials): {
-  forestGroup: THREE.Group;
-} {
+export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials) {
   const forestGroup = new THREE.Group();
 
   const createClumpGeo = (radius: number, seed: number): THREE.BufferGeometry => {
@@ -760,7 +712,9 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
   const needles=new THREE.InstancedMesh(new THREE.ConeGeometry(1,2,9),materials.foliageCanopy,pineCount*3);
   needles.castShadow=true;
   let pineIndex=0, broadleafIndex=0;
-  const instTrunks = new THREE.InstancedMesh(trunkGeo, materials.treeBark, count);
+  const instTrunks = new THREE.InstancedMesh(trunkGeo, materials.treeBark, count - pineCount);
+  const pineTrunks = new THREE.InstancedMesh(trunkGeo, materials.treeBark, pineCount);
+  let pineTrunkIndex = 0;
   const instLower = new THREE.InstancedMesh(lowerCanopyGeo, materials.foliageCanopy, count);
   const instUpper = new THREE.InstancedMesh(upperCanopyGeo, materials.foliageCanopy, count);
   instLower.castShadow = true;
@@ -775,7 +729,8 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
     dummy.rotation.set(0, i * 1.1, 0);
     dummy.scale.setScalar(t.s);
     dummy.updateMatrix();
-    instTrunks.setMatrixAt(i, dummy.matrix);
+    if (t.biomeType === 'pine') pineTrunks.setMatrixAt(pineTrunkIndex++, dummy.matrix);
+    else instTrunks.setMatrixAt(broadleafIndex, dummy.matrix);
 
     if(t.biomeType==='pine'){
       for(let tier=0;tier<3;tier++){
@@ -821,7 +776,8 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
   instTrunks.computeBoundingSphere();
   instLower.computeBoundingSphere();
   instUpper.computeBoundingSphere();
-  forestGroup.add(instTrunks, instLower, instUpper);
+  const leafTrees = shoreTrees(treePoints.filter(tree => tree.biomeType !== 'pine'));
+  forestGroup.add(pineTrunks, instTrunks, instLower, instUpper, leafTrees.mesh);
 
   // --- 2. SOLARIA DESERT OASIS & ARCHIPELAGO PALM TREES ---
   const palmPoints: Array<{ x: number; y: number; z: number; s: number; rot: number }> = [];
@@ -930,7 +886,15 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
   instBoulders.computeBoundingSphere();
   forestGroup.add(instBoulders);
 
-  return { forestGroup };
+  const releaseRocks = scannedRocks(forestGroup, instBoulders);
+  return {
+    forestGroup,
+    update(height: number, time: number) {
+      const close = leafTrees.update(height,time);
+      instTrunks.visible = instLower.visible = instUpper.visible = !close;
+    },
+    dispose() { leafTrees.dispose(); releaseRocks(); },
+  };
 }
 
 /**
@@ -1209,62 +1173,87 @@ export function buildArticulatedDragon(
     bumpMap: materials.alpineBoulder.bumpMap,
     bumpScale: 0.14,
     roughness: palette.roughness,
-    metalness: palette.metalness,
+    metalness: palette.metalness * .23,
   });
   const wingMembrane = new THREE.MeshStandardMaterial({
     color: palette.wing,
     emissive: palette.emissive,
-    emissiveIntensity: 0.5,
-    roughness: 0.56,
+    emissiveIntensity: 0.045,
+    roughness: 0.86,
     side: THREE.DoubleSide,
   });
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.95, 2.8, 6, 10), scaleMat);
-  torso.rotation.x = Math.PI / 2;
-  dragon.add(torso);
-
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.72, 2.1, 8), scaleMat);
-  neck.rotation.x = Math.PI / 3;
-  neck.position.set(0, 0.75, 2.2);
-  dragon.add(neck);
-
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.7, 1.75), scaleMat);
-  head.position.set(0, 1.35, 3.35);
-  dragon.add(head);
-
-  const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.14, 1.15, 6), materials.gildedBrass);
-  hornL.rotation.x = -Math.PI / 3;
-  hornL.position.set(-0.35, 1.8, 2.65);
-  const hornR = hornL.clone();
-  hornR.position.x = 0.35;
-  dragon.add(hornL, hornR);
-
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.58, 4.4, 8), scaleMat);
-  tail.rotation.x = -Math.PI / 2;
-  tail.position.set(0, -0.1, -3.6);
-  dragon.add(tail);
-
-  const wingShape = new THREE.Shape();
-  wingShape.moveTo(0, 0);
-  wingShape.lineTo(5.6, 1.6);
-  wingShape.lineTo(4.8, -1.8);
-  wingShape.quadraticCurveTo(3.0, -0.9, 2.1, -2.1);
-  wingShape.quadraticCurveTo(1.0, -0.8, 0, -1.3);
-  wingShape.closePath();
-
-  const wingGeo = new THREE.ShapeGeometry(wingShape);
-  wingGeo.rotateX(Math.PI / 2);
-
-  const rightWing = new THREE.Mesh(wingGeo, wingMembrane);
-  rightWing.position.set(0.6, 0.45, 0.9);
-  rightWing.name = 'right_wing';
-  dragon.add(rightWing);
-
-  const leftWing = new THREE.Mesh(wingGeo, wingMembrane);
-  leftWing.scale.x = -1;
-  leftWing.position.set(-0.6, 0.45, 0.9);
-  leftWing.name = 'left_wing';
-  dragon.add(leftWing);
+  // A continuous tapered spine gives the chest, hips, tail and neck a single silhouette.
+  type Station = [number, number, number, number, number]; // z, x/y centre, half width/height
+  const stations: Station[] = [
+    [-7.1,.90,.46,.014,.018],[-6.3,.86,.20,.10,.09],[-5.45,.63,-.14,.17,.14],
+    [-4.5,.33,-.30,.25,.22],[-3.3,.10,-.15,.40,.35],[-2.3,0,.03,.54,.51],
+    [-1.45,0,.13,.63,.59],[-.35,0,.08,.81,.90],[.60,0,.12,.73,.82],
+    [1.35,0,.29,.48,.60],[2.04,0,.66,.32,.45],[2.76,0,.94,.27,.32],
+    [3.02,0,1.06,.42,.38],[3.43,0,1.08,.47,.31],[3.79,0,.99,.32,.18],
+    [4.30,0,1.02,.20,.13],[4.39,0,1.05,.035,.035],
+  ];
+  const body: number[]=[], indices: number[]=[];
+  const sides=14;
+  stations.forEach(([z,x,y,w,h],row)=>{
+    for(let i=0;i<sides;i++){
+      const a=i*2*Math.PI/sides;
+      body.push(x+Math.cos(a)*w,y+Math.sin(a)*h,z);
+      if(row) {
+        const p=(row-1)*sides+i, q=(row-1)*sides+(i+1)%sides;
+        indices.push(p,q,q+sides,p,q+sides,p+sides);
+      }
+    }
+  });
+  const skin = new THREE.BufferGeometry();
+  skin.setAttribute('position',new THREE.Float32BufferAttribute(body,3));
+  skin.setIndex(indices);skin.computeVertexNormals();
+  dragon.add(new THREE.Mesh(skin,scaleMat));
+  function spur(parent: THREE.Group,from: number[],to: number[],radius: number,tip: number,finish=scaleMat) {
+    const a=new THREE.Vector3(...from), b=new THREE.Vector3(...to);
+    const d=b.clone().sub(a);
+    const part=new THREE.Mesh(new THREE.CylinderGeometry(tip,radius,d.length(),6),finish);
+    part.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
+    part.position.copy(a).lerp(b,.5); parent.add(part);
+  }
+  for(const side of [-1,1]){
+    spur(dragon,[.27*side,1.28,3.17],[.61*side,1.78,2.4],.14,.013);
+    spur(dragon,[.54*side,-.04,-1.18],[.85*side,-.66,-1.78],.27,.17);
+    spur(dragon,[.85*side,-.66,-1.78],[.70*side,-.77,-2.47],.17,.08);
+    for(let toe=-1;toe<=1;toe++) spur(dragon,[.7*side,-.77,-2.47],[(.71+toe*.12)*side,-.97,-2.77],.047,.008);
+  }
+  for(const [z,x,y,w,h] of stations.slice(2,13)){
+    spur(dragon,[x,y+h*.86,z],[x,y+h+.09+w*.44,z-.24-w*.19],.045+w*.11,.008);
+  }
+  const wing=new THREE.Group();
+  const wrist=new THREE.Vector3(2.42,.98,1.56);
+  const tips=[[6.35,-.23,-.60],[5.29,-.57,-1.83],[3.91,-.61,-2.58],[2.34,-.43,-2.97],[.40,-.21,-2.12],[0,.05,0]];
+  const membrane:number[]=[], triangles:number[]=[];
+  for(let finger=0;finger<tips.length-1;finger++){
+    const a=new THREE.Vector3(...tips[finger]), b=new THREE.Vector3(...tips[finger+1]);
+    const offset=membrane.length/3, divisions=7;
+    for(let j=0;j<=divisions;j++) {
+      const t=j/divisions, scallop=Math.sin(t*Math.PI);
+      const edge=a.clone().lerp(b,t);
+      edge.z+=scallop*(finger===0?.18:.48);
+      for(let k=0;k<=4;k++) {
+        const r=k/4, p=wrist.clone().lerp(edge,r);
+        p.y+=.24*scallop*Math.sin(r*Math.PI);
+        membrane.push(p.x,p.y,p.z);
+        if(j && k){const i=offset+j*5+k;triangles.push(i-6,i-1,i,i-6,i,i-5);}
+      }
+    }
+  }
+  const wingGeo=new THREE.BufferGeometry();
+  wingGeo.setAttribute('position',new THREE.Float32BufferAttribute(membrane,3));
+  wingGeo.setIndex(triangles);wingGeo.computeVertexNormals();
+  wing.add(new THREE.Mesh(wingGeo,wingMembrane));
+  spur(wing,[0,0,0],wrist.toArray(),.21,.13);
+  tips.slice(0,5).forEach((point,i)=>spur(wing,wrist.toArray(),point,.092-i*.009,.012));
+  spur(wing,wrist.toArray(),[2.74,1.16,1.95],.085,.015);
+  wing.name='right_wing';wing.position.set(.52,.27,.42);
+  const leftWing=wing.clone();leftWing.name='left_wing';leftWing.scale.x=-1;leftWing.position.x=-.52;
+  dragon.add(wing,leftWing);
 
   dragon.scale.setScalar(1.4);
   return dragon;
