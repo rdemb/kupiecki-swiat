@@ -791,7 +791,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     function updateProjectedLabels() {
       const w = renderer.domElement.clientWidth || window.innerWidth;
       const h = renderer.domElement.clientHeight || window.innerHeight;
-      const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current;
+      const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current && cameraPresetRef.current !== 'quay';
       const camDist = camera.position.distanceTo(controls.target);
 
       for (const reg of WORLD_REGIONS) {
@@ -1257,6 +1257,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             ? _trackedPos.y + 0.35
             : ay + 0.38;
 
+        selectionRing.visible = cameraPresetRef.current !== 'quay';
         selectionRing.position.x = THREE.MathUtils.damp(selectionRing.position.x, ringTargetX, 7, dt);
         selectionRing.position.z = THREE.MathUtils.damp(selectionRing.position.z, ringTargetZ, 7, dt);
         selectionRing.position.y = THREE.MathUtils.damp(selectionRing.position.y, ringTargetY, 7, dt);
@@ -1386,6 +1387,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       renderer.domElement.removeEventListener('click', handlePointerClick);
+      materials.timberWood.map?.dispose();
       settlements.dispose();
       composer?.passes.forEach(pass=>pass.dispose());
       composer?.dispose();

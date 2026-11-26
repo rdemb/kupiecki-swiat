@@ -24,6 +24,7 @@ interface WorldMapAtlasPanelProps {
   selectedContinentId: ContinentId | 'all';
   onSelectContinent: (continentId: ContinentId | 'all') => void;
   onSelectRegion: (regionId: string) => void;
+  onQuayView: () => void;
   onFocus3DCameraOnRegion: (regionId: string) => void;
   onFocus3DCameraOnContinent: (continentId: ContinentId) => void;
   onFocus3DCameraOnCaravan: (caravanId: string) => void;
@@ -51,7 +52,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
   selectedContinentId,
   onSelectContinent,
   onSelectRegion,
-  onFocus3DCameraOnRegion,
+  onQuayView, onFocus3DCameraOnRegion,
   onFocus3DCameraOnContinent,
   onFocus3DCameraOnCaravan,
   onOpenCaravanRoutesTab,
@@ -530,6 +531,8 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             </button>
           </div>
 
+          {CITIES.some(c => c.id===activeRegion.linkedCityId && c.isCoastalPort && c.id!=='oaza_alkharim') &&
+            <button type="button" onClick={onQuayView} className="w-full rounded border border-amber-700/70 py-2 text-amber-200">Widok z nabrzeża</button>}
           {activeRegion.linkedCityId && onEnterCityInterior && (
             <button
               type="button"

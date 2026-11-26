@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { merchantCraft, palmFronds, harbourTimber } from './merchantCraft';
 import { CITIES, CityNode } from '../economy/economyEngine';
 import {
   WORLD_REGIONS,
@@ -31,6 +32,7 @@ export interface SharedWorldMaterials {
 }
 
 export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWorldMaterials {
+  const grain = harbourTimber();
   return {
     castleStone: new THREE.MeshStandardMaterial({
       map: textures.castleStone,
@@ -65,9 +67,10 @@ export function createSharedWorldMaterials(textures: WorldTexturePack): SharedWo
       clearcoatRoughness: 0.18,
     }),
     timberWood: new THREE.MeshStandardMaterial({
-      color: 0x5c3a21,
-      bumpMap: textures.rockBump,
-      bumpScale: 0.09,
+      color: 0xe2cfba,
+      map: grain,
+      bumpMap: grain,
+      bumpScale: 0.028,
       roughness: 0.82,
       metalness: 0.04,
     }),
@@ -365,6 +368,7 @@ export function buildGalleonMesh(materials: SharedWorldMaterials, scale = 1.0): 
  */
 export function buildRealisticCity(city: CityNode, materials: SharedWorldMaterials): THREE.Group {
   const group = new THREE.Group();
+  const craft = merchantCraft(materials);
   group.name = `city_${city.id}`;
   const cx = city.position3D[0];
   const cz = city.position3D[2];
@@ -618,6 +622,8 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
       const hMesh = buildMedievalHouse(hw, hh, hd, wallM, roofM, materials.timberWood, materials.warmWindowGlow);
       hMesh.position.set(hx, Math.max(-0.2, localGroundDelta - 0.1), hz);
       hMesh.rotation.y = rot;
+      hMesh.updateMatrix();
+      craft.facade(hMesh.matrix,hw,hh,hd);
       group.add(hMesh);
     }
   }
@@ -645,6 +651,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
       group.add(post);
     }
 
+    craft.quay(1.2,pierY+0.2,13.6);
     const mooredShip = buildGalleonMesh(materials, 1.15);
     mooredShip.position.set(-4.6, -groundY + 0.1, 17.4);
     mooredShip.rotation.y = Math.PI * 0.42;
@@ -679,6 +686,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
   hitProxy.userData = { regionId: city.id, cityId: city.id, name: city.name };
   group.add(hitProxy);
 
+  craft.finish(group);
   group.position.set(cx, groundY, cz);
   return group;
 }
@@ -747,6 +755,10 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
   }
 
   const count = treePoints.length;
+  const pineCount=treePoints.filter(t=>t.biomeType==='pine').length;
+  const needles=new THREE.InstancedMesh(new THREE.ConeGeometry(1,2,9),materials.foliageCanopy,pineCount*3);
+  needles.castShadow=true;
+  let pineIndex=0, broadleafIndex=0;
   const instTrunks = new THREE.InstancedMesh(trunkGeo, materials.treeBark, count);
   const instLower = new THREE.InstancedMesh(lowerCanopyGeo, materials.foliageCanopy, count);
   const instUpper = new THREE.InstancedMesh(upperCanopyGeo, materials.foliageCanopy, count);
@@ -764,30 +776,42 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
     dummy.updateMatrix();
     instTrunks.setMatrixAt(i, dummy.matrix);
 
+    if(t.biomeType==='pine'){
+      for(let tier=0;tier<3;tier++){
+        const radius=(1.42-0.34*tier)*t.s;
+        dummy.position.set(t.x,t.y+(1.75+tier*0.87)*t.s,t.z);
+        dummy.rotation.set(0.025*Math.sin(i),i*1.17+tier*0.37,0);
+        dummy.scale.set(radius,(1.32-tier*0.09)*t.s,radius);dummy.updateMatrix();
+        needles.setMatrixAt(pineIndex,dummy.matrix);
+        needles.setColorAt(pineIndex++,tint.setHSL(0.38,0.28,0.32+tier*0.06));
+      }
+      continue;
+    }
     dummy.position.set(t.x, t.y + 2.35 * t.s, t.z);
     dummy.rotation.set(0.08 * (i % 3), i * 1.7, 0.06);
     dummy.scale.set(t.s * 1.05, t.s * 0.95, t.s * 1.05);
     dummy.updateMatrix();
-    instLower.setMatrixAt(i, dummy.matrix);
+    instLower.setMatrixAt(broadleafIndex, dummy.matrix);
 
     dummy.position.set(t.x + 0.35 * t.s, t.y + 3.45 * t.s, t.z - 0.25 * t.s);
     dummy.rotation.set(-0.08, i * 2.3, 0.1);
     dummy.scale.setScalar(t.s * 0.92);
     dummy.updateMatrix();
-    instUpper.setMatrixAt(i, dummy.matrix);
+    instUpper.setMatrixAt(broadleafIndex, dummy.matrix);
 
     if (t.biomeType === 'jade') {
       tint.setHSL(0.42 + ((i % 7) - 3) * 0.012, 0.48, 0.46 + (i % 4) * 0.04);
-    } else if (t.biomeType === 'pine') {
-      tint.setHSL(0.39 + ((i % 5) - 2) * 0.01, 0.3, 0.38 + (i % 3) * 0.04);
+
     } else {
       tint.setHSL(0.28 + ((i % 9) - 4) * 0.014, 0.46, 0.54 + (i % 4) * 0.04);
     }
-    instLower.setColorAt(i, tint);
+    instLower.setColorAt(broadleafIndex, tint);
     tint.offsetHSL(0.01, 0.05, 0.06);
-    instUpper.setColorAt(i, tint);
+    instUpper.setColorAt(broadleafIndex++, tint);
   }
 
+  instLower.count=instUpper.count=broadleafIndex;
+  forestGroup.add(needles);
   instTrunks.instanceMatrix.needsUpdate = true;
   instLower.instanceMatrix.needsUpdate = true;
   instUpper.instanceMatrix.needsUpdate = true;
@@ -820,8 +844,8 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials):
 
   if (palmPoints.length > 0) {
     const palmTrunkGeo = new THREE.CylinderGeometry(0.12, 0.28, 4.4, 6);
-    const palmCrownGeo = createClumpGeo(1.7, 3.1);
-    palmCrownGeo.scale(1.25, 0.38, 1.25);
+    const palmCrownGeo = palmFronds();
+    materials.palmFrondMat.side = THREE.DoubleSide;
     const instPalmTrunks = new THREE.InstancedMesh(palmTrunkGeo, materials.treeBark, palmPoints.length);
     const instPalmCrowns = new THREE.InstancedMesh(palmCrownGeo, materials.palmFrondMat, palmPoints.length);
 

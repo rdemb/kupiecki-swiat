@@ -3009,6 +3009,7 @@ export default function App() {
                         if (reg.linkedCityId) setSelectedCityId(reg.linkedCityId);
                       }
                     }}
+                    onQuayView={()=>{setCinematicTourActive(false);setCameraPreset('quay');setTrackedCaravanId(null);setDockCollapsed(true);}}
                     onFocus3DCameraOnRegion={(regId) => {
                       setSelectedRegionId(regId);
                       const reg = WORLD_REGIONS.find((r) => r.id === regId);

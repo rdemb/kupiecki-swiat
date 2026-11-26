@@ -1,7 +1,7 @@
 import { CITIES, COMMODITIES, CommodityId, ContinentId } from '../economy/economyEngine';
 import { WORLD_CONTINENTS, WORLD_REGIONS } from '../economy/worldMapData';
 
-export type CameraPresetId = 'world' | 'continent' | 'city' | 'routes' | 'caravan';
+export type CameraPresetId = 'world' | 'continent' | 'city' | 'routes' | 'caravan' | 'quay';
 
 export interface CameraPresetSpec {
   id: CameraPresetId;
@@ -10,6 +10,7 @@ export interface CameraPresetSpec {
 }
 
 export const CAMERA_PRESETS: Record<CameraPresetId, CameraPresetSpec> = {
+  quay: {id:'quay',label:'Nabrzeże',description:'Widok na żuraw portowy i domy kupców'},
   world: {
     id: 'world',
     label: 'Świat 4K',
@@ -209,6 +210,9 @@ export function computeStaticCameraPresetPose(
   activeContinentId: ContinentId,
 ): CameraPose3D {
   const [ax, ay, az] = activeRegionPos;
+  if (preset === 'quay') {
+    return { position: [ax+12, 6.5, az+29], target: [ax, 2.1, az+12] };
+  }
   if (preset === 'city') {
     return {
       position: [ax + 24, ay + 20, az + 28],
