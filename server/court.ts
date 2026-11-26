@@ -1,3 +1,4 @@
+import { CITIES } from '../src/economy/economyEngine';
 import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 
@@ -5,6 +6,8 @@ interface Player { uid: string; username: string }
 export function installCourt(app: Express, db: DatabaseSync, authenticate: (req: Request) => Player | null,
   announce: (uid: string, prefix: string) => void) {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS barPayments (town INTEGER, purpose TEXT, owner TEXT NOT NULL, cost INTEGER NOT NULL, PRIMARY KEY(town,purpose));
+    CREATE TABLE IF NOT EXISTS decreeSites (requestId TEXT PRIMARY KEY,site TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS emperor (seat INTEGER PRIMARY KEY CHECK(seat=1), uid TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS decrees (
       id INTEGER PRIMARY KEY, requestId TEXT UNIQUE NOT NULL, actor TEXT NOT NULL, recipient TEXT NOT NULL,
@@ -14,10 +17,10 @@ export function installCourt(app: Express, db: DatabaseSync, authenticate: (req:
     CREATE INDEX IF NOT EXISTS decrees_recipient ON decrees(recipient,kind,id);
   `);
   const emperor = db.prepare('SELECT 1 FROM emperor WHERE seat=1 AND uid=?');
-  const holdings = db.prepare(`SELECT COALESCE(SUM(bars),0) AS bars,
+  const holdings = db.prepare(`SELECT COALESCE(SUM(bars),0)-COALESCE((SELECT SUM(cost) FROM barPayments WHERE owner=?),0) AS bars,
     COALESCE((SELECT prefix FROM decrees WHERE recipient=? AND kind='prefix' ORDER BY id DESC LIMIT 1),'') AS prefix
     FROM decrees WHERE recipient=?`);
-  const insignia = (uid: string) => holdings.get(uid,uid)!;
+  const insignia = (uid: string) => holdings.get(uid,uid,uid)!;
   const history = db.prepare(`SELECT id,recipient,kind,bars,prefix,reason,created FROM decrees ORDER BY id DESC LIMIT 50`);
   app.get('/api/court', (req,res) => {
     const me = authenticate(req);
@@ -33,7 +36,7 @@ export function installCourt(app: Express, db: DatabaseSync, authenticate: (req:
     const me = authenticate(req);
     if (!me) { res.sendStatus(401); return; }
     if (!emperor.get(me.uid)) { res.sendStatus(403); return; }
-    const {requestId,recipient,kind,value,reason} = req.body ?? {};
+    const {requestId,recipient,kind,value,reason,site} = req.body ?? {};
     if (typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId) ||
         typeof recipient !== 'string' || !/^usr_[0-9a-f]{16}$/.test(recipient) ||
         typeof reason !== 'string' || !reason.trim() || reason.length>180 ||
@@ -44,17 +47,29 @@ export function installCourt(app: Express, db: DatabaseSync, authenticate: (req:
     if (!db.prepare("SELECT 1 FROM players WHERE json_extract(profile,'$.uid')=?").get(recipient)) {
       res.status(404).json({error:'Nie znaleziono gracza.'}); return;
     }
+    if (site !== undefined && (kind!=='prefix' || !CITIES.some(c=>c.id===site))) {res.sendStatus(400);return;}
     const bars = kind==='bars' ? value : 0;
     const prefix = kind==='prefix' ? value : '';
     const prior = db.prepare('SELECT * FROM decrees WHERE requestId=?').get(requestId);
     if (prior) {
       if (prior.actor!==me.uid || prior.recipient!==recipient || prior.bars!==bars ||
-          prior.prefix!==prefix || prior.kind!==kind || prior.reason!==reason.trim()) {
+          (db.prepare('SELECT site FROM decreeSites WHERE requestId=?').get(requestId)?.site)!==site || prior.prefix!==prefix || prior.kind!==kind || prior.reason!==reason.trim()) {
         res.status(409).json({error:'Identyfikator dekretu jest już zajęty.'}); return;
       }
     } else {
+      db.exec('BEGIN IMMEDIATE');
+      try {
       db.prepare('INSERT INTO decrees(requestId,actor,recipient,kind,bars,prefix,reason) VALUES(?,?,?,?,?,?,?)')
         .run(requestId,me.uid,recipient,kind,bars,prefix,reason.trim());
+      if (kind==='prefix' && site) {
+        db.prepare('INSERT INTO decreeSites VALUES(?,?)').run(requestId,site);
+        const actor=db.prepare("SELECT json_extract(profile,'$.displayName') name FROM players WHERE username=?").get(me.username);
+        const player=db.prepare("SELECT json_extract(profile,'$.displayName') name FROM players WHERE json_extract(profile,'$.uid')=?").get(recipient);
+        db.prepare('INSERT INTO annals(person,name,site,story) VALUES(?,?,?,?)').run(recipient,player!.name,site,
+          (prefix ? 'Nadano przedrostek '+prefix : 'Cofnięto przedrostek')+'. '+reason.trim()+' · Pieczęć: '+actor!.name);
+      }
+      db.exec('COMMIT');
+      } catch(error) {db.exec('ROLLBACK');throw error;}
       if (kind==='prefix') announce(recipient,prefix);
     }
     res.status(prior ? 200 : 201).json(insignia(recipient));

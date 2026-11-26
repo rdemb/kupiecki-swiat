@@ -82,6 +82,7 @@ import { DayTraderTerminal } from './components/DayTraderTerminal';
 import { KnightAndMissionsPanel } from './components/KnightAndMissionsPanel';
 import { DuchyAndStoryCampaignPanel } from './components/DuchyAndStoryCampaignPanel';
 import { WorldMapAtlasPanel } from './components/WorldMapAtlasPanel';
+import { ProvinceHall, useProvinceRegister } from './components/ProvinceHall';
 import { ImperialCourt } from './components/ImperialCourt';
 import { AuthAndProfilePanel, TradeRecordItem } from './components/AuthAndProfilePanel';
 import { CityInteriorModal } from './components/CityInteriorModal';
@@ -260,6 +261,8 @@ export default function App() {
 
   // Account & Authentication State (Token strictly in React memory, never in localStorage)
   const [backendToken, setBackendToken] = useState<string | null>(null);
+  const provinces = useProvinceRegister(backendToken);
+  const [chronicledPerson,setChronicledPerson] = useState('');
   const [backendUid, setBackendUid] = useState<string | null>(null);
   const [backendUsername, setBackendUsername] = useState<string | null>(null);
   const [playerDisplayName, setPlayerDisplayName] = useState<string>('Lord Kupiecki');
@@ -2303,6 +2306,7 @@ export default function App() {
       },
       {
         rank: 4,
+        historyUid: backendUid ?? undefined,
         name: [registeredPlayers.find(p=>p.uid===backendUid)?.prefix, playerDisplayName].filter(Boolean).join(' '),
         race: selectedRace.name.split(' ')[0],
         guildTag: `[${playerGuild?.tag ?? 'ZŁOTO'}]`,
@@ -2330,6 +2334,7 @@ export default function App() {
       if (reg.uid !== backendUid) {
         baseEntries.push({
           rank: 99,
+          historyUid: reg.uid,
           name: [reg.prefix, reg.displayName].filter(Boolean).join(' '),
           race: RACES.find((r) => r.id === reg.raceId)?.name.split(' ')[0] ?? 'Ludzie',
           guildTag: '[GRACZ]',
@@ -2365,6 +2370,7 @@ export default function App() {
     <div className="relative w-screen h-screen overflow-hidden bg-[#080b10] select-none">
       {/* Persistent 3D World WebGL Canvas (Isolated Container) */}
       <World3DCanvas
+        towns={provinces.data.towns}
         gameState={gameState}
         selectedRegionId={selectedRegionId}
         selectedContinentId={selectedContinentId}
@@ -2982,6 +2988,7 @@ export default function App() {
               <div className="w-full bg-[#080b10]/95 border border-slate-700 rounded-b-xl rounded-tr-xl p-3.5 shadow-2xl max-h-[58vh] overflow-y-auto">
                 {activeTab === 'world_map' && (
                   <WorldMapAtlasPanel
+                    towns={provinces.data.towns}
                     selectedRegionId={selectedRegionId}
                     selectedContinentId={selectedContinentId}
                     onSelectContinent={(cid) => {
@@ -3125,6 +3132,10 @@ export default function App() {
                   />
                 )}
 
+                {activeTab === 'duchy_story' && <ProvinceHall register={provinces} token={backendToken} site={selectedCityId} person={chronicledPerson} onPerson={setChronicledPerson} onSite={id=>{
+                  const region=WORLD_REGIONS.find(r=>r.linkedCityId===id);
+                  if(region){setSelectedRegionId(region.id);setSelectedContinentId(region.continentId);setSelectedCityId(id);setTrackedCaravanId(null);setCameraPreset('city');}
+                }}/>}
                 {activeTab === 'duchy_story' && (
                   <DuchyAndStoryCampaignPanel
                     duchy={duchy}
@@ -3175,6 +3186,7 @@ export default function App() {
 
                 {activeTab === 'guilds_chat' && (
                   <GuildChatAndRankingsView
+                    onChronicle={uid=>{setChronicledPerson(uid);setActiveTab('duchy_story');}}
                     guilds={guilds}
                     playerGuildId={playerGuildId}
                     onJoinGuild={setPlayerGuildId}

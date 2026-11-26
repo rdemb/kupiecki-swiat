@@ -698,6 +698,7 @@ interface GuildChatAndRankingsViewProps {
   onDonateGuild: (guildId: string, amount: number) => void;
   chatMessages: ChatMessage[];
   onSendChatMessage: (channel: 'globalny' | 'handel' | 'gildia', text: string) => void;
+  onChronicle: (uid:string)=>void;
   leaderboard: LeaderboardEntry[];
   playerGold: number;
 }
@@ -709,7 +710,7 @@ export const GuildChatAndRankingsView: React.FC<GuildChatAndRankingsViewProps> =
   onDonateGuild,
   chatMessages,
   onSendChatMessage,
-  leaderboard,
+  leaderboard, onChronicle,
   playerGold,
 }) => {
   const [activeChannel, setActiveChannel] = useState<'globalny' | 'handel' | 'gildia'>('globalny');
@@ -866,7 +867,7 @@ export const GuildChatAndRankingsView: React.FC<GuildChatAndRankingsViewProps> =
         <div className="space-y-1.5 max-h-[285px] overflow-y-auto">
           {leaderboard.map((row) => (
             <div
-              key={row.name}
+              key={row.historyUid || row.name}
               className={`p-2 rounded border flex items-center justify-between text-xs ${
                 row.isPlayer
                   ? 'bg-amber-500/15 border-amber-400 text-white'
@@ -875,7 +876,7 @@ export const GuildChatAndRankingsView: React.FC<GuildChatAndRankingsViewProps> =
             >
               <div>
                 <div className="font-semibold text-white">
-                  #{row.rank} {row.guildTag} {row.name}
+                  #{row.rank} {row.guildTag} {row.historyUid ? <button className="underline decoration-amber-600" title="Otwórz kronikę kupca" onClick={()=>onChronicle(row.historyUid!)}>{row.name}</button> : row.name}
                 </div>
                 <div className="text-[11px] text-slate-400">
                   {row.race} · {row.specialty}

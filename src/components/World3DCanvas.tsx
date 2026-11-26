@@ -1,10 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { outdoorReflections } from '../world3d/outdoorReflections';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import type { Town } from './ProvinceHall';
+import { charteredTowns } from '../world3d/charteredTowns';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { CITIES, CommodityId, ContinentId, SEASONS, SeasonId } from '../economy/economyEngine';
 import { ActiveWorldDisaster } from '../economy/worldDisasters';
@@ -52,6 +55,7 @@ export interface ActiveCaravan3D {
 export type { CameraPresetId };
 
 interface World3DCanvasProps {
+  towns:Town[];
   gameState: 'title' | 'playing' | 'paused' | 'gameover';
   selectedRegionId: string;
   selectedContinentId: ContinentId | 'all';
@@ -77,7 +81,7 @@ const UE5FilmicGradeShader = {
   uniforms: {
     tDiffuse: { value: null },
     uVignette: { value: 0.28 },
-    uContrast: { value: 1.06 },
+    uContrast: { value: 1.035 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -98,7 +102,7 @@ const UE5FilmicGradeShader = {
       col = (col - 0.5) * uContrast + 0.5;
       // Soft cinematic lens vignette
       vec2 centered = vUv - 0.5;
-      float vig = smoothstep(0.92, 0.28, length(centered));
+      float vig = 1.0 - smoothstep(0.28, 0.92, length(centered));
       col *= mix(1.0 - uVignette, 1.0, vig);
       gl_FragColor = vec4(clamp(col, 0.0, 1.0), tex.a);
     }
@@ -119,7 +123,7 @@ const _tmpWxColor = new THREE.Color();
 const _tmpSunPos = new THREE.Vector3();
 
 export const World3DCanvas: React.FC<World3DCanvasProps> = ({
-  gameState,
+  gameState, towns,
   selectedRegionId,
   selectedContinentId,
   onSelectRegion,
@@ -138,6 +142,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   cinematicTourActive = false,
   onTourContinentChange,
 }) => {
+  const townsRef=useRef(towns);
+  townsRef.current=towns;
   const mountRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const eventLabelRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -242,11 +248,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     // 2. PBR Environment Reflections via PMREMGenerator
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    const room = new RoomEnvironment();
-    const reflections = pmremGenerator.fromScene(room, 0.04);
+    let reflections = outdoorReflections(pmremGenerator,initAtmo);
+    let reflectionSeason=activeSeasonRef.current;
     scene.environment = reflections.texture;
-    room.dispose();
-    pmremGenerator.dispose();
+
 
     const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 1550);
     camera.position.set(16, 152, 266);
@@ -277,6 +282,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       );
       composer.addPass(bloomPass);
       const gradePass = new ShaderPass(UE5FilmicGradeShader);
+      composer.addPass(new OutputPass());
       composer.addPass(gradePass);
     }
 
@@ -308,6 +314,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     // 5. Load PBR Textures & Build 4-Continent Sculpted Terrain, Ocean, Volumetric Cloud Sky & Mist
     const textures = loadWorldTextures(renderer);
     const materials = createSharedWorldMaterials(textures);
+    const settlements=charteredTowns(scene,materials);
+    let lastTowns: Town[] | null=null;
 
     const skyDome = buildAtmosphericSkyDome();
     scene.add(skyDome.mesh);
@@ -851,6 +859,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     }
 
     function tick() {
+      if(lastTowns!==townsRef.current){lastTowns=townsRef.current;settlements.update(lastTowns); }
       if (disposed) return;
       const nowMs = performance.now();
       const dt = Math.min((nowMs - prevTimeMs) / 1000, 0.05);
@@ -869,6 +878,13 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         }
         const snapNow = moodChanged || weatherChanged;
         const atmo = getLightingAtmosphere(lightingMoodRef.current, activeSeasonRef.current);
+        if(moodChanged || reflectionSeason!==activeSeasonRef.current){
+          const next=outdoorReflections(pmremGenerator,atmo);
+          scene.environment=next.texture;
+          reflections.dispose();
+          reflections=next;
+          reflectionSeason=activeSeasonRef.current;
+        }
         const weatherParams = getPbrWeatherParams(pbrWeatherRef.current);
         const atmoLerp = snapNow ? 1.0 : Math.min(1, dt * 4.5);
 
@@ -1370,6 +1386,9 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       renderer.domElement.removeEventListener('click', handlePointerClick);
+      settlements.dispose();
+      composer?.passes.forEach(pass=>pass.dispose());
+      composer?.dispose();
       weatherParticles.dispose();
       eventBeaconGeoPedestal.dispose();
       eventBeaconGeoCrystal.dispose();
@@ -1380,6 +1399,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         b.crystalMat.dispose();
         b.ringMat.dispose();
       }
+      pmremGenerator.dispose();
       controls.dispose();
       reflections.dispose();
       renderer.dispose();
@@ -1424,7 +1444,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: reg.colorHex }}
               />
-              <span className="whitespace-nowrap">{reg.name}</span>
+              <span className="whitespace-nowrap">{reg.name}{towns.some(t=>t.approved && t.site===reg.linkedCityId) && <small className="block text-[10px]">⚑ {towns.find(t=>t.approved && t.site===reg.linkedCityId)?.name}</small>}</span>
             </button>
           );
         })}

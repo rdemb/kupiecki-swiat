@@ -1,4 +1,5 @@
 import express from 'express';
+import { installProvinces } from './server/provinces';
 import { installCourt } from './server/court';
 import http from 'http';
 import fs from 'fs';
@@ -1099,6 +1100,8 @@ async function startServer() {
   });
 
   const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
+
+  installProvinces(app, db, getAuthenticatedAccount);
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {

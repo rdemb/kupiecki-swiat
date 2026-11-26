@@ -19,6 +19,7 @@ import { CameraPresetId, buildActiveRouteList } from '../world3d/cameraPresets';
 import type { ActiveCaravan3D } from './World3DCanvas';
 
 interface WorldMapAtlasPanelProps {
+  towns: {site:string;name:string;approved:number}[];
   selectedRegionId: string;
   selectedContinentId: ContinentId | 'all';
   onSelectContinent: (continentId: ContinentId | 'all') => void;
@@ -46,7 +47,7 @@ interface WorldMapAtlasPanelProps {
 }
 
 export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
-  selectedRegionId,
+  towns, selectedRegionId,
   selectedContinentId,
   onSelectContinent,
   onSelectRegion,
@@ -203,7 +204,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   className="w-1.5 h-1.5 rounded-full shrink-0"
                   style={{ backgroundColor: reg.colorHex }}
                 />
-                <span className="whitespace-nowrap">{reg.name.split(' (')[0]}</span>
+                <span className="whitespace-nowrap">{reg.name.split(' (')[0]}{towns.filter(t=>t.approved && t.site===reg.linkedCityId).map(t=><small className="block" key={t.site}>⚑ {t.name}</small>)}</span>
               </button>
             );
           })}

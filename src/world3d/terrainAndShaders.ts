@@ -611,7 +611,7 @@ export function buildRealisticOcean(): {
 
         // Schlick Fresnel reflection of actual zenith-to-horizon sky gradient
         float cosTheta = max(dot(N, V), 0.0);
-        float fresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 4.2);
+        float fresnel = 0.0204 + 0.9796 * pow(1.0 - cosTheta, 5.0);
         vec3 R = reflect(-V, N);
         vec3 skyRefl = mix(uSkyHorizon, uSkyZenith, pow(clamp(R.y, 0.0, 1.0), 0.55));
         vec3 col = mix(waterCol, skyRefl, clamp(fresnel * 0.88, 0.06, 0.88));
@@ -619,7 +619,10 @@ export function buildRealisticOcean(): {
         // Dual-lobe UE5 Sun Specular Glitter (sharp pinpoint sun path + broad warm sheen)
         vec3 H = normalize(L + V);
         float ndh = max(dot(N, H), 0.0);
-        float specSharp = pow(ndh, 240.0) * 2.4;
+        // Pixel footprint broadens distant glints instead of letting them shimmer.
+        float spread = clamp(fwidth(ndh) * 160.0 + 0.18 * uWaveChoppiness, 0.0, 1.0);
+        float power = mix(340.0, 64.0, spread);
+        float specSharp = pow(ndh, power) * (power / 145.0);
         float specBroad = pow(ndh, 36.0) * 0.32;
         col += uSunColor * (specSharp + specBroad);
 
@@ -628,7 +631,9 @@ export function buildRealisticOcean(): {
         float shoreEdge = 1.0 - smoothstep(0.0, 0.85, vDepth);
         float foamBands = smoothstep(0.48, 0.90, waveBreak) * (1.0 - smoothstep(0.15, 1.85, vDepth));
         float stormWhitecaps = smoothstep(0.76, 0.97, vWaveCrest) * clamp((uWaveChoppiness - 1.2) * 0.45, 0.0, 0.65);
-        float foam = clamp(shoreEdge * 0.82 + foamBands * 0.48 + stormWhitecaps, 0.0, 0.95);
+        float lace = sin(wp.x * 2.1 + uTime + sin(wp.y * 1.7)) * cos(wp.y * 2.6 - 0.55 * uTime);
+        float pores = mix(0.40, 1.0, smoothstep(-0.45, 0.65, lace));
+        float foam = pores * clamp(shoreEdge * 0.82 + foamBands * 0.48 + stormWhitecaps, 0.0, 0.95);
         col = mix(col, mix(vec3(0.92, 0.97, 0.99), uSunColor, 0.16), foam);
 
         // Seamless UE5 Atmospheric Horizon Haze Blend
@@ -638,6 +643,8 @@ export function buildRealisticOcean(): {
 
         float alpha = clamp(0.84 + smoothstep(0.0, 1.2, vDepth) * 0.15 + foam * 0.15, 0.0, 0.99);
         gl_FragColor = vec4(col, alpha);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });
@@ -787,6 +794,8 @@ export function buildAtmosphericSkyDome(): {
         sky += vec3(0.28, 0.38, 0.55) * uLightning * 0.45;
 
         gl_FragColor = vec4(sky, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });

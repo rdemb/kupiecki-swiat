@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CITIES } from '../economy/economyEngine';
 import { Crown } from 'lucide-react';
 import { gameRequest } from '../utils/gameServer';
 
@@ -12,6 +13,7 @@ export function ImperialCourt({ token }: { token: string }) {
   const [target, setTarget] = useState('');
   const [kind, setKind] = useState('bars');
   const [bars, setBars] = useState('1');
+  const [site,setSite] = useState('');
   const [prefix, setPrefix] = useState('Sir');
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
@@ -31,7 +33,7 @@ export function ImperialCourt({ token }: { token: string }) {
     if (!player || sending.current) return;
     sending.current = true;
     setBusy(true);
-    const payload = {recipient:player.uid, kind, value:kind==='bars' ? Number(bars) : prefix, reason:reason.trim()};
+    const payload = {recipient:player.uid, kind, value:kind==='bars' ? Number(bars) : prefix, reason:reason.trim(),site:kind==='prefix' && site || undefined};
     const body = JSON.stringify(payload);
     if (attempt.current.body!==body) attempt.current = {body,id:crypto.randomUUID()};
     try {
@@ -58,6 +60,7 @@ export function ImperialCourt({ token }: { token: string }) {
         <label>Dekret<select className={input} value={kind} onChange={e=>setKind(e.target.value)}><option value="bars">Przyznaj sztabki złota</option><option value="prefix">Zmień przedrostek</option></select></label>
         {kind==='bars' ? <label>Liczba sztabek<input className={input} required type="number" min="1" max="1000" value={bars} onChange={e=>setBars(e.target.value)}/></label>
           : <label>Przedrostek<select className={input} value={prefix} onChange={e=>setPrefix(e.target.value)}>{['Sir','Dama','Baron','Baronessa','Hrabia','Hrabina',''].map(p=><option key={p} value={p}>{p || 'Cofnij tytuł'}</option>)}</select></label>}
+        {kind==='prefix' && <label>Publikacja uzasadnienia w kronice<select value={site} className={input} onChange={e=>setSite(e.target.value)}><option value="">Tylko księga Dworu</option>{CITIES.map(c=><option key={c.id} value={c.id}>Publicznie · {c.name}</option>)}</select></label>}
         <label>Uzasadnienie<input className={input} required maxLength={180} value={reason} onChange={e=>setReason(e.target.value)}/></label>
         <button className="rounded bg-amber-400 p-2 font-bold text-slate-950 disabled:opacity-50" disabled={busy || !player || !reason.trim()}>Zatwierdź dekret</button>
       </form>

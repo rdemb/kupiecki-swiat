@@ -1,3 +1,4 @@
+import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -101,4 +102,51 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
   assert.equal(logged.profile.uid, a.profile.uid);
   assert.equal(logged.profile.title, 'Kupiec północy');
   await request('/api/auth/me', 401, undefined, a.token);
+  const renter = await request('/api/auth/login',200,second);
+  async function order(token,action,params={},status=200) {
+    return request('/api/provinces/orders',status,{nonce:randomUUID(),action,...params},token);
+  }
+  const registry = async token => request('/api/provinces',200,undefined,token);
+  const grant = (uid,value)=>request('/api/court/decrees',201,{...decree,requestId:randomUUID(),recipient:uid,value},logged.token);
+  await grant(a.profile.uid,14);
+  await order(logged.token,'petition',{name:'Port Solny',site:'krolewska_przystan'});
+  await order(renter.token,'petition',{name:'Leśny Dwór',site:'srebrny_gaj'});
+  const [port,forest]=(await registry(logged.token)).towns.map(t=>t.id);
+  assert.equal((await registry()).towns.length,0);
+  await order(renter.token,'approve',{town:forest},400);
+  await order(logged.token,'approve',{town:forest});
+  await order(logged.token,'approve',{town:port});
+  assert.equal((await request('/api/court',200,undefined,renter.token)).bars,0);
+  await order(logged.token,'found',{town:port},400);
+  const testDb=new DatabaseSync(path.join(dir,'game.sqlite'));
+  try {
+    for(const town of [port,forest]) {
+      for(const cargo of ['wood','iron','wood','iron']){
+        await order(renter.token,'dispatch',{town,cargo});
+        await order(renter.token,'arrive',{town},400);
+        testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(b.profile.uid);
+        await order(renter.token,'arrive',{town});
+      }
+    }
+    await order(logged.token,'found',{town:port});
+    assert.equal((await request('/api/court',200,undefined,logged.token)).bars,0);
+    await order(logged.token,'invite',{town:forest,toll:7});
+    await order(logged.token,'accept',{town:forest},400);
+    await order(renter.token,'accept',{town:forest});
+    await order(logged.token,'dispatch',{town:forest,cargo:'handel'});
+    testDb.prepare('UPDATE freight SET due=0 WHERE carrier=?').run(a.profile.uid);
+    const receipt={action:'arrive',town:forest,nonce:randomUUID()};
+    await request('/api/provinces/orders',200,receipt,logged.token);
+    await request('/api/provinces/orders',200,receipt,logged.token);
+    assert.deepEqual((await registry()).towns.map(t=>t.treasury),[94.4,5.6]);
+    const honour={...decree,requestId:randomUUID(),kind:'prefix',value:'Sir',site:'srebrny_gaj'};
+    await request('/api/court/decrees',201,honour,logged.token);
+    await request('/api/court/decrees',200,honour,logged.token);
+    const latest=(await request('/api/provinces/chronicle',200)).entries[0];
+    assert.match(latest.story,/Sir/);
+    await order(logged.token,'witness',{town:latest.id});
+    assert.equal((await request('/api/provinces/chronicle',200)).entries[0].witnesses.length,1);
+    await stop();await start();
+    assert.deepEqual((await registry()).towns.map(t=>t.treasury),[94.4,5.6]);
+  } finally {testDb.close();}
 });

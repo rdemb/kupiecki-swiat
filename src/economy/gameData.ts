@@ -932,6 +932,7 @@ export interface GuildInfo {
 }
 
 export interface LeaderboardEntry {
+  historyUid?: string;
   rank: number;
   name: string;
   race: string;
