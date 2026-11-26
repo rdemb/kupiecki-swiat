@@ -1,3 +1,4 @@
+import { gameRequest } from '../utils/gameServer';
 import { imageUrl } from '../utils/imageUrl';
 import React, { useState } from 'react';
 import { COMMODITIES, CommodityId } from '../economy/economyEngine';
@@ -117,7 +118,7 @@ export const AuthAndProfilePanel: React.FC<AuthAndProfilePanelProps> = ({
               password: passwordInput,
             };
 
-      const res = await fetch(endpoint, {
+      const res = await gameRequest(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyPayload),

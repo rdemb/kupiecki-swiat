@@ -31,11 +31,12 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
   }
   t.after(async () => { await stop(); await rm(dir, { recursive: true, force: true }); });
   async function request(route, status, data, token) {
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { 'Content-Type': 'application/json', Origin: 'https://rdemb.github.io' };
     if (token) headers.Authorization = 'Bearer ' + token;
     const res = await fetch(base + route, {
       method: data ? 'POST' : 'GET', headers, body: data ? JSON.stringify(data) : undefined,
     });
+    assert.equal(res.headers.get('access-control-allow-origin'), headers.Origin);
     assert.equal(res.status, status, route);
     return res.json();
   }
@@ -43,6 +44,13 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
   const first = { username: 'kupiec_testowy', password: randomUUID() };
   const second = { username: 'kupiec_drugi', password: randomUUID() };
   await start();
+  const preflight = await fetch(base + '/api/profile/sync', {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://rdemb.github.io', 'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type' },
+  });
+  assert.equal(preflight.status, 204);
+  assert.match(preflight.headers.get('access-control-allow-headers'), /Authorization/i);
   const index = await (await fetch(base)).text();
   const asset = index.match(/<script[^>]+src="([^"]+)"/)[1];
   assert.equal((await fetch(base + asset)).status, 200);

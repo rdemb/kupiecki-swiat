@@ -1,3 +1,4 @@
+import { gameRequest, gameSocketUrl } from './utils/gameServer';
 import { imageUrl } from './utils/imageUrl';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -459,7 +460,7 @@ export default function App() {
 
   // Connect to Authoritative Server + WebSocket
   useEffect(() => {
-    fetch('/api/state')
+    gameRequest('/api/state')
       .then((r) => r.json())
       .then((data) => {
         if (data.markets) setMarkets(data.markets);
@@ -472,13 +473,11 @@ export default function App() {
       })
       .catch(() => {});
 
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${proto}//${window.location.host}/ws`;
     let ws: WebSocket | null = null;
 
     const connectWs = () => {
       try {
-        ws = new WebSocket(wsUrl);
+        ws = new WebSocket(gameSocketUrl());
         wsRef.current = ws;
 
         ws.onmessage = (event) => {
@@ -591,7 +590,7 @@ export default function App() {
     const activeToken = overrideToken !== undefined ? overrideToken : backendToken;
     if (activeToken) {
       try {
-        const res = await fetch('/api/profile/sync', {
+        const res = await gameRequest('/api/profile/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -901,7 +900,7 @@ export default function App() {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (backendToken) headers.Authorization = `Bearer ${backendToken}`;
-      const res = await fetch('/api/trade', {
+      const res = await gameRequest('/api/trade', {
         method: 'POST',
         headers,
         body: JSON.stringify(params),
@@ -940,7 +939,7 @@ export default function App() {
     );
 
     try {
-      const res = await fetch('/api/exchange/buy', {
+      const res = await gameRequest('/api/exchange/buy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ offerId: offer.id }),
@@ -984,7 +983,7 @@ export default function App() {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (backendToken) headers.Authorization = `Bearer ${backendToken}`;
-      const res = await fetch('/api/exchange/create', {
+      const res = await gameRequest('/api/exchange/create', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -1855,7 +1854,7 @@ export default function App() {
     );
 
     try {
-      const res = await fetch('/api/world/season', {
+      const res = await gameRequest('/api/world/season', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seasonId: nextSeasonId }),
@@ -1900,7 +1899,7 @@ export default function App() {
     );
 
     try {
-      const res = await fetch('/api/world/disaster/trigger', {
+      const res = await gameRequest('/api/world/disaster/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seed }),
@@ -1974,7 +1973,7 @@ export default function App() {
     pushNotification('Sztab Kryzysowy', res.logMessage, 'event');
 
     try {
-      await fetch('/api/world/disaster/clear', {
+      await gameRequest('/api/world/disaster/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nextDisaster: res.nextDisaster }),
@@ -3229,7 +3228,7 @@ export default function App() {
                     }}
                     onBackendLogout={async () => {
                       if (backendToken) {
-                        fetch('/api/auth/logout', {
+                        gameRequest('/api/auth/logout', {
                           method: 'POST',
                           headers: { Authorization: `Bearer ${backendToken}` },
                         }).catch(() => {});

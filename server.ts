@@ -605,6 +605,21 @@ function getAuthenticatedAccount(req: express.Request): ServerPlayerAccount | nu
 
 async function startServer() {
   const app = express();
+  const pagesOrigin = 'https://rdemb.github.io';
+  app.use('/api', (req, res, next) => {
+    res.vary('Origin');
+    if (req.get('Origin') === pagesOrigin) {
+      res.set('Access-Control-Allow-Origin', pagesOrigin);
+      if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+        res.set('Access-Control-Max-Age', '600');
+        res.sendStatus(204);
+        return;
+      }
+    }
+    next();
+  });
   app.use(express.json());
 
   const httpServer = http.createServer(app);

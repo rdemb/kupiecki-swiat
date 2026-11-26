@@ -42,6 +42,8 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
       - name: Build game
+        env:
+          VITE_GAME_SERVER_ORIGIN: https://kupiecki-swiat.212-227-86-22.sslip.io
         run: bun run build:web --base "${{ steps.pages.outputs.base_path }}/"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
