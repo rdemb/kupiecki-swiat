@@ -1,3 +1,4 @@
+import { RaftRule, type installRafts } from './rafts';
 import type { installRiverGauge } from './riverGauge';
 import { floodMark } from '../src/economy/river';
 import type { WeatherConditionId } from '../src/economy/economyEngine';
@@ -35,6 +36,7 @@ export function installBridge(
   weather: () => WeatherConditionId,
   river: ReturnType<typeof installRiverGauge>,
   settleGold: (uid: string, change: number) => void,
+  rafts: ReturnType<typeof installRafts>,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS bridgeState(id INTEGER PRIMARY KEY CHECK(id=1),cycle INTEGER NOT NULL,damaged INTEGER NOT NULL,wet INTEGER NOT NULL,opened INTEGER NOT NULL,flag TEXT NOT NULL);
@@ -74,6 +76,7 @@ export function installBridge(
     db.prepare(
       'UPDATE bridgeLoads SET driver=NULL, driverName=NULL, due=NULL WHERE delivered IS NULL AND due<=?',
     ).run(now - unloadWindow);
+    rafts.advance(now);
     return water.level;
   }
   function sign(): BridgeSign {
@@ -116,14 +119,17 @@ export function installBridge(
       'Otwarto most w Srebrnym Gaju. Proporzec: ' + g.name + '. Dostawy: ' + builders + '.',
     );
   }
-  function read(me: Actor | null, now: number) {
+  function read(me: Actor | null, now: number, level: number) {
     const cycle = Number(state.get()!.cycle);
+    const loads = slips.all(cycle);
+    const bridge = sign();
     return {
-      ...sign(),
+      ...bridge,
+      rafting: rafts.book(me?.uid ?? null, level, bridge.damaged ? bridgeRules.wood.loads - loads.filter(row => row.material === 'wood').length : 0),
       cycle,
       now,
       reading: river.personal(me?.uid ?? null),
-      loads: slips.all(cycle).map((r) => ({
+      loads: loads.map((r) => ({
         id: r.id,
         material: r.material,
         guildName: r.guildName,
@@ -148,8 +154,8 @@ export function installBridge(
     try {
       const now = Date.now();
       db.exec('BEGIN IMMEDIATE');
-      advance(now);
-      const page = read(authenticate(req), now);
+      const level = advance(now);
+      const page = read(authenticate(req), now, level);
       db.exec('COMMIT');
       res.set('Cache-Control', 'private, no-store').json(page);
     } catch (e) {
@@ -164,9 +170,9 @@ export function installBridge(
       res.status(401).json({ error: 'Zaloguj się, aby działać przy przeprawie.' });
       return;
     }
-    const { action, nonce, cycle, material, load, reading } = req.body ?? {};
+    const { action, nonce, cycle, material, load, reading, offer } = req.body ?? {};
     const observation = action === 'measure' || action === 'publishReading';
-    const payload = JSON.stringify(observation ? [action, reading] : [action, cycle, material, load]);
+    const payload = JSON.stringify(action === 'launchRaft' ? [action, offer] : observation ? [action, reading] : [action, cycle, material, load]);
     try {
       requireRule(
         typeof nonce === 'string' && /^[a-f0-9-]{36}$/i.test(nonce),
@@ -179,7 +185,10 @@ export function installBridge(
         .prepare('SELECT payload FROM bridgeReceipts WHERE uid=? AND nonce=?')
         .get(me.uid, nonce);
       if (prior) requireRule(prior.payload === payload, 'Ten dokument ma inną treść.');
-      else if (observation) {
+      else if (action === 'launchRaft') {
+        rafts.launch(authenticate(req)!, offer, level, now);
+        db.prepare('INSERT INTO bridgeReceipts VALUES(?,?,?)').run(me.uid, nonce, payload);
+      } else if (observation) {
         if (action === 'measure') river.measure(me.uid, me.displayName, level, now);
         else requireRule(
           Number.isSafeInteger(reading) && river.publish(me.uid, reading, now),
@@ -202,6 +211,7 @@ export function installBridge(
             'Wszystkie wozy z tym materiałem mają już fundatora.',
           );
           requireRule(me.gold >= rule.cost, 'W sakwie brakuje złota na opłacenie kursu.');
+          if (material === 'wood') rafts.takeForest(1, now);
           settleGold(me.uid, -rule.cost);
           db.prepare(
             'INSERT INTO bridgeLoads(cycle,material,cost,wage,guild,guildName,patron) VALUES(?,?,?,?,?,?,?)',
@@ -238,12 +248,12 @@ export function installBridge(
         }
         db.prepare('INSERT INTO bridgeReceipts VALUES(?,?,?)').run(me.uid, nonce, payload);
       }
-      const page = read(authenticate(req), now);
+      const page = read(authenticate(req), now, level);
       db.exec('COMMIT');
       res.json(page);
     } catch (e) {
       if (db.isTransaction) db.exec('ROLLBACK');
-      if (e instanceof BridgeRule) res.status(409).json({ error: e.message });
+      if (e instanceof BridgeRule || e instanceof RaftRule) res.status(409).json({ error: e.message });
       else next(e);
     }
   });

@@ -1,3 +1,4 @@
+import type { RaftBook } from './rafts';
 import type { RiverReading } from './river';
 import type { MillMark } from './mill';
 
@@ -37,6 +38,7 @@ export interface BridgeBook extends BridgeSign {
   cycle: number;
   now: number;
   reading: RiverReading | null;
+  rafting: RaftBook;
   loads: CargoSlip[];
   openings: { cycle: number; guildName: string; tag: string; opened: number; builders: string }[];
   wallet: { uid: string; guildName: string; gold: number; mark: MillMark } | null;

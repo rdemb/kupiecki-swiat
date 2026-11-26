@@ -695,5 +695,68 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
       assert.equal((await manager(grower3,'redeem',{amount:funds})).wallet.gold,oldGold+funds);
       assert.equal(fund(await desk()).quote,null);
     }
+    // One forest stock funds both river and bridge contracts. All clock adjustments are fixture-only.
+    {
+    const patron=(await request('/api/auth/login',200,first)).token;
+    const skipper=(await request('/api/auth/login',200,second)).token;
+    const driverLogin={username:'flisak_z_gaju',password:randomUUID()};
+    const rival=(await request('/api/auth/register',201,driverLogin)).token;
+    await act(patron,'create',{body:'Cech Flisaków',tag:'SPL'});
+    testDb.exec("UPDATE bridgeState SET damaged=1,wet=0,cycle=cycle+1; UPDATE raftYard SET forest=3,port=0");
+    testDb.prepare('UPDATE raftYard SET cutAt=?').run(Date.now());
+    const broken=await watch(patron);
+    const fundWood=()=>gauge(patron,'fund',{cycle:broken.cycle,material:'wood'});
+    const stock=(await fundWood()).rafting;
+    assert.equal(stock.forest,2); assert.equal(stock.neededAtBridge,2);
+    const bid=stock.offer;
+    const quote={offer:bid,nonce:randomUUID()};
+    placeWater(85_000);
+    await gauge(skipper,'launchRaft',quote,409);
+    placeWater(188_000);
+    await gauge(skipper,'launchRaft',quote,409);
+    assert.equal((await watch()).rafting.forest,2);
+    placeWater(142_000);
+    await gauge(undefined,'launchRaft',quote,401);
+    await gauge(skipper,'launchRaft',{offer:bid+1},409);
+    const people=[skipper,rival];
+    const balances=await Promise.all(people.map(async t=>(await watch(t)).wallet.gold));
+    const papers=[quote,{offer:bid,nonce:randomUUID()}];
+    const race=await Promise.all(people.map((t,i)=>fetch(base+bridgeUrl,{method:'POST',
+      headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'launchRaft',...papers[i]})})));
+    assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);
+    const winner=race.findIndex(r=>r.ok);
+    const embarked=await gauge(people[winner],'launchRaft',papers[winner]);
+    assert.equal(embarked.wallet.gold,balances[winner]-60);
+    assert.equal(embarked.rafting.forest,0);assert.equal(embarked.rafting.runs.length,1);
+    assert.equal(embarked.rafting.inbound,2);assert.equal(embarked.rafting.offer,bid-8);
+    assert.ok(embarked.rafting.runs[0].own);
+    assert.equal((await watch(people[1-winner])).rafting.runs[0].own,false);
+    await gauge(patron,'fund',{cycle:broken.cycle,material:'wood'},409);
+    testDb.prepare('UPDATE raftYard SET cutAt=?').run(Date.now()-240_001);
+    assert.equal((await fundWood()).rafting.forest,0);
+    const run=embarked.rafting.runs[0];
+    await stop(); await start();
+    const returned=(await request('/api/auth/login',200,winner===0?second:driverLogin)).token;
+    assert.equal((await watch(returned)).rafting.runs[0].id,run.id);
+    testDb.prepare('UPDATE raftRuns SET due=? WHERE id=?').run(Date.now()-50,run.id);
+    const landed=await watch(returned);
+    assert.equal(landed.wallet.gold,balances[winner]-60+bid);
+    assert.equal(landed.rafting.port,2);assert.equal(landed.rafting.inbound,0);
+    assert.equal(landed.rafting.arrivals[0].id,run.id);
+    assert.equal((await gauge(returned,'launchRaft',papers[winner])).wallet.gold,landed.wallet.gold);
+    assert.equal((await watch()).rafting.port,2);
+    const port='/api/harbor-works', invoice={action:'ship',nonce:randomUUID()};
+    testDb.exec('UPDATE harborStores SET salt=4');
+    const teams=(await request(port,200)).provisions;
+    const ship=await request(port,201,invoice,returned);
+    assert.equal(ship.timber,1);assert.equal(ship.provisions,teams+2);
+    assert.equal((await request(port,200,invoice,returned)).timber,1);
+    assert.equal((await watch()).rafting.offer,bid-4);
+    testDb.exec('UPDATE raftYard SET port=5, forest=4');
+    placeWater(120_000);
+    assert.equal((await watch()).rafting.offer,null);
+    await gauge(returned,'launchRaft',{offer:bid},409);
+    }
   } finally {testDb.close();}
 });

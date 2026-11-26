@@ -1,4 +1,5 @@
 import express from 'express';
+import { installRafts } from './server/rafts';
 import { installRiverGauge } from './server/riverGauge';
 import { installBridge } from './server/bridge';
 import { installMill } from './server/mill';
@@ -1147,14 +1148,15 @@ async function startServer() {
   const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
-  const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount);
   const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
   const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports);
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;
   });
-  const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold);
+  const rafts = installRafts(db, mill.settleGold);
+  const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount, rafts);
+  const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold,rafts);
   installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation, bridge);
 
   mill.advanceTowns();

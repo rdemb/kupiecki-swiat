@@ -13,6 +13,7 @@ export type HarborWork = {
   food: number;
   salt: number;
   provisions: number;
+  timber: number;
   shipments: number;
   now: number;
   workers: { name: string; kind: 'fish' | 'boil'; due: number }[];

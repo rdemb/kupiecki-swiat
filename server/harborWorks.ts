@@ -1,3 +1,4 @@
+import type { installRafts } from './rafts';
 import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { harborRules as rules } from '../src/economy/harborWorks';
@@ -6,6 +7,7 @@ export function installHarborWorks(
   app: Express,
   db: DatabaseSync,
   authenticate: (req: Request) => { uid: string; displayName: string } | null,
+  rafts: ReturnType<typeof installRafts>,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS harborStores(
@@ -31,6 +33,7 @@ export function installHarborWorks(
   );
   const receive = db.prepare('UPDATE harborStores SET food=food+?,salt=salt+? WHERE id=1');
   function finishDue(now: number) {
+    rafts.advance(now);
     const loads = db
       .prepare('SELECT kind,COUNT(*) AS n FROM harborShifts WHERE due<=? GROUP BY kind')
       .all(now);
@@ -47,6 +50,7 @@ export function installHarborWorks(
   function state(uid: string | undefined, now: number) {
     return {
       ...stores.get(),
+      timber: rafts.portStock(),
       workers: shifts.all(),
       mine: uid ? (myShift.get(uid) ?? null) : null,
       lastShip: lastShip.get() ?? null,
@@ -100,13 +104,16 @@ export function installHarborWorks(
             )
             .run(rules.exportBarrels, rules.exportBarrels);
           if (!shipped.changes) conflict = 'W magazynie jest za mało beczek na wysyłkę.';
-          else
+          else {
+            const extra = rafts.usePortLoad();
+            if (extra) db.exec('UPDATE harborStores SET provisions=provisions+1 WHERE id=1');
             db.prepare('INSERT INTO annals(person,name,site,story) VALUES(?,?,?,?)').run(
               me.uid,
               me.displayName,
               'krolewska_przystan',
-              'Odprawiono transport soli. Fracht opłacił zaprzęg na następny przewóz portowy.',
+              extra ? 'Szyper odebrał sól. Cieśle zużyli partię belek z Gaju i przygotowali drugi zaprzęg.' : 'Odprawiono transport soli. Fracht opłacił zaprzęg na następny przewóz portowy.',
             );
+          }
         } else {
           if (action === 'boil') {
             const ration = db

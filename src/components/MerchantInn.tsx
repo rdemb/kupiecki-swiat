@@ -15,13 +15,14 @@ import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'freight' | 'mutual';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'rafting' | 'freight' | 'mutual';
 interface Props {
   city: string;
   token: string | null;
   tab: InnTab;
   onTab: (v: InnTab) => void;
   onClose: () => void;
+  onHarbor: () => void;
   onAccount: () => void;
   onSettlement:(uid:string,mark:MillMark)=>void;
   onMembership: (id: string, tag: string) => void;
@@ -34,6 +35,7 @@ export default function MerchantInn({
   tab,
   onTab,
   onClose,
+  onHarbor,
   onAccount,
   onSettlement,
   onMembership,
@@ -141,7 +143,7 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
-  if(tab==='bridge') return <BridgeHouse token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
+  if(tab==='bridge' || tab==='rafting') return <BridgeHouse onHarbor={onHarbor} key={tab} atLanding={tab==='rafting'} switchLanding={()=>onTab(tab==='rafting'?'bridge':'rafting')} token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
   return (
     <main className="merchant-inn">
       <header
@@ -178,6 +180,7 @@ export default function MerchantInn({
             <button aria-pressed={tab==='mill'} onClick={()=>{onTab('mill');setReceipt('');}}>Kontrakty i młyn</button>
             <button aria-pressed={tab==='freight'} onClick={()=>{onTab('freight');setReceipt('');}}>Listy przewozowe</button>
             <button aria-pressed={tab==='mutual'} onClick={()=>{onTab('mutual');setReceipt('');}}>Kasa gildii</button>
+            <button onClick={()=>onTab('rafting')}>Przystań flisaków</button>
             <button onClick={()=>onTab('bridge')}>Most w Srebrnym Gaju</button>
           </nav>
           {tab!=='freight' && <span>{WEATHER_CONDITIONS[weather].name}</span>}

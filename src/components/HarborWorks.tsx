@@ -36,9 +36,9 @@ const stations = {
   },
 } as const;
 const keys: HarborAction[] = ['fish', 'boil', 'ship'];
-type Props = { token: string | null; onClose: () => void; onAccount: () => void };
+type Props = { token: string | null; onClose: () => void; onAccount: () => void; onLanding: () => void };
 
-export default function HarborWorks({ token, onClose, onAccount }: Props) {
+export default function HarborWorks({ token, onClose, onAccount, onLanding }: Props) {
   const [data, setData] = useState<HarborWork | null>(null);
   const [selected, setSelected] = useState<HarborAction>('fish');
   const [error, setError] = useState('');
@@ -168,6 +168,7 @@ export default function HarborWorks({ token, onClose, onAccount }: Props) {
               ['food', 'Racje żywności'],
               ['salt', 'Beczki soli'],
               ['provisions', 'Wolne zaprzęgi'],
+              ['timber', 'Partie drewna z Gaju'],
             ] as const
           ).map(([key, label]) => (
             <div key={key}>
@@ -195,6 +196,7 @@ export default function HarborWorks({ token, onClose, onAccount }: Props) {
             </div>
             <h2>{station.place}</h2>
             <p>{station.description}</p>
+            {selected === 'ship' && <p>Cieśle mogą przygotować drugi wóz do tego samego transportu, jeśli na kei leży partia drewna od flisaków.</p>}
             <dl className="harbor-recipe">
               <div>
                 <dt>Potrzeba</dt>
@@ -202,7 +204,7 @@ export default function HarborWorks({ token, onClose, onAccount }: Props) {
               </div>
               <div>
                 <dt>Do odbioru</dt>
-                <dd>{station.yield}</dd>
+                <dd>{selected === 'ship' && (data?.timber ?? 0) > 0 ? '2 zaprzęgi dla kupców' : station.yield}</dd>
               </div>
               <div>
                 <dt>Czas</dt>
@@ -259,6 +261,7 @@ export default function HarborWorks({ token, onClose, onAccount }: Props) {
               <p>Otwieranie księgi…</p>
             ) : (
               <>
+                <button onClick={onLanding}>Odwiedź przystań flisaków</button>
                 <h3>Na zmianie</h3>
                 {data.workers.length ? (
                   <ul>

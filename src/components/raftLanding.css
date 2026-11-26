@@ -1,0 +1,137 @@
+.raft-scene {
+  height: clamp(250px, 42vh, 520px);
+  background-color: #26362b;
+  background-position: 60% 59%;
+}
+.raft-spread {
+  margin-top: 0;
+  border-top: 0;
+}
+.raft-spread p {
+  margin: 0.65rem 0 1rem;
+}
+.raft-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+}
+.river-signal {
+  font: 600 0.78rem/1.4 system-ui;
+  color: #615034;
+}
+.river-signal.open {
+  color: #2c5b49;
+}
+.river-signal.flood {
+  color: #863a2d;
+}
+.raft-stocks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 1.15rem 0 1.5rem;
+  border-block: 1px solid #a7997e;
+}
+.raft-stocks > div {
+  padding: 0.75rem 0.6rem;
+  border-right: 1px solid #bfb399;
+}
+.raft-stocks > div:first-child {
+  padding-left: 0;
+}
+.raft-stocks > div:last-child {
+  border: 0;
+}
+.raft-stocks small,
+.raft-arrivals small {
+  display: block;
+  font: 500 0.78rem/1.4 system-ui;
+  color: #534e41;
+}
+.raft-stocks strong {
+  display: block;
+  font:
+    500 clamp(1.65rem, 3vw, 2.5rem) / 1.25 Georgia,
+    serif;
+  color: #29483c;
+  font-variant-numeric: tabular-nums;
+}
+.raft-stocks strong span {
+  font-size: 0.92rem;
+}
+.raft-route {
+  margin: 1.7rem 0 0.85rem;
+}
+.raft-track {
+  position: relative;
+  height: 0.55rem;
+  border-block: 1px solid #718e7b;
+  background: repeating-linear-gradient(165deg, #5b7d70 0 3px, #779889 4px 8px);
+  margin-inline: 1rem;
+}
+.raft-track:before,
+.raft-track:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #dbceb1;
+  border-radius: 50%;
+  background: #473626;
+}
+.raft-track:before {
+  left: -0.4rem;
+}
+.raft-track:after {
+  right: -0.4rem;
+}
+.raft-track i {
+  position: absolute;
+  z-index: 1;
+  width: 1.6rem;
+  height: 1rem;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-9deg);
+  box-shadow: 0 2px 2px #182a26a0;
+  border-inline: 3px double #453123;
+  background: repeating-linear-gradient(0deg, #976d44 0 2px, #513b25 3px 4px);
+  transition: left 0.5s linear;
+}
+.raft-places,
+.raft-arrivals li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.raft-places {
+  margin-top: 0.45rem;
+  font: 600 0.77rem/1.4 system-ui;
+}
+.raft-arrivals li {
+  border-top: 1px solid #b6a88d;
+  padding: 0.45rem 0;
+}
+.raft-house [role='alert'],
+.raft-house [role='status'] {
+  margin: 0.7rem 0;
+  font-weight: bold;
+}
+@media (max-width: 650px) {
+  .raft-scene {
+    background-position: 65% 60%;
+  }
+  .raft-stocks small {
+    font-size: 0.7rem;
+  }
+  .raft-stocks > div {
+    padding-inline: 0.35rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .raft-track i {
+    transition: none;
+  }
+}

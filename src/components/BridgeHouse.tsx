@@ -8,11 +8,13 @@ import {
 import type { MillMark } from '../economy/mill';
 import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
+import { RaftLanding } from './RaftLanding';
 import { RiverMarks } from './RiverMarks';
 import { InnGuide } from './InnGuide';
 import './bridgeHouse.css';
 
 type Action =
+  | { action: 'launchRaft'; offer: number }
   | { action: 'measure' }
   | { action: 'publishReading'; reading: number }
   | { action: 'fund'; material: BridgeMaterial }
@@ -24,6 +26,9 @@ interface Props {
   onAccount: () => void;
   onGuild: () => void;
   onBoard: () => void;
+  atLanding: boolean;
+  onHarbor: () => void;
+  switchLanding: () => void;
   onSettlement: (uid: string, mark: MillMark) => void;
 }
 export default function BridgeHouse({
@@ -34,6 +39,9 @@ export default function BridgeHouse({
   onGuild,
   onBoard,
   onSettlement,
+  atLanding,
+  onHarbor,
+  switchLanding,
 }: Props) {
   const [page, setPage] = useState<BridgeBook | null>(null);
   const [error, setError] = useState('');
@@ -86,10 +94,10 @@ export default function BridgeHouse({
   }, [refresh]);
   const mine = page?.loads.find((s) => s.myWagon);
   useEffect(() => {
-    if (!mine && !page?.reading) return;
+    if (!mine && !page?.reading && !atLanding) return;
     const t = setInterval(() => setNow(Date.now() + clockOffset.current), 500);
     return () => clearInterval(t);
-  }, [mine?.id, page?.reading?.id]);
+  }, [mine?.id, page?.reading?.id, atLanding]);
   async function act(command: Action) {
     if (!token || !page || lock.current) return;
     lock.current = true;
@@ -97,7 +105,7 @@ export default function BridgeHouse({
     setError('');
     setNote('');
     const id = ++sequence.current,
-      key = JSON.stringify(command.action === 'measure' || command.action === 'publishReading' ? command : { cycle: page.cycle, ...command });
+      key = JSON.stringify(command.action === 'launchRaft' || command.action === 'measure' || command.action === 'publishReading' ? command : { cycle: page.cycle, ...command });
     if (retry.current?.key !== key) retry.current = { key, nonce: crypto.randomUUID() };
     try {
       const r = await gameRequest('/api/bridge', {
@@ -115,7 +123,9 @@ export default function BridgeHouse({
       retry.current = null;
       commit(result);
       setNote(
-        command.action === 'measure'
+        command.action === 'launchRaft'
+          ? 'Flisacy odbili od brzegu. Cieśle wypłacą umówione złoto po przybiciu.'
+          : command.action === 'measure'
           ? 'Pomiar zapisany w twoim notesie.'
           : command.action === 'publishReading'
             ? 'Podpisany meldunek wisi w karczmie w Srebrnym Gaju.'
@@ -137,6 +147,9 @@ export default function BridgeHouse({
   }
   const materialTypes = ['wood', 'iron'] as const;
   const wait = Math.max(0, Math.ceil(((mine?.due ?? 0) - now) / 1000));
+  if (atLanding) return <RaftLanding page={page} now={now} busy={busy} error={error} note={note}
+    muted={muted} launch={offer=>act({action:'launchRaft',offer})} bridge={switchLanding} harbor={onHarbor}
+    close={onClose} login={onAccount} refresh={refresh}/>;
   return (
     <main className="merchant-inn bridge-house">
       <header
@@ -165,6 +178,7 @@ export default function BridgeHouse({
       </header>
       <section className="inn-room">
         <div className="bridge-nav">
+          <button onClick={switchLanding}>Przystań flisaków</button>
           <button onClick={onGuild}>Stół gildii</button>
           <button onClick={refresh}>Odśwież księgę</button>
         </div>
@@ -209,9 +223,10 @@ export default function BridgeHouse({
                             Opłacone wozy {loads.length}/{r.loads} · materiał {r.cost-r.wage} zł · przewóz {r.seconds} s za{' '}
                             {r.wage} zł.
                           </p>
+                          {k==='wood' && page.rafting && <p>Tartak ma {page.rafting.forest} z 4 partii. Tratwa zabiera dwie, wóz na most jedną.</p>}
                           {page.wallet?.guildName && loads.length < r.loads && (
                             <button
-                              disabled={busy || page.wallet.gold < r.cost}
+                              disabled={busy || page.wallet.gold < r.cost || (k==='wood' && page.rafting?.forest===0)}
                               onClick={() => act({ action: 'fund', material: k })}
                             >
                               Opłać wóz z własnej sakwy · {r.cost} zł
