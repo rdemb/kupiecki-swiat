@@ -24,6 +24,13 @@ const time = (t: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+const plural = new Intl.PluralRules('pl');
+function sacks(n: number) {
+  const form = plural.select(n);
+  return (
+    n + ' ' + (form === 'one' ? 'worek' : form === 'few' ? 'worki' : 'worków')
+  );
+}
 function Passage({ bill, now }: { bill: Waybill; now: number }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -128,12 +135,14 @@ export default function WaybillDesk({
                       : 'W drodze'}
                 </span>
               </div>
-              <h3>{b.quantity} worków dla młyna</h3>
+              <h3>{sacks(b.quantity)} dla młyna</h3>
               <p>
                 Zamawia {b.buyerName}. Za ziarno {b.price * b.quantity} zł, dla
                 woźnicy {b.wage} zł.
               </p>
-              {b.growerName && <p>Zboże opieczętował kupiec {b.growerName}.</p>}
+              {b.growerName && (
+                <p>Na pieczęci dostawcy widnieje podpis „{b.growerName}”.</p>
+              )}
               {b.status === 'rolling' && (
                 <>
                   <p>Wóz prowadzi {b.driverName}.</p>
@@ -163,10 +172,8 @@ export default function WaybillDesk({
                   }
                 >
                   {wallet.grain < b.quantity
-                    ? 'W magazynie brakuje ' +
-                      (b.quantity - wallet.grain) +
-                      ' worków'
-                    : 'Załaduj ' + b.quantity + ' worków z magazynu'}
+                    ? 'Za mało zboża w magazynie'
+                    : 'Załaduj ' + sacks(b.quantity) + ' z magazynu'}
                 </button>
               )}
               {wallet && b.status === 'sealed' && (
@@ -213,7 +220,7 @@ export default function WaybillDesk({
               {desk.receipts.map((b) => (
                 <li key={b.id}>
                   <strong>
-                    List {b.id} · {b.quantity} worków
+                    List {b.id} · {sacks(b.quantity)}
                   </strong>
                   <span>
                     {b.road && roadNames[b.road]} ·{' '}
@@ -221,9 +228,9 @@ export default function WaybillDesk({
                     {time(b.due!)}
                   </span>
                   <p>
-                    {b.buyerName} zamówił zboże. Dostawca {b.growerName}{' '}
-                    otrzymał {b.quantity * b.price} zł. Woźnica {b.driverName}{' '}
-                    otrzymał {b.wage} zł.
+                    Na liście widnieje podpis „{b.buyerName}”. Za ziarno
+                    wypłacono {b.quantity * b.price} zł ({b.growerName}), za
+                    przewóz {b.wage} zł ({b.driverName}).
                   </p>
                 </li>
               ))}
@@ -254,7 +261,7 @@ export default function WaybillDesk({
               }}
             >
               <p className="mill-wallet">
-                W sakwie {wallet.gold} zł · w magazynie {wallet.grain} worków
+                W sakwie {wallet.gold} zł · w magazynie {sacks(wallet.grain)}
               </p>
               <div className="mill-terms">
                 {terms.map((t) => (

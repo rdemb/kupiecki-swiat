@@ -178,7 +178,7 @@ export default function MerchantInn({
             <button aria-pressed={tab==='freight'} onClick={()=>{onTab('freight');setReceipt('');}}>Listy przewozowe</button>
             <button onClick={()=>onTab('bridge')}>Most w Srebrnym Gaju</button>
           </nav>
-          <span>{WEATHER_CONDITIONS[weather].name}</span>
+          {tab!=='freight' && <span>{WEATHER_CONDITIONS[weather].name}</span>}
         </div>
         <InnGuide key={tab} cue={tab === 'freight' ? 'przewozy' : tab === 'board' ? 'karczma' : tab==='mill'?'mlyn':'gildia'} muted={muted} />
         {error && <p role="alert">{error}</p>}
