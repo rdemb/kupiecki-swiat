@@ -10,3 +10,6 @@ server.js
 *.local
 .env*
 !.env.example
+
+.data/
+server.cjs

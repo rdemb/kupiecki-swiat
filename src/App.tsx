@@ -1,3 +1,4 @@
+import { imageUrl } from './utils/imageUrl';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -614,9 +615,11 @@ export default function App() {
         });
         if (res.ok) {
           setSyncStatusMsg(`Zapisano ${new Date().toLocaleTimeString('pl-PL')}`);
+        } else {
+          setSyncStatusMsg(res.status === 401 ? 'Sesja wygasła. Zaloguj się ponownie.' : 'Zapis nie powiódł się.');
         }
       } catch {
-        // Ignore network error
+        setSyncStatusMsg('Brak połączenia. Spróbuj ponownie zapisać profil.');
       }
     }
 
@@ -646,26 +649,48 @@ export default function App() {
     }
   };
 
-  // Automatic periodic sync when logged in
+  // A busy market can change faster than the save interval. Keep the latest
+  // snapshot pending rather than postponing its write on every price tick.
+  const pendingSave = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
     if (!backendToken && !firebaseUser) return;
-    const t = window.setTimeout(() => {
-      syncProfileToCloudAndBackend();
-    }, 1500);
-    return () => clearTimeout(t);
+    pendingSave.current = () => syncProfileToCloudAndBackend();
   }, [
     playerGold,
     playerBondsGold,
     netWorth,
     unlockedTechIds,
-    knight.level,
-    knight.monstersDefeated,
-    knight.availableTurns,
-    duchy.rankIndex,
-    duchy.armyGuardsCount,
-    duchy.fleetGalleonsCount,
+    playerDisplayName,
+    playerTitle,
+    selectedRaceId,
+    playerGuildId,
+    playerInventory,
+    tradesExecutedCount,
+    profitableTradesCount,
+    knight,
+    duchy,
     backendToken,
+    firebaseUser,
   ]);
+
+  useEffect(() => {
+    let saving = false;
+    const timer = window.setInterval(async () => {
+      const save = pendingSave.current;
+      if (saving || !save) return;
+      pendingSave.current = null;
+      saving = true;
+      try {
+        await save();
+      } finally {
+        saving = false;
+      }
+    }, 1500);
+    return () => {
+      window.clearInterval(timer);
+      pendingSave.current = null;
+    };
+  }, [backendToken, firebaseUser]);
 
   // Caravan Progress, Knight Turn Regeneration & Bond Interest Loop
   useEffect(() => {
@@ -2366,8 +2391,8 @@ export default function App() {
 
       {/* ==================== 1. CLEAN REAL-TIME 3D TITLE SCREEN OVERLAY ==================== */}
       {gameState === 'title' && (
-        <div className="fixed inset-0 z-30 flex items-center justify-start px-6 md:px-16 bg-gradient-to-r from-[#05080d]/95 via-[#05080d]/80 to-transparent">
-          <div className="relative z-10 max-w-xl w-full py-6 space-y-4">
+        <div className="fixed inset-0 z-30 flex flex-col items-start overflow-y-auto overscroll-contain px-6 md:px-16 bg-gradient-to-r from-[#05080d]/95 via-[#05080d]/80 to-transparent">
+          <div className="relative z-10 my-auto max-w-xl w-full shrink-0 py-6 space-y-4">
             {/* Custom Inline SVG Heraldic Emblem & Title Lockup */}
             <div className="flex items-center gap-4">
               <svg
@@ -2501,8 +2526,8 @@ export default function App() {
               <img
                 src={
                   cinematicSceneIdx === 0
-                    ? '/src/assets/images/cinematic_title_backdrop_1795641276504.jpg'
-                    : '/src/assets/images/cinematic_city_citadel_1795641277369.jpg'
+                    ? imageUrl('cinematic_title_backdrop_1795641276504.jpg')
+                    : imageUrl('cinematic_city_citadel_1795641277369.jpg')
                 }
                 alt="Scena filmowa Kupieckiego Świata"
                 referrerPolicy="no-referrer"

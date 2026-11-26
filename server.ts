@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer as createViteServer } from 'vite';
+import { DatabaseSync } from 'node:sqlite';
 import {
   CITIES,
   COMMODITIES,
@@ -39,7 +39,8 @@ import {
   pickRandomDisaster,
 } from './src/economy/worldDisasters';
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT ?? 3000);
+const HOST = process.env.HOST ?? '0.0.0.0';
 
 // --- Persistent Backend Player Accounts & Profiles Store ---
 export interface ServerPlayerAccount {
@@ -73,42 +74,47 @@ export interface ServerPlayerAccount {
   updatedAt: string;
 }
 
-const DATA_DIR = path.resolve(process.cwd(), '.data');
-const PROFILES_FILE = path.join(DATA_DIR, 'players.json');
-
-const playerAccounts = new Map<string, ServerPlayerAccount>();
-// Map of Bearer token -> usernameKey (held in server memory, never stored in browser localStorage)
+const DATA_DIR = path.resolve(process.env.GAME_DATA_DIR || '.data');
+fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+const db = new DatabaseSync(path.join(DATA_DIR, 'game.sqlite'));
+db.exec(`CREATE TABLE IF NOT EXISTS players (
+  username TEXT PRIMARY KEY, profile TEXT NOT NULL
+)`);
+const insertPlayer = db.prepare('INSERT INTO players(username, profile) VALUES (?, ?)');
+const updatePlayer = db.prepare('UPDATE players SET profile = ? WHERE username = ?');
+const selectPlayer = db.prepare('SELECT profile FROM players WHERE username = ?');
 const activeSessions = new Map<string, string>();
 
-function loadPersistedAccounts() {
-  try {
-    if (fs.existsSync(PROFILES_FILE)) {
-      const raw = fs.readFileSync(PROFILES_FILE, 'utf8');
-      const parsed = JSON.parse(raw) as ServerPlayerAccount[];
-      for (const acc of parsed) {
-        if (!acc.knight) {
-          acc.knight = createInitialKnightState(acc.raceId);
-        }
-        if (!acc.duchy) {
-          acc.duchy = createInitialDuchyState(acc.raceId);
-        }
-        playerAccounts.set(acc.username.toLowerCase(), acc);
-      }
-    }
-  } catch (err) {
-    console.error('Could not load persisted player accounts:', err);
-  }
+function readAccount(username: string): ServerPlayerAccount | null {
+  const row = selectPlayer.get(username);
+  return row ? JSON.parse(String(row.profile)) : null;
 }
 
-function savePersistedAccounts() {
+function saveAccount(account: ServerPlayerAccount) {
+  updatePlayer.run(JSON.stringify(account), account.username.toLowerCase());
+}
+
+function migrateLegacyAccounts() {
+  if (db.prepare('PRAGMA user_version').get()?.user_version !== 0) return;
+  db.exec('BEGIN IMMEDIATE');
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const file = path.join(DATA_DIR, 'players.json');
+    if (fs.existsSync(file)) {
+      const accounts = JSON.parse(fs.readFileSync(file, 'utf8')) as ServerPlayerAccount[];
+      if (!Array.isArray(accounts)) throw new Error('Niepoprawny format players.json');
+      for (const account of accounts) {
+        if (!account.uid || !account.passwordHash || !account.passwordSalt) {
+          throw new Error('Niekompletny profil w players.json');
+        }
+        account.knight ??= createInitialKnightState(account.raceId);
+        account.duchy ??= createInitialDuchyState(account.raceId);
+        insertPlayer.run(account.username.toLowerCase(), JSON.stringify(account));
+      }
     }
-    const list = Array.from(playerAccounts.values());
-    fs.writeFileSync(PROFILES_FILE, JSON.stringify(list, null, 2), 'utf8');
+    db.exec('PRAGMA user_version = 1; COMMIT');
   } catch (err) {
-    console.error('Could not save player accounts:', err);
+    db.exec('ROLLBACK');
+    throw err;
   }
 }
 
@@ -128,10 +134,10 @@ function sanitizeAccountForClient(acc: ServerPlayerAccount) {
   return safeProfile;
 }
 
-loadPersistedAccounts();
+migrateLegacyAccounts();
 
 // --- Server-Authoritative Economy, Seasons, Weather & Multi-User State ---
-const marketState: Record<CommodityId, CommodityMarketState> = {} as Record<CommodityId, CommodityMarketState>;
+let marketState: Record<CommodityId, CommodityMarketState> = {} as Record<CommodityId, CommodityMarketState>;
 
 const TICKS_PER_SEASON = 16;
 let tickCounter = 1;
@@ -190,7 +196,7 @@ const WORLD_EVENTS: WorldEventDef[] = [
 let activeEventIndex = 0;
 
 // --- P2P Player & City Surplus Exchange Offers ---
-const exchangeOffers: PlayerExchangeOffer[] = [
+let exchangeOffers: PlayerExchangeOffer[] = [
   {
     id: 'off_city_1',
     sellerUid: 'city_krolewska_przystan',
@@ -431,7 +437,7 @@ function getMacroState(): MacroEconomyState {
 }
 
 // --- Authoritative Auctions ---
-const auctions: AuctionItem[] = [
+let auctions: AuctionItem[] = [
   {
     id: 'auc_1',
     sellerName: 'Baron Vonelor',
@@ -499,7 +505,7 @@ const auctions: AuctionItem[] = [
 ];
 
 // --- Authoritative Multi-Channel Chat ---
-const chatMessages: ChatMessage[] = [
+let chatMessages: ChatMessage[] = [
   {
     id: 'msg_1',
     channel: 'globalny',
@@ -530,7 +536,7 @@ const chatMessages: ChatMessage[] = [
 ];
 
 // --- Authoritative Guilds ---
-const guilds: GuildInfo[] = [
+let guilds: GuildInfo[] = [
   {
     id: 'g_zloto',
     name: 'Hanza Złotego Gryfa',
@@ -566,13 +572,35 @@ const guilds: GuildInfo[] = [
   },
 ];
 
+// A single process owns the shared world. Commit each finished market update
+// or chat message before connected players see it.
+db.exec('CREATE TABLE IF NOT EXISTS world (id INTEGER PRIMARY KEY CHECK (id = 1), snapshot TEXT NOT NULL)');
+const writeWorld = db.prepare('INSERT OR REPLACE INTO world(id, snapshot) VALUES (1, ?)');
+function worldSnapshot() {
+  return {
+    marketState, exchangeOffers, auctions, chatMessages, guilds,
+    tickCounter, worldDayNumber, activeSeasonIndex, activeWeatherIndex,
+    activeEventIndex, activeDisaster, currentMoneySupply, totalGoldBurned, totalGoldMinted,
+  };
+}
+const existingWorld = db.prepare('SELECT snapshot FROM world WHERE id = 1').get();
+if (existingWorld) {
+  ({
+    marketState, exchangeOffers, auctions, chatMessages, guilds,
+    tickCounter, worldDayNumber, activeSeasonIndex, activeWeatherIndex,
+    activeEventIndex, activeDisaster, currentMoneySupply, totalGoldBurned, totalGoldMinted,
+  } = JSON.parse(String(existingWorld.snapshot)) as ReturnType<typeof worldSnapshot>);
+} else {
+  writeWorld.run(JSON.stringify(worldSnapshot()));
+}
+
 function getAuthenticatedAccount(req: express.Request): ServerPlayerAccount | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
   const usernameKey = activeSessions.get(token);
   if (!usernameKey) return null;
-  return playerAccounts.get(usernameKey) ?? null;
+  return readAccount(usernameKey);
 }
 
 async function startServer() {
@@ -583,6 +611,9 @@ async function startServer() {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
   function broadcast(type: string, payload: unknown) {
+    if (type === 'market:update' || type === 'chat:new') {
+      writeWorld.run(JSON.stringify(worldSnapshot()));
+    }
     const raw = JSON.stringify({ type, payload });
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
@@ -865,7 +896,7 @@ async function startServer() {
       res.status(400).json({ error: 'Hasło musi zawierać minimum 6 znaków.' });
       return;
     }
-    if (playerAccounts.has(cleanUser)) {
+    if (readAccount(cleanUser)) {
       res.status(409).json({ error: 'Konto o tym loginie już istnieje. Zaloguj się.' });
       return;
     }
@@ -908,8 +939,7 @@ async function startServer() {
       updatedAt: nowIso,
     };
 
-    playerAccounts.set(cleanUser, newAccount);
-    savePersistedAccounts();
+    insertPlayer.run(cleanUser, JSON.stringify(newAccount));
 
     const token = crypto.randomBytes(32).toString('hex');
     activeSessions.set(token, cleanUser);
@@ -923,7 +953,7 @@ async function startServer() {
   app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body as { username?: string; password?: string };
     const cleanUser = String(username || '').trim().toLowerCase();
-    const acc = playerAccounts.get(cleanUser);
+    const acc = readAccount(cleanUser);
 
     if (!acc || !password || !verifyPassword(String(password), acc.passwordSalt, acc.passwordHash)) {
       res.status(401).json({ error: 'Nieprawidłowy login lub hasło kupieckie.' });
@@ -1048,13 +1078,13 @@ async function startServer() {
     }
     acc.updatedAt = new Date().toISOString();
 
-    savePersistedAccounts();
+    saveAccount(acc);
     res.json({ profile: sanitizeAccountForClient(acc) });
   });
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {
-    const registeredPlayers = Array.from(playerAccounts.values()).map((acc) => ({
+    const registeredPlayers = db.prepare('SELECT profile FROM players').all().map((row) => JSON.parse(String(row.profile)) as ServerPlayerAccount).map((acc) => ({
       uid: acc.uid,
       displayName: acc.displayName,
       title: acc.title,
@@ -1191,7 +1221,7 @@ async function startServer() {
         timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       });
       acc.tradeHistory = acc.tradeHistory.slice(0, 30);
-      savePersistedAccounts();
+      saveAccount(acc);
     }
 
     advanceEconomyTick({
@@ -1434,6 +1464,7 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -1447,8 +1478,11 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Kupiecki Swiat 3D Server running on http://0.0.0.0:${PORT}`);
+  httpServer.listen(PORT, HOST, () => {
+    const address = httpServer.address();
+    if (address && typeof address === 'object') {
+      console.log(`Kupiecki Swiat 3D Server running on http://${HOST}:${address.port}`);
+    }
   });
 }
 

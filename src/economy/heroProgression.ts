@@ -1,3 +1,4 @@
+import { imageUrl } from '../utils/imageUrl';
 /**
  * Kupiecki Świat 3D: Odrodzenie
  * Pure Hero Personalization, Multi-Direction Development Paths, RPG Equipment Slots & Loot Engine
@@ -22,28 +23,28 @@ export const HERO_PORTRAITS: HeroPortraitSpec[] = [
     name: 'Paladyn Złotego Lwa',
     archetypeLabel: 'Dowódca Szlaku i Obrońca',
     recommendedPath: 'paladyn',
-    imageUrl: '/src/assets/images/hero_paladin_portrait_1795671865906.jpg',
+    imageUrl: imageUrl('hero_paladin_portrait_1795671865906.jpg'),
   },
   {
     id: 'portrait_merchant',
     name: 'Magnat Królewskiej Giełdy',
     archetypeLabel: 'Lord Kupiecki i Bankier',
     recommendedPath: 'kupiec_magnat',
-    imageUrl: '/src/assets/images/avatar_merchant_lord_1795641278352.jpg',
+    imageUrl: imageUrl('avatar_merchant_lord_1795641278352.jpg'),
   },
   {
     id: 'portrait_arcanist',
     name: 'Arcymag Kolegium Run',
     archetypeLabel: 'Mistrz Magii i Alchemii',
     recommendedPath: 'arcymag',
-    imageUrl: '/src/assets/images/hero_arcanist_portrait_1795671867084.jpg',
+    imageUrl: imageUrl('hero_arcanist_portrait_1795671867084.jpg'),
   },
   {
     id: 'portrait_ranger',
     name: 'Zwiadowca Czarnych Szlaków',
     archetypeLabel: 'Łowca Skarbów i Kartograf',
     recommendedPath: 'zwiadowca',
-    imageUrl: '/src/assets/images/hero_ranger_portrait_1795671867628.jpg',
+    imageUrl: imageUrl('hero_ranger_portrait_1795671867628.jpg'),
   },
 ];
 
@@ -148,11 +149,11 @@ export interface RpgEquipmentItem {
   bonusText: string;
 }
 
-const IMG_BLADE = '/src/assets/images/item_mithril_blade_1795671868160.jpg';
-const IMG_ARMOR = '/src/assets/images/item_dragon_armor_1795671868902.jpg';
-const IMG_RELIC = '/src/assets/images/item_arcane_relic_1795671870433.jpg';
-const IMG_PALADIN = '/src/assets/images/hero_paladin_portrait_1795671865906.jpg';
-const IMG_RANGER = '/src/assets/images/hero_ranger_portrait_1795671867628.jpg';
+const IMG_BLADE = imageUrl('item_mithril_blade_1795671868160.jpg');
+const IMG_ARMOR = imageUrl('item_dragon_armor_1795671868902.jpg');
+const IMG_RELIC = imageUrl('item_arcane_relic_1795671870433.jpg');
+const IMG_PALADIN = imageUrl('hero_paladin_portrait_1795671865906.jpg');
+const IMG_RANGER = imageUrl('hero_ranger_portrait_1795671867628.jpg');
 
 export const RPG_ITEM_CATALOG: RpgEquipmentItem[] = [
   // --- 6 SHOP / FORGE ITEMS (KUPOWANE I WYKUWANE W ZBROJOWNI) ---

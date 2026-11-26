@@ -230,7 +230,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = !isSoftwareGl;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
@@ -242,7 +242,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     // 2. PBR Environment Reflections via PMREMGenerator
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    const room = new RoomEnvironment();
+    const reflections = pmremGenerator.fromScene(room, 0.04);
+    scene.environment = reflections.texture;
+    room.dispose();
     pmremGenerator.dispose();
 
     const camera = new THREE.PerspectiveCamera(44, width / height, 1.0, 1550);
@@ -1378,6 +1381,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         b.ringMat.dispose();
       }
       controls.dispose();
+      reflections.dispose();
       renderer.dispose();
     };
   }, []);

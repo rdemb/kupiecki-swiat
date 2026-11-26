@@ -49,7 +49,7 @@ Wielokontynentalna gra ekonomiczno-strategiczna i turowe RPG osadzona w uniwersu
 ## Uruchomienie Lokalne
 
 ### Wymagania
-- Node.js 20+
+- Node.js 24.22+ (SQLite wbudowane w Node.js)
 - npm 10+
 
 ### Instalacja i start serwera deweloperskiego
@@ -73,6 +73,12 @@ npm run build
 # Start produkcyjny
 npm start
 ```
+
+### Konta w wersji testowej
+
+Kompilacja tworzy katalog `dist` i plik `server.cjs`. Wystarczają do uruchomienia przez Node.js 24 z tego samego katalogu. Interfejs, API i WebSocket korzystają z jednego adresu. `PORT` domyślnie wynosi 3000, a `HOST` ustala interfejs sieciowy. Ustaw `HOST=127.0.0.1` dla prób na własnym komputerze.
+
+Baza profili SQLite powstaje w `.data/game.sqlite`. Na hostingu ustaw `GAME_DATA_DIR` na katalog na trwałym dysku. Starsze profile z `players.json` w tym katalogu są importowane jednorazowo podczas pierwszego startu. Aby wykonać kopię zapasową, zatrzymaj serwer i skopiuj cały katalog danych. Po restarcie zaloguj się ponownie. Jedna instancja prowadzi wspólną giełdę i zapisuje jej stan, aukcje, gildie oraz ostatnie wiadomości czatu w tej samej bazie. Ta wersja jest przeznaczona do testów z zaufanymi graczami.
 
 ### Zmienne środowiskowe
 Skopiuj `.env.example` do `.env` i opcjonalnie uzupełnij własne klucze, jeśli chcesz uruchomić dodatkową integrację chmurową. Gra działa w pełni również lokalnie bez żadnej konfiguracji zewnętrznych kluczy.

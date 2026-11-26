@@ -1,3 +1,4 @@
+import { imageUrl } from '../utils/imageUrl';
 import React, { useState } from 'react';
 import { COMMODITIES, CommodityId } from '../economy/economyEngine';
 import { DuchyState, KnightState, RACES } from '../economy/gameData';
@@ -248,7 +249,7 @@ export const AuthAndProfilePanel: React.FC<AuthAndProfilePanelProps> = ({
 
             <div>
               <label htmlFor="auth-password-input" className="block text-slate-400 mb-1">
-                Hasło (min. 6 znaków, szyfrowane scrypt)
+                Hasło (co najmniej 6 znaków)
               </label>
               <input
                 id="auth-password-input"
@@ -338,7 +339,7 @@ export const AuthAndProfilePanel: React.FC<AuthAndProfilePanelProps> = ({
           <div className="flex items-center gap-3 pb-2.5 border-b border-slate-800">
             <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-amber-500/70 bg-[#111722] shrink-0">
               <img
-                src="/src/assets/images/avatar_merchant_lord_1795641278352.jpg"
+                src={imageUrl('avatar_merchant_lord_1795641278352.jpg')}
                 alt="Portret Kupca"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"

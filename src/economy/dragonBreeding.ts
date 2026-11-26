@@ -1,3 +1,4 @@
+import { imageUrl } from '../utils/imageUrl';
 /**
  * Kupiecki Świat 3D: Odrodzenie — Multi-Species Dragon Breeding & Aviary Sanctuary Engine
  * Pure decoupled logic for incubating dragon eggs, raising dragons across 5 life stages,
@@ -34,7 +35,7 @@ export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
     name: 'Smok Ognia Ignisa',
     elementLabel: 'Żywioł Magmy i Ognia',
     originContinentName: 'Archipelag Obsydianowy',
-    artworkUrl: '/src/assets/images/dragon_fire_ignis_1795672943919.jpg',
+    artworkUrl: imageUrl('dragon_fire_ignis_1795672943919.jpg'),
     variant3D: 'crimson',
     accentHex: '#F97316',
     favoriteCommodity: 'smocza_luska',
@@ -50,7 +51,7 @@ export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
     name: 'Smok Lodu Frostheimu',
     elementLabel: 'Żywioł Zorzy i Szronu',
     originContinentName: 'Frostheim (Północ)',
-    artworkUrl: '/src/assets/images/dragon_frost_vyrm_1795672944162.jpg',
+    artworkUrl: imageUrl('dragon_frost_vyrm_1795672944162.jpg'),
     variant3D: 'frost',
     accentHex: '#38BDF8',
     favoriteCommodity: 'mithril',
@@ -66,7 +67,7 @@ export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
     name: 'Szmaragdowy Smok Aetheris',
     elementLabel: 'Żywioł Wiatru i Many',
     originContinentName: 'Valoria & Aetheris',
-    artworkUrl: '/src/assets/images/dragon_emerald_aether_1795672945143.jpg',
+    artworkUrl: imageUrl('dragon_emerald_aether_1795672945143.jpg'),
     variant3D: 'emerald',
     accentHex: '#10B981',
     favoriteCommodity: 'krysztaly_many',
@@ -82,7 +83,7 @@ export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
     name: 'Złoty Smok Skarbca',
     elementLabel: 'Żywioł Królewskiego Złota',
     originContinentName: 'Stary Kontynent & Solaria',
-    artworkUrl: '/src/assets/images/dragon_golden_hoard_1795672945636.jpg',
+    artworkUrl: imageUrl('dragon_golden_hoard_1795672945636.jpg'),
     variant3D: 'gold',
     accentHex: '#FBBF24',
     favoriteCommodity: 'przyprawy',

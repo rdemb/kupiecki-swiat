@@ -1,3 +1,4 @@
+import { imageUrl } from '../utils/imageUrl';
 import React from 'react';
 import {
   CITIES,
@@ -142,7 +143,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         {/* High-Altitude Photorealistic 6-Continent Satellite Map */}
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
-            src="/src/assets/images/world_map_six_continents_1795672943420.jpg"
+            src={imageUrl('world_map_six_continents_1795672943420.jpg')}
             alt="Realistyczna mapa sześciu kontynentów Kupiecki Świat"
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover"

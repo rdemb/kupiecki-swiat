@@ -1,3 +1,4 @@
+import { imageUrl } from '../utils/imageUrl';
 import * as THREE from 'three';
 import { CITIES, SeasonId } from '../economy/economyEngine';
 import {
@@ -130,15 +131,15 @@ export function loadWorldTextures(
   rockNormal.anisotropy = maxAniso;
 
   return {
-    meadowGrass: loadTex('/src/assets/images/pbr_meadow_grass_seamless_1795643330436.jpg', 28, 28),
-    alpineRock: loadTex('/src/assets/images/pbr_alpine_rock_seamless_1795643331475.jpg', 24, 24),
-    cobblestone: loadTex('/src/assets/images/seamless_cobblestone_terrain_1795641277001.jpg', 32, 32),
-    castleStone: loadTex('/src/assets/images/pbr_castle_stone_seamless_1795643331714.jpg', 3, 2),
-    slateRoof: loadTex('/src/assets/images/pbr_slate_roof_seamless_1795643331651.jpg', 2, 2),
-    forestFoliage: loadTex('/src/assets/images/pbr_forest_foliage_seamless_1795643350683.jpg', 2, 2),
-    desertSand: loadTex('/src/assets/images/pbr_desert_sand_seamless_1795644303427.jpg', 26, 26),
-    glacierIce: loadTex('/src/assets/images/pbr_glacier_ice_seamless_1795644303312.jpg', 24, 24),
-    sandstoneWall: loadTex('/src/assets/images/pbr_sandstone_architecture_seamless_1795644304962.jpg', 3, 2),
+    meadowGrass: loadTex(imageUrl('pbr_meadow_grass_seamless_1795643330436.jpg'), 28, 28),
+    alpineRock: loadTex(imageUrl('pbr_alpine_rock_seamless_1795643331475.jpg'), 24, 24),
+    cobblestone: loadTex(imageUrl('seamless_cobblestone_terrain_1795641277001.jpg'), 32, 32),
+    castleStone: loadTex(imageUrl('pbr_castle_stone_seamless_1795643331714.jpg'), 3, 2),
+    slateRoof: loadTex(imageUrl('pbr_slate_roof_seamless_1795643331651.jpg'), 2, 2),
+    forestFoliage: loadTex(imageUrl('pbr_forest_foliage_seamless_1795643350683.jpg'), 2, 2),
+    desertSand: loadTex(imageUrl('pbr_desert_sand_seamless_1795644303427.jpg'), 26, 26),
+    glacierIce: loadTex(imageUrl('pbr_glacier_ice_seamless_1795644303312.jpg'), 24, 24),
+    sandstoneWall: loadTex(imageUrl('pbr_sandstone_architecture_seamless_1795644304962.jpg'), 3, 2),
     rockBump,
     rockNormal,
   };

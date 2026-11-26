@@ -1,3 +1,4 @@
+import { imageUrl } from '../utils/imageUrl';
 import { CITIES, type CityNode } from './economyEngine';
 import type { LeaderboardEntry } from './gameData';
 import { HERO_PORTRAITS } from './heroProgression';
@@ -146,11 +147,11 @@ export interface ArenaDuelState {
   log: string[];
 }
 
-const IMG_ROYAL_PLAZA = '/src/assets/images/city_interior_royal_plaza_1795677100750.jpg';
-const IMG_DESERT_BAZAAR = '/src/assets/images/city_interior_desert_bazaar_1795677101435.jpg';
-const IMG_FROST_CITADEL = '/src/assets/images/city_interior_frost_citadel_1795677103496.jpg';
-const IMG_CITADEL_FALLBACK = '/src/assets/images/cinematic_city_citadel_1795641277369.jpg';
-export const IMG_KNIGHT_ARENA = '/src/assets/images/knight_tournament_arena_1795677103437.jpg';
+const IMG_ROYAL_PLAZA = imageUrl('city_interior_royal_plaza_1795677100750.jpg');
+const IMG_DESERT_BAZAAR = imageUrl('city_interior_desert_bazaar_1795677101435.jpg');
+const IMG_FROST_CITADEL = imageUrl('city_interior_frost_citadel_1795677103496.jpg');
+const IMG_CITADEL_FALLBACK = imageUrl('cinematic_city_citadel_1795641277369.jpg');
+export const IMG_KNIGHT_ARENA = imageUrl('knight_tournament_arena_1795677103437.jpg');
 
 const PORTRAIT_PALADIN = HERO_PORTRAITS[0].imageUrl;
 const PORTRAIT_MERCHANT = HERO_PORTRAITS[1].imageUrl;
