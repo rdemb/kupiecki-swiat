@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { roadstead, returnTerms as rules, type ReturnOrder, type ReturnChoice, type FreightAccount } from '../src/economy/returnFreight';
+import { roadstead, returnTerms as rules, type ReturnOrder, type ReturnChoice, type FreightAccount, type StallBid, type BargainAction } from '../src/economy/returnFreight';
 
 type Merchant = { uid: string; displayName: string; gold: number };
 export class ReturnRule extends Error {}
@@ -24,6 +24,14 @@ export function installReturnFreight(db: DatabaseSync, transfer: (uid: string, g
     CREATE TABLE IF NOT EXISTS returnChoices(voyage INTEGER PRIMARY KEY REFERENCES yardVoyages(id),
       cargo INTEGER UNIQUE REFERENCES returnOrders(id));
     CREATE TABLE IF NOT EXISTS returnQuotes(orderId INTEGER PRIMARY KEY REFERENCES returnOrders(id), ask INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS stallBids(
+      id INTEGER PRIMARY KEY,offer INTEGER NOT NULL REFERENCES returnOrders(id),bidder TEXT NOT NULL,buyer TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK(amount > 0),expires INTEGER NOT NULL,finished INTEGER,
+      state TEXT NOT NULL CHECK(state IN ('open','accepted','declined','withdrawn','expired','closed','cheaper')));
+    CREATE UNIQUE INDEX IF NOT EXISTS stallBidOne ON stallBids(offer,bidder) WHERE state='open';
+    CREATE INDEX IF NOT EXISTS stallBidExpiry ON stallBids(expires) WHERE state='open';
+    CREATE INDEX IF NOT EXISTS stallBidOutcome ON stallBids(offer,state);
+    CREATE INDEX IF NOT EXISTS stallBuyerBook ON stallBids(bidder,finished DESC,id DESC);
     CREATE INDEX IF NOT EXISTS returnPurchaseSlips ON yardSlips(${receiptOffer})
       WHERE json_extract(payload,'$[0]')='buyReturn';
     CREATE INDEX IF NOT EXISTS returnBookByOwner ON returnOrders(owner,id DESC);
@@ -47,11 +55,67 @@ export function installReturnFreight(db: DatabaseSync, transfer: (uid: string, g
       JOIN yardShips s ON s.id=v.ship WHERE o.owner=? AND o.state IN ('stall','sold','collected')
       ORDER BY o.id DESC LIMIT 8)
     SELECT own.id,own.cost,own.fee,own.sacks,own.remaining,own.vessel,own.landed,
-      COUNT(p.nonce) AS sold,COALESCE(SUM(CASE WHEN p.nonce IS NOT NULL
+      COUNT(p.nonce) + (SELECT COUNT(*) FROM stallBids b WHERE b.offer=own.id AND b.state='accepted') AS sold,
+      (SELECT COALESCE(SUM(b.amount),0) FROM stallBids b WHERE b.offer=own.id AND b.state='accepted')
+      + COALESCE(SUM(CASE WHEN p.nonce IS NOT NULL
         THEN COALESCE(${receiptQuote},own.ask) END),0) AS revenue
     FROM own LEFT JOIN yardSlips p ON json_extract(payload,'$[0]')='buyReturn' AND ${receiptOffer}=own.id
     GROUP BY own.id ORDER BY own.id DESC`);
+  const readBids = `SELECT b.id,b.offer,b.buyer,o.name AS seller,b.amount,b.expires,b.state
+    FROM stallBids b JOIN returnOrders o ON o.id=b.offer`;
+  const openBids = db.prepare(readBids + " WHERE b.state='open' AND (o.owner=? OR b.bidder=?) ORDER BY b.offer,b.amount DESC,b.id");
+  const finishedBids = db.prepare(readBids + " WHERE b.bidder=? AND b.state!='open' ORDER BY b.finished DESC,b.id DESC LIMIT 8");
+  const refundBid = db.prepare(`UPDATE stallBids SET state=?,finished=? WHERE id=? AND state='open' RETURNING bidder,amount`);
+  const activeAtStall = db.prepare("SELECT id,amount FROM stallBids WHERE offer=? AND state='open'");
+  const buyerBid = db.prepare("SELECT id,amount FROM stallBids WHERE offer=? AND bidder=? AND state='open'");
+  function releaseBid(id: number, reason: 'withdrawn' | 'declined' | 'expired' | 'closed' | 'cheaper', now: number) {
+    const row = refundBid.get(reason, now, id);
+    if (row) transfer(String(row.bidder), Number(row.amount), 0);
+  }
+  function closeStall(offer: number, now: number) {
+    for (const row of activeAtStall.all(offer)) releaseBid(Number(row.id), 'closed', now);
+  }
+  function deliverSack(offer: number, owner: string, buyer: string, amount: number, left: number, now: number) {
+    transfer(buyer, 0, 1);
+    transfer(owner, amount, 0);
+    db.prepare("UPDATE returnOrders SET remaining=?,state=? WHERE id=?").run(left - 1, left === 1 ? 'sold' : 'stall', offer);
+    if (left === 1) closeStall(offer, now);
+  }
   return {
+    bids(uid: string | null): StallBid[] {
+      return uid ? [...openBids.all(uid,uid), ...finishedBids.all(uid)] as unknown as StallBid[] : [];
+    },
+    bargain(me: Merchant, action: BargainAction['action'], offer: number, ask: unknown, quote: unknown, bid: unknown, now: number) {
+      const order = get.get(offer);
+      requireTerm(order && order.state === 'stall' && Number(order.remaining) > 0, 'Ten stragan zakończył już sprzedaż partii.');
+      if (action === 'bidReturn') {
+        const price = Number(order.revised ?? order.ask);
+        requireTerm(order.owner !== me.uid && price === quote, 'Wybierz cudzy stragan i sprawdź aktualną cenę.');
+        requireTerm(integer(ask, price - 1), 'Zaproponuj co najmniej jedną monetę i mniej niż cena na tabliczce.');
+        requireTerm(!buyerBid.get(offer,me.uid), 'Przy tej partii leży już twoja oferta.');
+        requireTerm(me.gold >= ask, 'W sakwie brakuje monet na tę ofertę.');
+        transfer(me.uid, -ask, 0);
+        db.prepare(`INSERT INTO stallBids(offer,bidder,buyer,amount,expires,state) VALUES(?,?,?,?,?,'open')`)
+          .run(offer,me.uid,me.displayName,ask,now+rules.bidMs);
+        return;
+      }
+      requireTerm(integer(bid, Number.MAX_SAFE_INTEGER), 'Wybierz ofertę z tego straganu.');
+      const row = db.prepare("SELECT bidder,amount FROM stallBids WHERE id=? AND offer=? AND state='open' AND expires>?")
+        .get(bid,offer,now);
+      requireTerm(row, 'Ta oferta została już rozliczona.');
+      if (action === 'recallReturnBid') {
+        requireTerm(row.bidder === me.uid, 'Możesz odebrać tylko własną sakiewkę.');
+        releaseBid(bid,'withdrawn',now);
+        return;
+      }
+      requireTerm(order.owner === me.uid, 'Ofertę rozpatruje właściciel straganu.');
+      if (action === 'refuseReturnBid') {
+        releaseBid(bid,'declined',now);
+        return;
+      }
+      db.prepare("UPDATE stallBids SET state='accepted',finished=? WHERE id=?").run(now,bid);
+      deliverSack(offer, me.uid, String(row.bidder), Number(row.amount), Number(order.remaining), now);
+    },
     accounts(uid: string | null): FreightAccount[] {
       return uid ? folio.all(uid) as unknown as FreightAccount[] : [];
     },
@@ -63,6 +127,8 @@ export function installReturnFreight(db: DatabaseSync, transfer: (uid: string, g
       return row ? { cargo: row.name === null ? null : { name: String(row.name), fee: Number(row.fee) } } : null;
     },
     expire(now: number) {
+      for (const row of db.prepare("SELECT id FROM stallBids WHERE state='open' AND expires<=?").all(now))
+        releaseBid(Number(row.id), 'expired', now);
       for (const r of db.prepare("SELECT id FROM returnOrders WHERE state='open' AND expires<=?").all(now))
         refundOrder(Number(r.id));
     },
@@ -76,7 +142,7 @@ export function installReturnFreight(db: DatabaseSync, transfer: (uid: string, g
         VALUES(?,?,?,?,?,?,?,'open')`).run(me.uid, me.displayName, fee, ask, rules.lotCost, rules.sacks, now + rules.orderMs);
     },
     trade(me: Merchant, action: 'cancelReturn' | 'collectReturn' | 'buyReturn' | 'repriceReturn',
-      offer: number, quote: unknown, ask: unknown) {
+      offer: number, quote: unknown, ask: unknown, now: number) {
       const order = get.get(offer);
       requireTerm(order, 'Nie znaleziono tego listu.');
       if (action === 'cancelReturn') {
@@ -94,19 +160,24 @@ export function installReturnFreight(db: DatabaseSync, transfer: (uid: string, g
         requireTerm(ask !== price, 'Taka cena już widnieje na tabliczce.');
         db.prepare(`INSERT INTO returnQuotes(orderId,ask) VALUES(?,?)
           ON CONFLICT(orderId) DO UPDATE SET ask=excluded.ask`).run(offer, ask);
+        for (const row of activeAtStall.all(offer)) {
+          if (Number(row.amount) >= ask) releaseBid(Number(row.id), 'cheaper', now);
+        }
         return;
       }
       if (action === 'collectReturn') {
         requireTerm(order.owner === me.uid, 'Zboże może odebrać jego właściciel.');
         transfer(me.uid, 0, left);
         db.prepare("UPDATE returnOrders SET remaining=0,state='collected' WHERE id=?").run(offer);
+        closeStall(offer, now);
       } else {
         requireTerm(quote === price || (quote === undefined && order.revised === null),
           'Cena na tabliczce się zmieniła. Sprawdź ją przed zakupem.');
-        requireTerm(order.owner !== me.uid && me.gold >= price, 'Sprawdź cenę i wybierz worek innego kupca.');
-        transfer(me.uid, -price, 1);
-        transfer(String(order.owner), price, 0);
-        db.prepare("UPDATE returnOrders SET remaining=?,state=? WHERE id=?").run(left - 1, left === 1 ? 'sold' : 'stall', offer);
+        const reserved = buyerBid.get(offer, me.uid);
+        requireTerm(order.owner !== me.uid && me.gold + Number(reserved?.amount ?? 0) >= price, 'Sprawdź cenę i wybierz worek innego kupca.');
+        if (reserved) releaseBid(Number(reserved.id), 'withdrawn', now);
+        transfer(me.uid, -price, 0);
+        deliverSack(offer, String(order.owner), me.uid, price, left, now);
       }
     },
     choose(uid: string, ship: number, voyage: number, cargo: number | null, now: number) {

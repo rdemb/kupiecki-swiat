@@ -20,3 +20,10 @@
 .freight-ledger li { border-top: 1px solid #c5b593; padding: .65rem 0; font-variant-numeric: tabular-nums; }
 .freight-ledger-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem 1rem; }
 .freight-ledger-line time { font-size: .85em; }
+.stall-bids { margin: .8rem 0; padding: .6rem .85rem; border-inline-start: 3px solid #946e3e; background: #ede1c8; }
+.stall-bids h4, .stall-bids p { margin: .3rem 0; }
+.stall-bids ul { list-style: none; margin: 0; padding: 0; }
+.stall-bids li { padding: .4rem 0; }
+.stall-bids li + li { border-top: 1px solid #bda77f; }
+.stall-bids li span { display: block; font-size: .9em; }
+.stall-bids button { margin: .3rem .45rem 0 0; }

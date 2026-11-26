@@ -1,23 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { returnTerms as terms, type ReturnDeskAction, type ReturnOrder, type FreightAccount } from '../economy/returnFreight';
+import { returnTerms as terms, type ReturnDeskAction, type ReturnOrder, type FreightAccount, type StallBid } from '../economy/returnFreight';
 import type { Charter, YardBook } from '../economy/shipyard';
 import { gameRequest } from '../utils/gameServer';
 import { FreightLedger, FreightQuote, StallPrice } from './FreightLedger';
+import { StallBargains, BargainReceipts } from './StallBargains';
 import { PortLink } from './PortLink';
 import { cinemaFile } from './MerchantRoad';
 import './returnFreight.css';
 
 type DeskProps = {
-  orders: ReturnOrder[]; accounts: FreightAccount[]; token: string | null; login: () => void; yard: () => void;
+  orders: ReturnOrder[]; accounts: FreightAccount[]; bids: StallBid[]; token: string | null; login: () => void; yard: () => void;
   update: (page: YardBook) => void; refresh: () => void;
 };
-export function ReturnFreightDesk({ orders, accounts, token, login, yard, update, refresh }: DeskProps) {
+export function ReturnFreightDesk({ orders, accounts, bids, token, login, yard, update, refresh }: DeskProps) {
   const [fee, setFee] = useState('8'), [ask, setAsk] = useState('32');
   const [busy, setBusy] = useState(false), [note, setNote] = useState('');
   const lock = useRef(false), retry = useRef<{ key: string; nonce: string } | null>(null);
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
     if (location.hash === '#fracht-powrotny') panel.current?.focus();
+    if (location.hash === '#targowanie') panel.current?.querySelector<HTMLElement>('#targowanie')?.focus();
   }, []);
   const mine = orders.some(o => o.own);
   async function send(cmd: ReturnDeskAction, message: string) {
@@ -74,7 +76,8 @@ export function ReturnFreightDesk({ orders, accounts, token, login, yard, update
           {o.own ? <button disabled={busy} onClick={()=>send({action:'cancelReturn',offer:o.id},'Pełny depozyt wrócił do sakwy.')}>Wycofaj list</button> :
             <PortLink href="?miejsce=stocznia" go={yard}>Przejdź do stoczni</PortLink>}</>}
       </div>)}
-      <h3>Stragan na nabrzeżu</h3>
+      <h3 id="targowanie" tabIndex={-1}>Stragan na nabrzeżu</h3>
+      <p>Kup worek po cenie z tabliczki albo zostaw sprzedawcy własną ofertę. Tylko wy dwoje widzicie proponowaną cenę.</p>
       {!orders.some(o=>o.state==='stall') && <p>Stragan czeka na dostawę z redy.</p>}
       {orders.filter(o=>o.state==='stall').map(o=><div className="return-lot" key={o.id}>
         <b>{o.name}</b> · szkuta „{o.vessel}” · na straganie {o.remaining === 1 ? '1 worek' : o.remaining + ' worki'} · {o.ask} zł za worek.{' '}
@@ -84,7 +87,9 @@ export function ReturnFreightDesk({ orders, accounts, token, login, yard, update
           <button disabled={busy} onClick={()=>send({action:'collectReturn',offer:o.id},'Pozostałe zboże trafiło do twojego magazynu.')}>Odbierz pozostałe zboże</button></> :
           token ? <button disabled={busy} onClick={()=>send({action:'buyReturn',offer:o.id,quote:o.ask},'Worek trafił do twojego magazynu. Kupiec otrzymał zapłatę.')}>Kup worek za {o.ask} zł</button> :
           <button onClick={login}>Zaloguj się, by kupić zboże</button>}
+        {token && <StallBargains order={o} bids={bids.filter(b => b.offer === o.id && b.state === 'open')} busy={busy} send={send}/>}
       </div>)}
+      {token && <BargainReceipts bids={bids} />}
       {token && <FreightLedger entries={accounts} />}
       {note && <p role="status">{note}</p>}
     </div>

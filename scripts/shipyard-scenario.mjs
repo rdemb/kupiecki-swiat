@@ -1,3 +1,4 @@
+import { exerciseStallBargains } from './stall-bargains-scenario.mjs';
 import { exerciseReturnFreight } from './return-freight-scenario.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -588,5 +589,7 @@ export async function exerciseShipyard({
       await arrive(voyage);
     }
   }
-  await exerciseReturnFreight({db,request,send,read,master,oak,smith,short,ship,inn,commissionTrip,arrive,start,stop,logIn});
+  const traders = {db,request,send,read,master,oak,smith,short,ship,inn,commissionTrip,arrive,start,stop,logIn};
+  await exerciseReturnFreight(traders);
+  await exerciseStallBargains(traders);
 }

@@ -93,6 +93,7 @@ export function installShipyard(
     return {
       returns: returns.board(uid, Date.now()),
       freightAccounts: returns.accounts(uid),
+      stallBids: returns.bids(uid),
       lastMaiden: maidens.latest(),
       open: openNotices.all() as unknown as LaunchNotice[],
       lastLaunch:
@@ -180,6 +181,7 @@ export function installShipyard(
     const book: YardBook = {
       returns: returns.board(me?.uid ?? null, now),
       freightAccounts: returns.accounts(me?.uid ?? null),
+      stallBids: returns.bids(me?.uid ?? null),
       now,
       oak: rafts.portStock(),
       salt: harbor.salt(),
@@ -276,15 +278,21 @@ export function installShipyard(
     fee: unknown,
     ask: unknown,
     quote: unknown,
+    bid: unknown,
     now: number,
   ): number {
     if (action === 'postReturn') {
       returns.post(me, fee, ask, now);
       return 0;
     }
+    if (action === 'bidReturn' || action === 'takeReturnBid' || action === 'refuseReturnBid' || action === 'recallReturnBid') {
+      check(positive(offer), 'Wybierz partię na straganie.');
+      returns.bargain(me, action, offer, ask, quote, bid, now);
+      return 0;
+    }
     if (action === 'cancelReturn' || action === 'buyReturn' || action === 'collectReturn' || action === 'repriceReturn') {
       check(positive(offer), 'Wybierz zlecenie frachtowe.');
-      returns.trade(me, action, offer, quote, ask);
+      returns.trade(me, action, offer, quote, ask, now);
       return 0;
     }
     if (action === 'offerLighter' || action === 'recallLighter') {
@@ -571,6 +579,7 @@ export function installShipyard(
         fee,
         ask,
         quote,
+        bid,
         nonce,
       } = req.body ?? {};
       check(
@@ -587,10 +596,11 @@ export function installShipyard(
       if (course !== undefined || reference !== undefined)
         parts.push(course, reference);
       if (offer !== undefined || fee !== undefined) {
-        const signedQuote = (action === 'buyReturn' || action === 'repriceReturn') ? quote : undefined;
+        const signedQuote = (action === 'buyReturn' || action === 'repriceReturn' || action === 'bidReturn') ? quote : undefined;
         parts.push({ offer, fee, quote: signedQuote });
       }
       if (ask !== undefined) parts.push({ ask });
+      if (bid !== undefined && (action === 'takeReturnBid' || action === 'refuseReturnBid' || action === 'recallReturnBid')) parts.push({ bid });
       const payload = JSON.stringify(parts);
       const slip = db
         .prepare('SELECT payload,ship FROM yardSlips WHERE uid=? AND nonce=?')
@@ -615,6 +625,7 @@ export function installShipyard(
           fee,
           ask,
           quote,
+          bid,
           now,
         );
         db.prepare('INSERT INTO yardSlips VALUES(?,?,?,?)').run(

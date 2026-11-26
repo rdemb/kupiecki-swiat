@@ -1,6 +1,6 @@
 export const returnTerms = {
   sacks: 2, lotCost: 48, maxFee: 18, maxAsk: 100, loadMs: 12_000,
-  unloadMs: 8_000, orderMs: 15 * 60_000,
+  unloadMs: 8_000, orderMs: 15 * 60_000, bidMs: 24 * 60 * 60_000,
 } as const;
 
 export type ReturnOrder = {
@@ -22,8 +22,17 @@ export function freightEstimate(cost: number, fee: number, stock: number, ask: n
   };
 }
 
+export type StallBidState = 'open' | 'accepted' | 'declined' | 'withdrawn' | 'expired' | 'closed' | 'cheaper';
+export interface StallBid {
+  id: number; offer: number; buyer: string; seller: string; amount: number;
+  expires: number; state: StallBidState;
+}
+export type BargainAction =
+  | { action: 'bidReturn'; offer: number; quote: number; ask: number }
+  | { action: 'takeReturnBid' | 'refuseReturnBid' | 'recallReturnBid'; offer: number; bid: number };
+
 export type ReturnChoice = { cargo: null | { name: string; fee: number } };
-export type ReturnDeskAction =
+export type ReturnDeskAction = BargainAction
   | { action: 'postReturn'; fee: number; ask: number }
   | { action: 'buyReturn'; offer: number; quote: number }
   | { action: 'repriceReturn'; offer: number; quote: number; ask: number }
