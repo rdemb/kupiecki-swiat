@@ -31,6 +31,7 @@ export interface MillOrder {
 }
 export interface MillBook {
   freight?: FreightBook;
+  field?: import('./commonField').FieldBook;
   flour: number;
   grain: number;
   treasury: number;

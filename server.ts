@@ -3,6 +3,7 @@ import { installShipyard } from './server/shipyard';
 import { installRafts } from './server/rafts';
 import { installRiverGauge } from './server/riverGauge';
 import { installBridge } from './server/bridge';
+import { openCommonField } from './server/commonField';
 import { installMill } from './server/mill';
 import {emptyMark,type MillMark} from './src/economy/mill';
 import { installMerchantInn } from './server/merchantInn';
@@ -401,6 +402,7 @@ function initializeMarkets() {
 }
 
 initializeMarkets();
+const commonField = openCommonField(db);
 
 function getMacroState(): MacroEconomyState {
   const priceMap = Object.fromEntries(
@@ -445,6 +447,7 @@ function getMacroState(): MacroEconomyState {
     daysUntilNextSeason,
     caravanSpeedMultiplier: combinedCaravanSpeed,
     seasonalAvailabilityIndex,
+    fieldStage: commonField.landscape(),
     activeWeather: weatherObj.id,
     activeWeatherName: weatherObj.name,
     activeWeatherEffect: weatherObj.effectSummary,
@@ -900,6 +903,10 @@ async function startServer() {
       }
     }
 
+    if (advanceCalendar) {
+      observeBridgeWeather();
+      mill.advanceTowns();
+    }
     broadcast('market:update', {
       markets: marketState,
       macro: getMacroState(),
@@ -915,8 +922,6 @@ async function startServer() {
   }
   setInterval(() => {
     advanceEconomyTick(undefined, true);
-    observeBridgeWeather();
-    mill.advanceTowns();
   }, 4500);
 
   // --- AUTHENTICATION & PLAYER PROFILE BACKEND ROUTES ---
@@ -1154,7 +1159,7 @@ async function startServer() {
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;
-  });
+  }, commonField, () => worldDayNumber);
   const rafts = installRafts(db, mill.settleGold);
   const harbor = installHarborWorks(app, db, getAuthenticatedAccount, rafts);
   const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold,rafts);
@@ -1370,8 +1375,9 @@ async function startServer() {
     });
     if (exchangeOffers.length > 14) exchangeOffers.pop();
 
-    advanceEconomyTick();
     observeBridgeWeather();
+    mill.advanceTowns();
+    advanceEconomyTick();
 
     res.json({
       success: true,

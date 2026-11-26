@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
+import { exerciseCommonField } from './common-field-scenario.mjs';
 import { exerciseShipyard } from './shipyard-scenario.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -761,5 +762,6 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     }
     const currentEmperor=(await request('/api/auth/login',200,first)).token;
     await exerciseShipyard({request,db:testDb,start,stop,imperator:currentEmperor});
+    await exerciseCommonField({request,db:testDb,start,stop});
   } finally {testDb.close();}
 });

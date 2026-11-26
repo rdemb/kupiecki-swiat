@@ -3,6 +3,7 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { FieldRule, type openCommonField } from './commonField';
 import { installWaybills } from './waybills';
 import { WaybillRule } from './waybillRules';
 import { waybillTown } from '../src/economy/waybills';
@@ -22,6 +23,8 @@ export function installMill(
   authenticate: (req: Request) => Actor | null,
   weather: () => WeatherConditionId,
   bridgeClosed: (now: number) => boolean,
+  field: ReturnType<typeof openCommonField>,
+  worldDay: () => number,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS mills(city TEXT PRIMARY KEY, flour INTEGER NOT NULL DEFAULT 0, grain INTEGER NOT NULL DEFAULT 0, treasury INTEGER NOT NULL, bakeryAt INTEGER NOT NULL, civicAt INTEGER NOT NULL DEFAULT 0, baked INTEGER NOT NULL DEFAULT 0);
@@ -110,7 +113,10 @@ export function installMill(
   const freight = installWaybills(db, transfer, grind, bakeUntil, weather, bridgeClosed);
   // Advance a city's bakery using elapsed real time, including time while the server was offline.
   function advance(city: string, now: number) {
-    if (city === waybillTown) freight.advance(now);
+    if (city === waybillTown) {
+      freight.advance(now);
+      field.advance(worldDay(), weather(), transfer);
+    }
     const expired = db
       .prepare(
         "SELECT id,issuer,remaining,price FROM millOrders WHERE city=? AND state='open' AND expires<=?",
@@ -162,7 +168,7 @@ export function installMill(
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
-      ...(city === waybillTown ? { freight: freight.book(uid, Date.now()) } : {}),
+      ...(city === waybillTown ? { freight: freight.book(uid, Date.now()), field: field.book(uid, worldDay(), weather()) } : {}),
       treasury: m.treasury,
       orders: orders.all(city),
       deliveries: db
@@ -210,6 +216,8 @@ export function installMill(
     const { action, nonce, quantity, price, order, purpose } = req.body ?? {};
     const isFreight = ['commission', 'withdraw', 'depart', 'seal', 'tariff', 'suspendCover', 'pledge', 'redeem'].includes(action);
     const fields = isFreight ? [req.body.wage, req.body.road, req.body.bill] : [];
+    const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow'].includes(action);
+    if (isField) fields.push(req.body.round);
     // Keep previously signed documents valid after the upgrade.
     if (isFreight && (req.body.quote !== undefined || req.body.guild !== undefined || req.body.amount !== undefined || req.body.cover !== undefined || req.body.fee !== undefined)) {
       fields.push(req.body.quote, req.body.guild, req.body.amount, req.body.cover, req.body.fee);
@@ -228,7 +236,10 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (isFreight) {
+        if (isField) {
+          check(city === waybillTown, 'Wspólne pole leży pod Srebrnym Gajem.');
+          field.command(me.uid, req.body, worldDay(), transfer);
+        } else if (isFreight) {
           check(city === waybillTown, 'Ten szlak zaopatruje młyn w Srebrnym Gaju.');
           freight.command(me, req.body, now);
         } else if (action === 'post') {
@@ -308,7 +319,7 @@ export function installMill(
       res.json(page);
     } catch (e) {
       if (db.isTransaction) db.exec('ROLLBACK');
-      if (e instanceof MillRule || e instanceof WaybillRule) res.status(409).json({ error: e.message });
+      if (e instanceof MillRule || e instanceof WaybillRule || e instanceof FieldRule) res.status(409).json({ error: e.message });
       else next(e);
     }
   });

@@ -8,16 +8,18 @@ import {
   type MillOrder,
 } from '../economy/mill';
 import type { FreightCommand } from '../economy/waybills';
+import { CommonField } from './CommonField';
+import type { FieldCommand } from '../economy/commonField';
 import CarrierMutual from './CarrierMutual';
 import WaybillDesk from './WaybillDesk';
 const number = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-type Command = FreightCommand
+type Command = FieldCommand | FreightCommand
   | { action: 'post'; quantity: number; price: number; purpose: Consignee }
   | { action: 'deliver'; order: number; quantity: number }
   | { action: 'cancel'; order: number }
   | { action: 'ration' };
 interface Props {
-  room?: 'mill' | 'freight' | 'mutual';
+  room?: 'mill' | 'freight' | 'mutual' | 'field';
   city: string;
   token: string | null;
   onAccount: () => void;
@@ -203,7 +205,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, room = 'mill' 
     +price < 1 ||
     +price > rules.maxPrice;
   return (
-    <section className="mill-house" aria-label={room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
+    <section className="mill-house" aria-label={room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
       {loadError && (
         <p role="alert">
           Księga młyna jest chwilowo niedostępna. <button onClick={refresh}>Odśwież</button>
@@ -213,6 +215,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, room = 'mill' 
       {error && <p role="alert">{error}</p>}
       {!book && !loadError && <p>Młynarz otwiera księgę…</p>}
       {book && room==='mutual' && (book.freight?.insurance ? <CarrierMutual funds={book.freight.insurance} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Kasa czeka na połączenie z księgą.</p>)}
+      {book && room==='field' && (book.field ? <CommonField field={book.field} wallet={book.wallet} busy={busy} sign={action} onAccount={onAccount}/> : <p role="alert">Księga pola jest chwilowo niedostępna.</p>)}
       {book && room==='freight' && (book.freight ? <WaybillDesk book={book} desk={book.freight} busy={busy} onAccount={onAccount} onAction={action}/> : <p role="alert">Kantor czeka na połączenie z księgą przewozów.</p>)}
       {book && room==='mill' && (
         <>

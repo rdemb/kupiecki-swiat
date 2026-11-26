@@ -1,3 +1,4 @@
+import { insideCommonField } from './commonField';
 import * as THREE from 'three';
 import { nearPort, portGroves, portWoodland, type WoodlandGround } from './portWoodland';
 import { royalMint } from './royalMint';
@@ -711,7 +712,7 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials, 
 
     const biomeType = bw.jade > 0.45 ? 'jade' : bw.glacier > 0.35 || z < -28 ? 'pine' : 'oak';
     const scale = 0.72 + ((i * 19) % 58) / 100;
-    if (ground.nearRoad(x,z)) continue;
+    if (ground.nearRoad(x,z) || insideCommonField(x,z)) continue;
     treePoints.push({ x, y:ground.heightAt(x,z), z, s: scale, biomeType });
   }
 

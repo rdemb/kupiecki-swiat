@@ -21,7 +21,7 @@ import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field';
 interface Props {
   city: string;
   token: string | null;
@@ -150,6 +150,10 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
+  if (tab === 'field') return <main className="merchant-inn common-field">
+    <nav className="field-nav" aria-label="Drogi ze wspólnego pola"><button onClick={onClose}>Wróć do gry</button><button onClick={()=>onTab('mill')}>Do młyna</button></nav>
+    <MillHouse room="field" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
+  </main>;
   if(tab==='pilots') return <PilotHouse yard={()=>onTab('shipyard')} inn={()=>onTab('board')} book={book?.pilotage ?? null} error={readError} retry={read} close={onClose} muted={muted}/>;
   if(tab==='shipyard') return <Shipyard inn={()=>onTab('board')} pilots={()=>onTab('pilots')} token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
   if(tab==='bridge' || tab==='rafting') return <BridgeHouse onYard={()=>onTab('shipyard')} onHarbor={onHarbor} key={tab} atLanding={tab==='rafting'} switchLanding={()=>onTab(tab==='rafting'?'bridge':'rafting')} token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
@@ -191,6 +195,7 @@ export default function MerchantInn({
             <button aria-pressed={tab==='mutual'} onClick={()=>{onTab('mutual');setReceipt('');}}>Kasa gildii</button>
             <button onClick={()=>onTab('shipyard')}>Stocznia szkutnicza</button>
             <button onClick={()=>onTab('rafting')}>Przystań flisaków</button>
+            {city === 'srebrny_gaj' && <button onClick={()=>onTab('field')}>Wspólne pole</button>}
             <button onClick={()=>onTab('bridge')}>Most w Srebrnym Gaju</button>
           </nav>
           {tab!=='freight' && <span>{WEATHER_CONDITIONS[weather].name}</span>}

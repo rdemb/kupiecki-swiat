@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadLanding } from '../world3d/coastalScenery';
+import { buildCommonField } from '../world3d/commonField';
+import type { FieldStage } from '../economy/commonField';
 import { outdoorReflections } from '../world3d/outdoorReflections';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -60,6 +62,7 @@ export type { CameraPresetId };
 
 interface World3DCanvasProps {
   visible: boolean;
+  fieldStage?: FieldStage;
   towns:Town[];
   gameState: 'title' | 'playing' | 'paused' | 'gameover';
   selectedRegionId: string;
@@ -131,7 +134,7 @@ const _tmpSunPos = new THREE.Vector3();
 
 export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   visible,
-  gameState, towns,
+  gameState, towns, fieldStage,
   selectedRegionId,
   selectedContinentId,
   onSelectRegion,
@@ -152,6 +155,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   cinematicTourActive = false,
   onTourContinentChange,
 }) => {
+  const fieldStageRef = useRef(fieldStage);
+  fieldStageRef.current = fieldStage;
   const townsRef=useRef(towns);
   townsRef.current=towns;
   const visibleRef = useRef(visible);
@@ -360,6 +365,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const terrain = buildSculptedTerrain(textures);
     scene.add(terrain.mesh);
+    const field = buildCommonField(terrain.heightAt);
+    scene.add(field.group);
 
     const ocean = buildRealisticOcean(isSoftwareGl);
     scene.add(ocean.mesh);
@@ -1446,6 +1453,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         const seconds = (performance.now()-bellStrikeRef.current) / 1000;
         mintBell.rotation.z = seconds < 4 ? .49*Math.exp(-seconds*1.13)*Math.sin(7.6*seconds) : 0;
       }
+      field.update(fieldStageRef.current ?? 'earth');
       scenery.update(camera.position.y, reduceLandscapeMotion.matches ? 0 : elapsed, getPbrWeatherParams(pbrWeatherRef.current).windSpeed,
         terrain.uniforms.uSeasonAutumn.value, terrain.uniforms.uSeasonSnow.value);
       ocean.updateReflection(renderer, scene, camera, performance.now());
@@ -1479,6 +1487,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       materials.timberWood.map?.dispose();
       materials.timberWood.dispose();
       cityGroups.krolewska_przystan?.getObjectByName('mennica-krolewska')?.userData.releaseMint?.();
+      field.dispose();
       settlements.dispose();
       closeLanding();
       terrain.dispose();

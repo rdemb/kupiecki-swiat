@@ -1,0 +1,23 @@
+.common-field { background: #e9e4d4; }
+.field-nav { display:flex; justify-content:space-between; padding:.6rem max(4%,calc((100vw - 1000px)/2)); background:#252d24; color:#faf5e4; }
+.field-nav button { border-color:#819077; }
+.common-field .mill-house { margin:0; padding:0; }
+.common-field .mill-house > p { margin:.65rem 5%; }
+.field-hero { position:relative; isolation:isolate; height:clamp(235px,40vh,465px); overflow:hidden; color:#fff8e8; }
+.field-hero img { width:100%; height:100%; object-fit:cover; object-position:50% 53%; }
+.field-hero::after { content:""; position:absolute; inset:0; background:linear-gradient(0deg,#171e17de,transparent 78%); }
+.field-hero > div { position:absolute; bottom:9%; left:max(5%,calc((100vw - 1000px)/2)); z-index:1; }
+.field-hero h1 { margin:.15em 0; font:500 clamp(2.5rem,6vw,5.3rem)/.95 Georgia,serif; letter-spacing:-.045em; }
+.field-hero span,.field-stats dt,.field-log { font: .85rem/1.4 system-ui,sans-serif; }
+.field-room { max-width:1000px; display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:clamp(20px,5vw,65px); padding-top:1.2rem; }
+.field-room aside { border-left:1px solid #b4ac94; padding-left:clamp(12px,3vw,38px); }
+.field-room p,.field-room summary { margin:.6em 0; }
+.field-stats,.field-decisions {display:flex; flex-wrap:wrap; gap:.6rem 1.5rem; margin:1.1rem 0;}
+.field-stats dd {margin:0; font:1.7rem Georgia,serif;}
+.field-stats small,.field-hint {font-size:.91rem; color:#514d3f;}
+.field-log {padding:0;list-style:none;}
+.field-log li {display:flex; flex-wrap:wrap; align-items:baseline; gap:.25rem .75rem; border-top:1px solid #bcb39e; padding:.4rem 0;}
+.field-room input {max-width:7rem;}
+.field-last { border-left:3px solid #726437; padding-left:.8rem; }
+@media(max-width:650px){.field-room{grid-template-columns:1fr;gap:.6rem}.field-room aside{grid-row:1;border:0;padding:0 0 .8rem;border-bottom:1px solid #b4ac94}.field-hero{height:220px}}
+@media(prefers-reduced-motion:no-preference){.field-hero img{animation:field-light .65s ease-out}@keyframes field-light{from{opacity:.6}to{opacity:1}}}

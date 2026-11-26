@@ -60,11 +60,12 @@ interface RoadProps {
   onCoast: () => void;
   onInn:()=>void;
   onBridge:()=>void;
+  onField:()=>void;
   muted:boolean;
   onWeighhouse: (moving:boolean) => void;
 }
 const money = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,onBridge,muted}: RoadProps) {
+export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,onBridge,onField,muted}: RoadProps) {
   const [moving, setMoving] = useState(() => !quietPictures());
   const [sheets, setSheets] = useState(false);
   const [receipt, setReceipt] = useState('');
@@ -132,6 +133,7 @@ export function MerchantRoad({stop, gold, held, price, towns, registerError, onT
           {stop.plate === 'rynek' && <button onClick={onCoast}>Zejdź nad zatokę</button>}
           {stop.plate === 'rynek' && <button onClick={() => onWeighhouse(moving)}>Wejdź do wagi portowej</button>}
           {stop.plate === 'rynek' && <button onClick={() => onMenu('terminal')}>Pełny targ</button>}
+          {stop.plate === 'trakt' && <button onClick={onField}>Idź na wspólne pole</button>}
           {stop.plate === 'trakt' && <button onClick={onBridge}>Podejdź do przeprawy</button>}
           {stop.plate === 'trakt' && <button onClick={() => onMenu('caravans')}>Zorganizuj karawanę</button>}
           {stop.plate === 'kuznia' && <button onClick={() => onMenu('knight')}>Otwórz zbrojownię</button>}

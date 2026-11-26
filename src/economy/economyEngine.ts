@@ -275,6 +275,7 @@ export interface CommodityMarketState {
 }
 
 export interface MacroEconomyState {
+  fieldStage?: import('./commonField').FieldStage;
   moneySupplyM: number;
   targetMoneySupplyMStar: number;
   velocityV: number;
