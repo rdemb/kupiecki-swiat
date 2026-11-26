@@ -12,6 +12,7 @@ import { cinemaFile } from './MerchantRoad';
 import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
 import Shipyard from './Shipyard';
+import { PortLink } from './PortLink';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
 import {MillHouse} from './MillHouse';
@@ -208,6 +209,7 @@ export default function MerchantInn({
               {tab === 'board' ? (
                 <>
                   {book.pilotage && <>
+                    <PortLink href="?miejsce=stocznia&keja=lichtugi" go={()=>onTab('shipyard')}>Praca na wodzie · keja lichtug</PortLink>
                     <PilotNotice book={book.pilotage} open={()=>onTab('pilots')} />
                     <SoundingBounty key={book.pilotage.edition} book={book.pilotage} token={token} login={onAccount} yard={()=>onTab('shipyard')}
                       refresh={read} update={(pilotage, uid, mark) => {

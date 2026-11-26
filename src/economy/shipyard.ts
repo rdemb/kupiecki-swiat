@@ -40,6 +40,13 @@ export interface Hull {
   begun: number;
   launched: number | null;
 }
+export interface LighterOffer {
+  id: number;
+  name: string;
+  fee: number;
+  expires: number;
+  own: boolean;
+}
 export interface Charter {
   id: number;
   payer: string;
@@ -58,24 +65,41 @@ export interface Charter {
   course: Course;
   pilot: string | null;
   depth: number | null;
+  lighter: { name: string; barrels: number; fee: number } | null;
 }
 export type YardAction =
+  | { action: 'offerLighter'; fee: number; ship?: number }
+  | { action: 'recallLighter'; offer: number; ship?: number }
   | { action: 'commission' }
   | { action: 'oak' | 'iron' | 'hire'; ship: number }
   | { action: 'launch'; ship: number; name: string }
   | { action: 'withdraw'; ship: number; charter: number }
-  | { action: 'sail'; ship: number; charter: number; course?: Course; reference?: number };
+  | {
+      action: 'sail';
+      ship: number;
+      charter: number;
+      course?: Course;
+      reference?: number;
+      offer?: number;
+    };
 export interface YardBook {
   now: number;
   oak: number;
   salt: number;
   seconds: number | null;
   fleet: Hull[];
+  lighterOffers: LighterOffer[];
   pilotage: PilotBook;
   wallet: {
     uid: string;
     gold: number;
     mark: MillMark;
+    duty: {
+      vessel: string;
+      until: number;
+      role: 'skipper' | 'lighter';
+      fee: number;
+    } | null;
     canCommission: boolean;
     guildName: string;
   } | null;

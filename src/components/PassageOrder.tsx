@@ -1,36 +1,79 @@
 import { useState } from 'react';
 import {
-  type PilotBook,
-  type Course,
   courseNames,
-  passageSeconds,
-  usableSounding,
   keelClearanceCm,
+  lighterLoad,
+  passageSeconds,
+  reliefPerBarrelCm,
+  transferSeconds,
+  usableSounding,
+  type Course,
 } from '../economy/pilotage';
-
+import type { YardBook } from '../economy/shipyard';
 export function PassageOrder({
-  book,
-  seconds,
+  page,
   busy,
   sail,
 }: {
-  book: PilotBook;
-  seconds: number | null;
+  page: YardBook;
   busy: boolean;
-  sail: (course: Course, reference?: number) => void;
+  sail: (course: Course, reference?: number, offer?: number) => void;
 }) {
   const [choice, setChoice] = useState('outer');
-  const mark = usableSounding(book);
-  const cut = mark ? 'cut/' + mark.voyage : '';
-  const course: Course = choice.startsWith('cut/')
-    ? 'cut'
-    : choice === 'survey'
-      ? 'survey'
-      : 'outer';
-  const outdated = course === 'cut' && choice !== cut;
-  const label = (c: Course) =>
-    courseNames[c] +
-    (seconds === null ? '' : ' · ' + passageSeconds(seconds, c) + ' s');
+  const { pilotage: book, seconds, wallet } = page;
+  const offers = page.lighterOffers ?? [];
+  const deep = usableSounding(book);
+  const sounding =
+    book.latest && !book.storm && book.latest.edition === book.edition
+      ? book.latest
+      : null;
+  const barrels = sounding ? lighterLoad(sounding.cm) : null;
+  const options: {
+    key: string;
+    label: string;
+    course: Course;
+    reference?: number;
+    offer?: number;
+    price?: number;
+  }[] = [
+    { key: 'outer', label: courseNames.outer, course: 'outer' },
+    { key: 'survey', label: courseNames.survey, course: 'survey' },
+  ].map((o) => ({
+    ...o,
+    course: o.course as Course,
+    label:
+      o.label +
+      (seconds === null
+        ? ''
+        : ' · ' + passageSeconds(seconds, o.course as Course) + ' s'),
+  }));
+  if (deep && seconds !== null)
+    options.push({
+      key: 'cut/' + deep.voyage,
+      label: courseNames.cut + ' · ' + passageSeconds(seconds, 'cut') + ' s',
+      course: 'cut',
+      reference: deep.voyage,
+    });
+  if (sounding && barrels && seconds !== null)
+    for (const o of offers.filter((o) => !o.own)) {
+      options.push({
+        key: 'lighter/' + sounding.voyage + '/' + o.id,
+        label:
+          'Z lichtugą · ' +
+          o.name +
+          ' · ' +
+          o.fee +
+          ' zł · ' +
+          transferSeconds(seconds, barrels) +
+          ' s',
+        course: 'cut',
+        reference: sounding.voyage,
+        offer: o.id,
+        price: o.fee,
+      });
+    }
+  const route = options.find((o) => o.key === choice);
+  const short = route?.price !== undefined && (wallet?.gold ?? 0) < route.price;
   return (
     <div className="yard-passage">
       <label>
@@ -40,51 +83,56 @@ export function PassageOrder({
           onChange={(e) => setChoice(e.target.value)}
           disabled={busy}
         >
-          <option value="outer">{label('outer')}</option>
-          <option value="survey">{label('survey')}</option>
-          {outdated && (
-            <option value={choice} disabled>
-              Wybrany pomiar już się zmienił
+          {!route && (
+            <option disabled value={choice}>
+              Wybrana przeprawa już się zmieniła
             </option>
           )}
-          <option value={cut || 'closed'} disabled={!mark}>
-            {label('cut')}
-          </option>
+          {options.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
         </select>
       </label>
-      <p>
-        {course === 'survey'
-          ? 'Przy powrocie załoga spróbuje sondowania. Przy spokojnej wodzie podpisany wynik trafi do księgi.'
-          : outdated
-            ? 'Otwórz listę i wybierz drogę ponownie.'
-            : course === 'cut' && mark
-              ? 'Skrót wytyczono na podstawie wpisu ze szkuty „' +
-                mark.vessel +
-                '”. Pomiar ' +
-                mark.cm +
-                ' cm podpisał szyper „' +
-                mark.skipper +
-                '”.'
-              : 'Ławicę opłyniecie po głębokiej wodzie.'}
-      </p>
-      {!!book.fund?.total && <p><strong>Nagroda w karczmie · {book.fund.total} szt. złota.</strong> Otrzyma ją pierwsza załoga, która przywiezie świeży pomiar, także przy zbyt płytkiej wodzie.</p>}
-      {!mark && (
+      {book.storm ? (
+        <p>Sztorm zamknął redę.</p>
+      ) : !route ? (
+        <p>Wybierz ponownie drogę lub przewoźnika.</p>
+      ) : route.offer && sounding && barrels && seconds !== null ? (
         <p>
-          {book.storm
-            ? 'Wyjście zamknięte przez sztorm.'
-            : 'Skrót czeka na aktualne potwierdzenie co najmniej ' +
-              keelClearanceCm +
-              ' cm wody.'}
+          Pomiar {sounding.cm} cm. Na szkucie zostaną {4 - barrels} beczki, a po
+          przeładunku wystarczy {keelClearanceCm - barrels * reliefPerBarrelCm}{' '}
+          cm wody. Zyskasz {seconds - transferSeconds(seconds, barrels)} s. Z
+          twoich {page.ship?.job?.wage} zł żołdu pozostanie{' '}
+          {(page.ship?.job?.wage ?? 0) - route.price!} zł. Opłatę wykładasz przy
+          wypłynięciu.
         </p>
+      ) : route.course === 'survey' ? (
+        <p>Załoga zmierzy głębokość na powrocie, o ile pozwoli pogoda.</p>
+      ) : route.course === 'cut' && deep ? (
+        <p>
+          Sonda ze szkuty „{deep.vessel}” wskazała {deep.cm} cm. Pomiar podpisał{' '}
+          {deep.skipper}.
+        </p>
+      ) : (
+        <p>Ławicę opłyniecie po głębokiej wodzie, bez opłaty za lichtugę.</p>
       )}
+      {barrels && !offers.some((o) => !o.own) && (
+        <p>Do skrótu potrzebujesz drugiego gracza z ofertą na kei lichtug.</p>
+      )}
+      {!!book.fund?.total && (
+        <p>Nagroda za pierwszy świeży pomiar wynosi {book.fund.total} zł.</p>
+      )}
+      {short && <p>W sakwie brakuje monet na wybraną lichtugę.</p>}
       <button
         className="inn-primary"
-        disabled={busy || seconds === null || outdated}
+        disabled={busy || seconds === null || !route || short || !!wallet?.duty}
         onClick={() =>
-          sail(course, course === 'cut' && mark ? mark.voyage : undefined)
+          route && sail(route.course, route.reference, route.offer)
         }
       >
-        Obejmij ster i wypłyń
+        {route?.offer ? 'Wynajmij lichtugę i wypłyń' : 'Obejmij ster i wypłyń'}
       </button>
     </div>
   );

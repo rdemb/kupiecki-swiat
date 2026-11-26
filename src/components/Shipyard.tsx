@@ -10,6 +10,7 @@ import { cinemaFile } from './MerchantRoad';
 import { InnGuide } from './InnGuide';
 import { courseNames } from '../economy/pilotage';
 import { PortLink } from './PortLink';
+import { LighterQuay } from './LighterQuay';
 import { PassageOrder } from './PassageOrder';
 import './shipyard.css';
 
@@ -115,6 +116,14 @@ export default function Shipyard({
       document.removeEventListener('visibilitychange', poll);
     };
   }, [read]);
+  const quayRequested = useRef(new URLSearchParams(location.search).get('keja') === 'lichtugi');
+  const quayReady = !!page?.lighterOffers;
+  useEffect(() => {
+    if (quayReady && quayRequested.current) {
+      quayRequested.current = false;
+      document.getElementById('keja-lichtug')?.focus();
+    }
+  }, [quayReady]);
   const ship = page?.ship,
     job = ship?.job,
     hull = ship?.hull;
@@ -163,9 +172,13 @@ export default function Shipyard({
       retry.current = null;
       apply(b);
       setBefore(null);
-      setSelected(b.ship.hull.id);
-      history.replaceState(history.state, '', shipLink(b.ship.hull.id));
+      if (b.ship) {
+        setSelected(b.ship.hull.id);
+        history.replaceState(history.state, '', shipLink(b.ship.hull.id));
+      }
       const messages: Record<YardAction['action'], string> = {
+        offerLighter: 'Twoja oferta wisi na kei. Szyper może wynająć twoją łódź.',
+        recallLighter: 'Oferta zdjęta z kei.',
         commission: 'Stępka położona. Można dostarczać materiały.',
         oak: 'Sześć dębowych belek wydano na poszycie.',
         iron: 'Okucia z kuźni przyjęte na pochylnię.',
@@ -206,6 +219,7 @@ export default function Shipyard({
       </header>
       <section className="inn-room">
         <nav className="bridge-nav" aria-label="Drogi ze stoczni">
+          {quayReady && <button onClick={()=>document.getElementById('keja-lichtug')?.focus()}>Keja lichtug</button>}
           <button onClick={landing}>Flisacy i drewno</button>
           <button onClick={harbor}>Warzelnia i sól</button>
           <button onClick={guild}>Stół gildii</button>
@@ -405,6 +419,7 @@ export default function Shipyard({
                             {Math.max(0, Math.ceil((job.due! - now) / 1000))} s.
                           </p>
                           <p>{courseNames[job.course]}{job.pilot && ' · według pomiaru: '+job.pilot}</p>
+                          {job.lighter && <p>Lichtugę prowadzi {job.lighter.name}. Podział czterech beczek: {job.barrels-job.lighter.barrels} na szkucie i {job.lighter.barrels} na lichtudze.</p>}
                           <progress
                             value={progress}
                             max={1}
@@ -425,8 +440,8 @@ export default function Shipyard({
                           </p>
                           {page.wallet && (
                             <div className="yard-buttons">
-                              <PassageOrder key={job.id} book={page.pilotage} seconds={page.seconds} busy={disabled}
-                                sail={(course,reference)=>act({action:'sail',ship:hull.id,charter:job.id,course,reference})}/>
+                              <PassageOrder key={job.id} page={page} busy={disabled}
+                                sail={(course,reference,offer)=>act({action:'sail',ship:hull.id,charter:job.id,course,reference,offer})}/>
                               {(ship.mayManage || job.mine) && (
                                 <button
                                   disabled={disabled}
@@ -479,6 +494,7 @@ export default function Shipyard({
                               </small>
                               <small>{courseNames[v.course]}{v.course === 'survey' && (v.depth === null ? ' · sztorm uniemożliwił pomiar' : ' · sonda wskazała '+v.depth+' cm')}
                                 {v.course === 'cut' && ' · pomiar: '+v.pilot+' ('+v.depth+' cm)'}</small>
+                              {v.lighter && <small>Lichtuga · {v.lighter.name} · {v.lighter.barrels} z {v.barrels} beczek · wypłacono {v.lighter.fee} zł</small>}
                             </li>
                           ))}
                         </ol>
@@ -516,6 +532,7 @@ export default function Shipyard({
               )}
             </section>
             <aside>
+              {page.lighterOffers && <LighterQuay book={page} busy={disabled} act={act} login={login}/>}
               <h2>Zapasy nabrzeża</h2>
               <dl className="yard-stores">
                 <div>

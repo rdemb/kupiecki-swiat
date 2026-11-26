@@ -1,5 +1,15 @@
 export type Course = 'outer' | 'survey' | 'cut';
 export const keelClearanceCm = 120;
+// Port rules include the clearance under the keel in the published depth.
+export const lighterCapacity = 2;
+export const reliefPerBarrelCm = 8;
+export function lighterLoad(cm: number) {
+  const barrels = Math.ceil((keelClearanceCm - cm) / reliefPerBarrelCm);
+  return barrels > 0 && barrels <= lighterCapacity ? barrels : null;
+}
+export function transferSeconds(base: number, barrels: number) {
+  return passageSeconds(base, 'cut') + 4 * barrels;
+}
 export const courseNames: Record<Course, string> = {
   outer: 'Tor zewnętrzny',
   survey: 'Rejs z sondą',

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import {
   courseNames,
   keelClearanceCm,
+  lighterLoad,
   usableSounding,
   type Course,
   type PilotBook,
@@ -36,7 +37,7 @@ function news(book: PilotBook) {
     ' cm. ' +
     (usableSounding(book)
       ? 'Załadowana szkuta może przejść.'
-      : 'Szkuty z solą muszą opłynąć ławicę.')
+      : lighterLoad(m.cm) ? 'Szyper może nająć lichtugę w stoczni albo opłynąć ławicę.' : 'Szkuty z solą muszą opłynąć ławicę.')
   );
 }
 export function PilotNotice({ book, open }: { book: PilotBook; open: () => void }) {
@@ -56,7 +57,7 @@ const descriptions: Record<Course, string> = {
   cut:
     'Przez przesmyk płynie się około jednej trzeciej krócej. Szkuta z czterema beczkami soli potrzebuje co najmniej ' +
     keelClearanceCm +
-    ' cm wody i podpisanego pomiaru z obecnego układu dna.',
+    ' cm wody i podpisanego pomiaru z obecnego układu dna. Przy 104–119 cm można wynająć lichtugę i rozdzielić sól między dwie łodzie.',
 };
 export function PilotHouse({
   book,

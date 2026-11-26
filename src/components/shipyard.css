@@ -145,3 +145,14 @@
     max-width: 100%;
   }
 }
+.lighter-quay { margin:0 0 2rem; border:1px solid #9c9177; background:#f2ead9; color:#322c23; }
+.lighter-quay img { display:block; width:100%; height:auto; aspect-ratio:16/9; object-fit:cover; }
+.lighter-body { padding:clamp(.8rem,2vw,1.4rem); }
+.lighter-body h2 { margin:0; font:italic 500 clamp(1.7rem,3vw,2.5rem)/1.1 Georgia,serif; }
+.lighter-water { border-left:3px solid #40635a; padding-left:.7rem; }
+.lighter-body ul { padding:0; }
+.lighter-body form { display:flex; flex-wrap:wrap; gap:.7rem; align-items:end; }
+.lighter-body input { display:block; width:5rem; }
+.lighter-body span { white-space:nowrap; }
+.yard-passage { min-width:0; max-width:100%; }
+.yard-passage select { display:block; max-width:100%; }

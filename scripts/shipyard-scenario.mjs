@@ -380,4 +380,137 @@ export async function exerciseShipyard({
       .get(after).n,
     2,
   );
+
+  // A second player can earn a passage without a hull or a guild. These tests
+  // use the existing charter, salt stocks, funds and ship journal.
+  db.exec('UPDATE harborStores SET salt=32');
+  db.exec('UPDATE pilotBank SET cm=108');
+  const measure = await commissionTrip();
+  await send(oak, 'sail', { ...ship, charter: measure, course: 'survey' });
+  assert.equal((await arrive(measure)).pilotage.latest.cm, 108);
+  await logIn(short);
+  await send(undefined, 'offerLighter', { fee: 6 }, 401);
+  for (const fee of [0, 19, 1.5])
+    await send(short, 'offerLighter', { fee }, 409);
+  const standing = { fee: 6, nonce: randomUUID() };
+  const board = await send(short, 'offerLighter', standing);
+  const slot = board.lighterOffers.find((o) => o.own).id;
+  assert.equal(
+    (await send(short, 'offerLighter', standing)).lighterOffers.length,
+    1,
+  );
+  await send(short, 'offerLighter', { fee: 8 }, 409);
+  await send(smith, 'recallLighter', { offer: slot }, 409);
+  const run = await commissionTrip();
+  const secondRun = (await send(smith, 'hire', secondHull)).ship.job.id;
+  const ticketL = {
+    ...ship,
+    charter: run,
+    course: 'cut',
+    reference: measure,
+    offer: slot,
+    nonce: randomUUID(),
+  };
+  await send(short, 'sail', ticketL, 409);
+  await send(oak, 'sail', { ...ticketL, reference: survey }, 409);
+  await send(oak, 'sail', { ...ticketL, course: 'outer' }, 409);
+  const carrierBalance = await balance(short),
+    captainBalance = await balance(oak);
+  const harborBefore = await request('/api/harbor-works', 200);
+  const booked = await send(oak, 'sail', ticketL);
+  assert.equal(booked.wallet.gold, captainBalance - 6);
+  assert.deepEqual(booked.ship.job.lighter, {
+    name: 'Uczeń',
+    fee: 6,
+    barrels: 2,
+  });
+  assert.equal(booked.ship.job.due - booked.ship.job.departed, 48000);
+  assert.equal(booked.ship.job.barrels, 4);
+  assert.equal(booked.ship.job.depth, 108);
+  assert.equal(
+    (await send(oak, 'sail', ticketL)).wallet.gold,
+    captainBalance - 6,
+  );
+  await send(
+    smith,
+    'sail',
+    {
+      ...secondHull,
+      charter: secondRun,
+      course: 'cut',
+      reference: measure,
+      offer: slot,
+    },
+    409,
+  );
+  await send(short, 'sail', { ...secondHull, charter: secondRun }, 409);
+  await send(short, 'offerLighter', { fee: 9 }, 409);
+  await send(oak, 'offerLighter', { fee: 1 }, 409);
+  await send(short, 'recallLighter', { offer: slot }, 409);
+  await stop();
+  await start();
+  for (const who of [short, oak, master, smith]) await logIn(who);
+  assert.equal((await read(short)).wallet.duty.role, 'lighter');
+  assert.equal(await balance(short), carrierBalance);
+  await arrive(run);
+  const journal = (await read(null, '?ship=' + id)).ship.journal[0];
+  assert.equal(journal.lighter.name, 'Uczeń');
+  assert.equal(journal.lighter.barrels, 2);
+  assert.equal(await balance(short), carrierBalance + 6);
+  assert.equal(await balance(oak), captainBalance + 12);
+  assert.equal((await read(short)).wallet.duty, null);
+  assert.equal(
+    (await request('/api/harbor-works', 200)).provisions,
+    harborBefore.provisions + 1,
+  );
+  assert.equal(
+    (await send(oak, 'sail', ticketL)).wallet.gold,
+    captainBalance + 12,
+  );
+  await send(short, 'offerLighter', { fee: 18 });
+  const later = (await read(short)).lighterOffers.find((o) => o.own).id;
+  await send(short, 'recallLighter', { offer: later });
+  assert.equal((await read()).lighterOffers.length, 0);
+  const expire = (
+    await send(smith, 'offerLighter', { fee: 2 })
+  ).lighterOffers.find((o) => o.own).id;
+  db.prepare('UPDATE yardLighters SET expires=0 WHERE id=?').run(expire);
+  assert.equal((await read()).lighterOffers.length, 0);
+  assert.equal(await balance(short), carrierBalance + 6);
+  // The same ship always carries four barrels overall. Only the division changes.
+  // These depths are fixture inputs, never mutations of the shared world.
+  for (const [cm, moved] of [
+    [103, 0],
+    [104, 2],
+    [111, 2],
+    [112, 1],
+    [119, 1],
+    [120, 0],
+  ]) {
+    db.prepare('UPDATE pilotSoundings SET cm=? WHERE voyage=?').run(
+      cm,
+      measure,
+    );
+    const posting = await send(oak, 'offerLighter', { fee: 1 });
+    const o = posting.lighterOffers.find((x) => x.own);
+    const voyage =
+      (await read(smith, '?ship=' + secondHull.ship)).ship.job?.id ??
+      (await send(smith, 'hire', secondHull)).ship.job.id;
+    const order = {
+      ...secondHull,
+      charter: voyage,
+      course: 'cut',
+      offer: o.id,
+      reference: measure,
+    };
+    if (!moved) {
+      await send(smith, 'sail', order, 409);
+      await send(oak, 'recallLighter', { offer: o.id });
+    } else {
+      const job = (await send(smith, 'sail', order)).ship.job;
+      assert.equal(job.lighter.barrels, moved);
+      assert.equal(job.due - job.departed, 40000 + 4000 * moved);
+      await arrive(voyage);
+    }
+  }
 }
