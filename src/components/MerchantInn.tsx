@@ -12,6 +12,7 @@ import { cinemaFile } from './MerchantRoad';
 import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
 import Shipyard from './Shipyard';
+import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
@@ -62,10 +63,11 @@ export default function MerchantInn({
   const apply = useCallback(
     (b: InnBook) => {
       setBook(b);
+      if (token && b.uid && b.walletMark) onSettlement(b.uid, b.walletMark);
       if (token && b.uid)
         onMembership(b.membership, b.groups.find((g) => g.id === b.membership)?.tag ?? '');
     },
-    [onMembership, token],
+    [onMembership, onSettlement, token],
   );
   const read = useCallback(async () => {
     if (locked.current) return;
@@ -145,8 +147,8 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
-  if(tab==='pilots') return <PilotHouse book={book?.pilotage ?? null} error={readError} retry={read} close={onClose} muted={muted}/>;
-  if(tab==='shipyard') return <Shipyard token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
+  if(tab==='pilots') return <PilotHouse yard={()=>onTab('shipyard')} inn={()=>onTab('board')} book={book?.pilotage ?? null} error={readError} retry={read} close={onClose} muted={muted}/>;
+  if(tab==='shipyard') return <Shipyard pilots={()=>onTab('pilots')} token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
   if(tab==='bridge' || tab==='rafting') return <BridgeHouse onYard={()=>onTab('shipyard')} onHarbor={onHarbor} key={tab} atLanding={tab==='rafting'} switchLanding={()=>onTab(tab==='rafting'?'bridge':'rafting')} token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
   return (
     <main className="merchant-inn">
@@ -205,7 +207,15 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
-                  {book.pilotage && <PilotNotice book={book.pilotage} />}
+                  {book.pilotage && <>
+                    <PilotNotice book={book.pilotage} open={()=>onTab('pilots')} />
+                    <SoundingBounty key={book.pilotage.edition} book={book.pilotage} token={token} login={onAccount} yard={()=>onTab('shipyard')}
+                      refresh={read} update={(pilotage, uid, mark) => {
+                        ++seq.current;
+                        setBook(prev => prev ? { ...prev, pilotage, walletMark: mark } : prev);
+                        onSettlement(uid, mark);
+                      }} />
+                  </>}
                   {city === 'srebrny_gaj' && <RiverReports reports={book.riverReports} now={book.boardAt} go={()=>onTab('bridge')}/>}
                   <div className="inn-subhead">
                     <h2>Ogłoszenia kupców</h2>

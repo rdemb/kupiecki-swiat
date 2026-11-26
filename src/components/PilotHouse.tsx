@@ -8,6 +8,7 @@ import {
   type PilotFolio,
 } from '../economy/pilotage';
 import { gameRequest } from '../utils/gameServer';
+import { PortLink } from './PortLink';
 import { BayChart } from './BayChart';
 import { InnGuide } from './InnGuide';
 import { cinemaFile } from './MerchantRoad';
@@ -38,12 +39,12 @@ function news(book: PilotBook) {
       : 'Szkuty z solą muszą opłynąć ławicę.')
   );
 }
-export function PilotNotice({ book }: { book: PilotBook }) {
+export function PilotNotice({ book, open }: { book: PilotBook; open: () => void }) {
   return (
     <section className="pilot-notice">
       <h3>Wieści z redy</h3>
       <p>{news(book)}</p>
-      <a href="?miejsce=piloci">Otwórz księgę pilotów</a>
+      <PortLink href="?miejsce=piloci" go={open}>Otwórz księgę pilotów</PortLink>
     </section>
   );
 }
@@ -63,12 +64,16 @@ export function PilotHouse({
   retry,
   close,
   muted,
+  yard,
+  inn,
 }: {
   book: PilotBook | null;
   error: boolean;
   retry: () => void;
   close: () => void;
   muted: boolean;
+  yard: () => void;
+  inn: () => void;
 }) {
   const [course, setCourse] = useState<Course>('outer');
   const latest = book?.latest;
@@ -111,8 +116,8 @@ export function PilotHouse({
       </header>
       <div className="inn-room">
         <nav className="pilot-nav" aria-label="Miejsca przy porcie">
-          <a href="?miejsce=stocznia">Przejdź do stoczni</a>
-          <a href="?miejsce=karczma">Portowa karczma</a>
+          <PortLink href="?miejsce=stocznia" go={yard}>Przejdź do stoczni</PortLink>
+          <PortLink href="?miejsce=karczma" go={inn}>Portowa karczma</PortLink>
         </nav>
         {error && (
           <p role="alert">
@@ -153,6 +158,7 @@ export function PilotHouse({
             <section className="pilot-register">
               <h2>Sondaże z pokładu</h2>
               <p className="pilot-news">{news(book)}</p>
+              {!!book.fund?.total && <p className="pilot-news">Kupcy złożyli {book.fund.total} szt. złota za pierwszy świeży pomiar. <PortLink href="?miejsce=karczma" go={inn}>Zobacz zlecenie w karczmie</PortLink></p>}
               {book.lastStorm && (
                 <p className="pilot-storm">
                   Ostatni sztorm · {when(book.lastStorm)}
@@ -170,9 +176,10 @@ export function PilotHouse({
                       </span>
                       <p>
                         <b>{m.skipper}</b> ·{' '}
-                        <a href={'?miejsce=stocznia&szkuta=' + m.ship}>
+                        <PortLink href={'?miejsce=stocznia&szkuta=' + m.ship} go={yard}>
                           {m.vessel}
-                        </a>
+                        </PortLink>
+                        {m.reward > 0 && <span> · {m.reward} szt. złota nagrody</span>}
                         <br />
                         <time dateTime={new Date(m.at).toISOString()}>
                           {when(m.at)}

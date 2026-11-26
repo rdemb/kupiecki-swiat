@@ -211,6 +211,35 @@ export async function exerciseShipyard({
   assert.equal((await read()).pilotage.latest.voyage, survey);
   await setSky(3);
   assert.equal((await read()).pilotage.edition, squall.edition);
+  const pledges = '/api/pilots/pledges';
+  const offer = (payer, edition, amount, status = 200, nonce = randomUUID()) =>
+    request(pledges, status, { edition, amount, nonce }, payer?.token);
+  const balance = async (a) => (await read(a)).wallet.gold;
+  const beforeR = await balance(master),
+    beforeI = await balance(smith),
+    beforeJ = await balance(oak);
+  const rev = squall.edition,
+    ticket = randomUUID();
+  await offer(undefined, rev, 11, 401);
+  await offer(master, rev - 1, 11, 409);
+  for (const amount of [0, 1.5, 501]) await offer(master, rev, amount, 409);
+  const duplicates = await Promise.all([
+    offer(master, rev, 11, 200, ticket),
+    offer(master, rev, 11, 200, ticket),
+  ]);
+  assert.ok(duplicates.every((x) => x.book.fund.mine === 11));
+  await offer(master, rev, 12, 409, ticket);
+  await offer(master, rev, 11, 409);
+  await offer(smith, rev, 17);
+  assert.equal(await balance(master), beforeR - 11);
+  assert.equal(await balance(smith), beforeI - 17);
+  const kitty = (await request(inn, 200)).pilotage.fund;
+  assert.equal(kitty.total, 28);
+  assert.equal(kitty.mine, 0);
+  assert.deepEqual(
+    kitty.patrons.map((p) => p.amount).sort((a, b) => a - b),
+    [11, 17],
+  );
   const after = await commissionTrip();
   await send(oak, 'sail', { ...ship, charter: after, course: 'outer' }, 409);
   await setSky(0);
@@ -225,6 +254,19 @@ export async function exerciseShipyard({
   const low = (await arrive(after)).pilotage.latest;
   assert.equal(low.cm, 108);
   assert.equal(low.edition, squall.edition);
+  assert.equal(low.reward, 28);
+  assert.equal(await balance(oak), beforeJ + 18 + 28);
+  const settled = (await request(inn, 200)).pilotage.fund;
+  assert.equal(settled.total, 0);
+  assert.deepEqual(
+    [settled.last.skipper, settled.last.cm, settled.last.total],
+    ['Jan od dębu', 108, 28],
+  );
+  await offer(smith, rev, 10, 409);
+  await offer(master, rev, 11, 200, ticket);
+  await setSky(0);
+  assert.equal(await balance(oak), beforeJ + 18 + 28);
+  assert.equal(await balance(smith), beforeI - 17);
   const last = await commissionTrip();
   await send(
     smith,
@@ -260,4 +302,82 @@ export async function exerciseShipyard({
   const archive = await read(smith, '?ship=' + id);
   assert.ok(archive.ship.archived && archive.ship.mayManage);
   assert.equal(archive.ship.completed, 14);
+  assert.ok(
+    (await request('/api/pilots', 200)).history.every((m) => m.reward === 0),
+  );
+  // Two later fronts without a sounding return all escrow, including for offline patrons.
+  await setSky(3);
+  const ed = (await read()).pilotage.edition;
+  const gold1 = await balance(oak),
+    gold2 = await balance(smith);
+  await offer(oak, ed, 31);
+  await offer(smith, ed, 4);
+  await setSky(3);
+  assert.equal(
+    (await request(inn, 200, undefined, smith.token)).pilotage.fund.mine,
+    4,
+  );
+  await setSky(0);
+  await setSky(3);
+  const refund = (await request('/api/pilots', 200)).fund;
+  assert.equal(refund.total, 0);
+  assert.equal(refund.last.skipper, null);
+  assert.equal(refund.last.total, 35);
+  await setSky(3);
+  assert.equal(await balance(oak), gold1);
+  assert.equal(await balance(smith), gold2);
+  const newest = (await read()).pilotage.edition;
+  const short = await account('szkutnik_bez_sakwy', 'Uczeń');
+  db.prepare(
+    "UPDATE players SET profile=json_set(profile,'$.gold',2) WHERE username=?",
+  ).run(short.credentials.username);
+  await offer(short, newest, 3, 409);
+  assert.equal((await read(short)).wallet.gold, 2);
+  // Two different guild ships report at the very same instant in the fixture.
+  await request(
+    inn,
+    200,
+    {
+      action: 'create',
+      body: 'Cech Mierniczych',
+      tag: 'MIAR',
+      nonce: randomUUID(),
+    },
+    smith.token,
+  );
+  const secondHull = { ship: (await send(smith, 'commission')).ship.hull.id };
+  db.exec('UPDATE raftYard SET port=2');
+  db.exec('UPDATE harborStores SET salt=8');
+  await send(smith, 'oak', secondHull);
+  await send(smith, 'oak', secondHull);
+  await send(smith, 'iron', secondHull);
+  await send(smith, 'launch', { ...secondHull, name: 'Jaskółka' });
+  await offer(short, newest, 2);
+  await setSky(0);
+  const a = await commissionTrip(),
+    b = (await send(smith, 'hire', secondHull)).ship.job.id;
+  await send(oak, 'sail', { ...ship, charter: a, course: 'survey' });
+  await send(smith, 'sail', { ...secondHull, charter: b, course: 'survey' });
+  const baseline = await balance(oak);
+  db.prepare('UPDATE yardVoyages SET due=? WHERE id IN (?,?)').run(
+    Date.now() - 1,
+    a,
+    b,
+  );
+  const finish = (await read()).pilotage;
+  assert.deepEqual(
+    finish.history.slice(0, 2).map((m) => [m.voyage, m.reward]),
+    [
+      [b, 0],
+      [a, 2],
+    ],
+  );
+  assert.equal(finish.fund.last.skipper, 'Jan od dębu');
+  assert.equal(await balance(oak), baseline + 18 + 2);
+  assert.equal(
+    db
+      .prepare('SELECT COUNT(*) AS n FROM pilotPledges WHERE voyage=?')
+      .get(after).n,
+    2,
+  );
 }

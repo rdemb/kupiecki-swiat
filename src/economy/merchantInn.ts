@@ -1,3 +1,4 @@
+import type { MillMark } from './mill';
 import type { PilotBook } from './pilotage';
 import type { RiverReading } from './river';
 import type { SeasonId, WeatherConditionId } from './economyEngine';
@@ -17,6 +18,7 @@ export interface InnGuild {
 export interface InnBook {
   groups: InnGuild[];
   uid: string | null;
+  walletMark?: MillMark | null;
   membership: string;
   applied: string | null;
   members: { uid: string; name: string }[];

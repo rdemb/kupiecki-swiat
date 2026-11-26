@@ -128,3 +128,28 @@
     min-height: 0;
   }
 }
+.sound-contract {
+  margin: 1rem 0 1.35rem;
+  border: 1px solid #958568;
+  background: #f1e9d5;
+  box-shadow: 0 3px 12px #392e1a14;
+}
+.sound-contract > header {
+  min-height: clamp(9rem, 17vw, 13rem);
+  padding: 1.15rem 1.3rem;
+  background-size: cover;
+  background-position: center 68%;
+  color: #fff3d4;
+}
+.sound-contract > header h3 { font: 500 clamp(1.4rem,3vw,2.1rem)/1.15 Georgia,serif; margin: 0; }
+.sound-contract > header strong { font: italic 2rem Georgia,serif; }
+.sound-contract-body { padding: 0.9rem 1.3rem 1.1rem; }
+.sound-contract-body p,.sound-contract header p { margin: .45rem 0; }
+.sound-contract-body .sound-terms { color: #574d37; font-size:.91rem; }
+.sound-contract-body form { display: flex; align-items: end; flex-wrap: wrap; }
+.sound-contract-body input { max-width: 7.5rem; }
+.sound-contract-body summary { cursor: pointer; }
+.sound-contract-body ul { padding-left:1.25rem; }
+.sound-receipt { border-top: 1px solid #b8a37c; padding-top:.65rem; }
+.sound-receipt strong { display: block; }
+.sound-yard { margin: .4rem 0 .4rem .35rem; }

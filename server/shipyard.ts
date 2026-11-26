@@ -1,5 +1,5 @@
-import { installPilotage } from './pilotage';
-import { passageSeconds } from '../src/economy/pilotage';
+import { installPilotage, PilotRule } from './pilotage';
+import { passageSeconds, maxSoundingPledge } from '../src/economy/pilotage';
 import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { emptyMark, type MillMark } from '../src/economy/mill';
@@ -51,7 +51,7 @@ export function installShipyard(
     CREATE INDEX IF NOT EXISTS yardPortLog ON yardVoyages(ship,id DESC) WHERE settled IS NOT NULL;
     CREATE TABLE IF NOT EXISTS yardSlips(uid TEXT NOT NULL,nonce TEXT NOT NULL,payload TEXT NOT NULL,ship INTEGER NOT NULL,PRIMARY KEY(uid,nonce));
   `);
-  const pilots = installPilotage(db);
+  const pilots = installPilotage(db, gold);
   const hull = db.prepare('SELECT * FROM yardShips WHERE id=?');
   const guild = db.prepare(
     'SELECT id,name,tag,founder,archived FROM innGuilds WHERE id=?',
@@ -138,7 +138,7 @@ export function installShipyard(
       salt: harbor.salt(),
       seconds: sailingSeconds(weather()),
       fleet,
-      pilotage: pilots.book(),
+      pilotage: pilots.book(me?.uid),
       wallet: me
         ? {
             uid: me.uid,
@@ -363,6 +363,43 @@ export function installShipyard(
     }
     return ship;
   }
+  app.post('/api/pilots/pledges', (req, res, next) => {
+    res.set('Cache-Control', 'private, no-store');
+    if (!auth(req)) {
+      res.status(401).json({ error: 'Zaloguj się, aby ufundować pomiar.' });
+      return;
+    }
+    try {
+      const { edition, amount, nonce } = req.body ?? {};
+      check(positive(edition), 'Brakuje numeru wydania księgi.');
+      check(
+        positive(amount) && amount <= maxSoundingPledge,
+        'Wpisz od 1 do ' + maxSoundingPledge + ' pełnych monet.',
+      );
+      check(
+        typeof nonce === 'string' && /^[a-f0-9-]{36}$/i.test(nonce),
+        'Brakuje podpisu na kwicie.',
+      );
+      const now = Date.now();
+      db.exec('BEGIN IMMEDIATE');
+      advance(now);
+      const me = auth(req)!;
+      pilots.pledge(me, edition, amount, nonce, now);
+      const payer = auth(req)!;
+      const result = {
+        book: pilots.book(payer.uid),
+        uid: payer.uid,
+        mark: payer.millMark ?? emptyMark,
+      };
+      db.exec('COMMIT');
+      res.json(result);
+    } catch (e) {
+      if (db.isTransaction) db.exec('ROLLBACK');
+      if (e instanceof YardRule || e instanceof PilotRule)
+        res.status(409).json({ error: e.message });
+      else next(e);
+    }
+  });
   app.get('/api/pilots', (req, res) => {
     res.set('Cache-Control', 'no-store');
     if (req.query.before === undefined) {

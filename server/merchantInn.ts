@@ -1,3 +1,4 @@
+import type { MillMark } from '../src/economy/mill';
 import type { PilotBook } from '../src/economy/pilotage';
 import type { RiverReading } from '../src/economy/river';
 import { bridgeSite } from '../src/economy/bridge';
@@ -17,10 +18,10 @@ const week = 7 * 86400_000;
 export function installMerchantInn(
   app: Express,
   db: DatabaseSync,
-  authenticate: (req: Request) => { uid: string; displayName: string; guildId: string } | null,
+  authenticate: (req: Request) => { uid: string; displayName: string; guildId: string; millMark?: MillMark } | null,
   companies: GuildInfo[],
   riverReports: (now: number) => RiverReading[],
-  pilotBook: () => PilotBook,
+  pilotBook: (uid: string | null) => PilotBook,
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -84,7 +85,7 @@ export function installMerchantInn(
             .reverse()
         : [],
       boardAt,
-      pilotage: city === 'krolewska_przystan' ? pilotBook() : null,
+      pilotage: city === 'krolewska_przystan' ? pilotBook(uid) : null,
       riverReports: city === bridgeSite ? riverReports(boardAt) : [],
       notices: db
         .prepare(
@@ -99,9 +100,9 @@ export function installMerchantInn(
       res.sendStatus(404);
       return;
     }
-    res
-      .set('Cache-Control', 'private, no-store')
-      .json(read(authenticate(req)?.uid ?? null, String(req.params.city)));
+    const me = authenticate(req);
+    res.set('Cache-Control', 'private, no-store')
+      .json({ ...read(me?.uid ?? null, String(req.params.city)), walletMark: me?.millMark ?? null });
   });
   app.post('/api/inn/:city', (req, res, next) => {
     res.set('Cache-Control', 'private, no-store');

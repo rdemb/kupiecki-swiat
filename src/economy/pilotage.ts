@@ -19,12 +19,26 @@ export interface Sounding {
   cm: number;
   at: number;
   edition: number;
+  reward: number;
+}
+export const maxSoundingPledge = 500;
+export interface SoundingFund {
+  total: number;
+  patrons: { name: string; amount: number }[];
+  mine: number;
+  last: {
+    total: number;
+    at: number;
+    skipper: string | null;
+    cm: number | null;
+  } | null;
 }
 export interface PilotFolio {
   history: Sounding[];
   more: boolean;
 }
 export interface PilotBook extends PilotFolio {
+  fund: SoundingFund;
   edition: number;
   storm: boolean;
   lastStorm: number | null;

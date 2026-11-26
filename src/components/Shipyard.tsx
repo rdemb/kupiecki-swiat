@@ -9,6 +9,7 @@ import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
 import { InnGuide } from './InnGuide';
 import { courseNames } from '../economy/pilotage';
+import { PortLink } from './PortLink';
 import { PassageOrder } from './PassageOrder';
 import './shipyard.css';
 
@@ -17,6 +18,7 @@ type Props = {
   muted: boolean;
   close: () => void;
   login: () => void;
+  pilots: () => void;
   guild: () => void;
   harbor: () => void;
   landing: () => void;
@@ -52,6 +54,7 @@ export default function Shipyard({
   close,
   login,
   guild,
+  pilots,
   harbor,
   landing,
   settlement,
@@ -206,7 +209,7 @@ export default function Shipyard({
           <button onClick={landing}>Flisacy i drewno</button>
           <button onClick={harbor}>Warzelnia i sól</button>
           <button onClick={guild}>Stół gildii</button>
-          <a className="pilot-link" href="?miejsce=piloci">Księga pilotów Zatoki</a>
+          <PortLink href="?miejsce=piloci" go={pilots}>Księga pilotów Zatoki</PortLink>
         </nav>
         {error && (
           <p role="alert">

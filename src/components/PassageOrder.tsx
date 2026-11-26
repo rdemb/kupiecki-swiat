@@ -67,6 +67,7 @@ export function PassageOrder({
                 '”.'
               : 'Ławicę opłyniecie po głębokiej wodzie.'}
       </p>
+      {!!book.fund?.total && <p><strong>Nagroda w karczmie · {book.fund.total} szt. złota.</strong> Otrzyma ją pierwsza załoga, która przywiezie świeży pomiar, także przy zbyt płytkiej wodzie.</p>}
       {!mark && (
         <p>
           {book.storm
