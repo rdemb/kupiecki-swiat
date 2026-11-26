@@ -1,4 +1,5 @@
 import express from 'express';
+import { installMerchantInn } from './server/merchantInn';
 import { installHarborWorks } from './server/harborWorks';
 import { installWeighhouse } from './server/weighhouse';
 import { installProvinces } from './server/provinces';
@@ -934,7 +935,7 @@ async function startServer() {
       displayName: String(displayName || cleanUser).trim().slice(0, 50),
       title: String(title || 'Kupiec i Dowódca').trim().slice(0, 50),
       raceId: validRace.id,
-      guildId: 'g_zloto',
+      guildId: '',
       gold: validRace.startingCapital,
       bondsGold: 0,
       netWorth: validRace.startingCapital + 11500,
@@ -1017,7 +1018,6 @@ async function startServer() {
       displayName,
       title,
       raceId,
-      guildId,
       gold,
       bondsGold,
       netWorth,
@@ -1038,9 +1038,7 @@ async function startServer() {
     if (typeof raceId === 'string' && RACES.some((r) => r.id === raceId)) {
       acc.raceId = raceId;
     }
-    if (typeof guildId === 'string') {
-      acc.guildId = guildId.slice(0, 64);
-    }
+    // Membership changes are handled by the guild register.
     if (typeof gold === 'number' && Number.isFinite(gold) && gold >= 0) {
       acc.gold = Number(gold.toFixed(2));
     }
@@ -1105,7 +1103,8 @@ async function startServer() {
 
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount);
-  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam);
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds);
+  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus);
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {
@@ -1128,7 +1127,7 @@ async function startServer() {
       macro: getMacroState(),
       auctions,
       exchangeOffers,
-      chatMessages,
+      chatMessages: chatMessages.filter(m=>m.channel !== 'gildia'),
       guilds,
       registeredPlayers,
     });
@@ -1361,7 +1360,7 @@ async function startServer() {
           macro: getMacroState(),
           auctions,
           exchangeOffers,
-          chatMessages,
+          chatMessages: chatMessages.filter(m=>m.channel !== 'gildia'),
           guilds,
         },
       }),
@@ -1372,6 +1371,7 @@ async function startServer() {
         const msg = JSON.parse(String(raw));
         if (msg.type === 'chat:send') {
           const { id, channel, sender, senderTitle, guildTag, text } = msg.payload;
+          if (channel !== undefined && channel !== 'globalny' && channel !== 'handel') return;
           if (!text || !String(text).trim()) return;
           if (chatMessages.some((m) => m.id === id)) return;
 

@@ -26,6 +26,7 @@ import {
 } from '../economy/dragonBreeding';
 import { DragonSanctuaryPanel } from './DragonSanctuaryPanel';
 
+import { InnGuide } from './InnGuide';
 interface DuchyAndStoryCampaignPanelProps {
   duchy: DuchyState;
   knight: KnightState;
@@ -41,6 +42,7 @@ interface DuchyAndStoryCampaignPanelProps {
   onUpgradeDuchyBuilding: (building: DuchyBuildingSpec, costGold: number, reqQty: number) => void;
   onCastMageSpell: (spell: MageSpellSpec) => void;
   onRecruitForces: (unitType: 'guards' | 'galleons' | 'dragon_feed', costGold: number) => void;
+  weatherLabel:string; grain:number; baseGrain:number; muted:boolean;
   onCollectDuchyTribute: () => void;
   onCompleteRoyalContract: (contract: RoyalSupplyContract) => void;
   onClaimAchievement: (achievement: AchievementSpec) => void;
@@ -68,7 +70,7 @@ export const DuchyAndStoryCampaignPanel: React.FC<DuchyAndStoryCampaignPanelProp
   onUpgradeDuchyBuilding,
   onCastMageSpell,
   onRecruitForces,
-  onCollectDuchyTribute,
+  weatherLabel,grain,baseGrain,muted,onCollectDuchyTribute,
   onCompleteRoyalContract,
   onClaimAchievement,
   dragonSanctuary,
@@ -220,6 +222,8 @@ export const DuchyAndStoryCampaignPanel: React.FC<DuchyAndStoryCampaignPanelProp
                 </div>
               </div>
 
+              <p className="mt-2 text-xs text-amber-100">{weatherLabel} · Zbiór zboża {grain} szt. (bazowo {baseGrain})</p>
+              <InnGuide cue="pola" muted={muted}/>
               <div className="space-y-2 mt-2.5 max-h-[285px] overflow-y-auto pr-1">
                 {STORY_CAMPAIGN_CHAPTERS.map((ch) => {
                   const isDone = duchy.completedChapterIds.includes(ch.id);
@@ -306,6 +310,8 @@ export const DuchyAndStoryCampaignPanel: React.FC<DuchyAndStoryCampaignPanelProp
                 </button>
               </div>
 
+              <p className="mt-2 text-xs text-amber-100">{weatherLabel} · Zbiór zboża {grain} szt. (bazowo {baseGrain})</p>
+              <InnGuide cue="pola" muted={muted}/>
               <div className="space-y-2 mt-2.5 max-h-[285px] overflow-y-auto pr-1">
                 {DUCHY_BUILDINGS.map((b) => {
                   const currentLvl = duchy.buildings[b.id] ?? 1;

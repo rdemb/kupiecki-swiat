@@ -1,0 +1,266 @@
+.merchant-inn {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  overflow: auto;
+  background: #e6ddc6;
+  color: #2d2a23;
+  font:
+    16px/1.52 Georgia,
+    serif;
+  overscroll-behavior: contain;
+}
+.inn-hero {
+  height: clamp(225px, 36vh, 420px);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  padding: clamp(16px, 3vw, 40px) max(5vw, calc((100vw - 1150px) / 2));
+  background-size: cover;
+  background-position: center 45%;
+  color: #fff5de;
+}
+.inn-hero:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, #14120ce8, #231a0e2b 60%, transparent),
+    linear-gradient(0deg, #16130db8, transparent 60%);
+}
+.inn-hero h1 {
+  font:
+    500 clamp(2.3rem, 5.2vw, 5.1rem) / 0.98 Georgia,
+    serif;
+  letter-spacing: -0.045em;
+  margin: 0.5rem 0;
+  max-width: 15ch;
+}
+.inn-hero span,
+.inn-post small,
+.inn-company small,
+.inn-meta {
+  font: 600 0.74rem/1.5 system-ui;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+.inn-hero button {
+  position: absolute;
+  right: 5%;
+  top: 1.25rem;
+  background: #242016dc;
+  color: #fff5d8;
+  border: 1px solid #b19c76;
+}
+.merchant-inn button,
+.merchant-inn input,
+.merchant-inn textarea,
+.merchant-inn select {
+  font: 500 0.9rem/1.4 system-ui;
+  border: 1px solid #95866c;
+  border-radius: 2px;
+  padding: 0.48rem 0.7rem;
+}
+.merchant-inn button {
+  cursor: pointer;
+}
+.merchant-inn button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.merchant-inn button:focus-visible,
+.inn-guide :focus-visible {
+  outline: 3px solid #b98133;
+  outline-offset: 3px;
+}
+.inn-room {
+  width: min(90%, 1150px);
+  margin: 0 auto 4rem;
+}
+.inn-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #968568;
+  padding: 0.7rem 0;
+}
+.inn-nav nav {
+  display: flex;
+  gap: 0.4rem;
+}
+.inn-nav button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+}
+.inn-nav button[aria-pressed='true'] {
+  border-color: #8a5d33;
+  color: #532a0e;
+  background: #d8cdb4;
+}
+.inn-nav > span {
+  font: 0.8rem system-ui;
+}
+.inn-spread {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: clamp(16px, 5vw, 72px);
+  border-top: 1px solid #ae9e83;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+.inn-spread > aside {
+  border-left: 1px solid #ae9e83;
+  padding-left: 2rem;
+}
+.inn-room h2 {
+  font:
+    500 clamp(1.6rem, 2.5vw, 2.35rem) / 1.15 Georgia,
+    serif;
+  letter-spacing: -0.03em;
+  margin: 0.6rem 0;
+}
+.inn-room h3 {
+  font:
+    600 1.12rem Georgia,
+    serif;
+  margin: 0.75rem 0 0.25rem;
+}
+.inn-room form,
+.inn-room label,
+.inn-company {
+  display: grid;
+  gap: 0.4rem;
+}
+.inn-room form {
+  gap: 0.7rem;
+  margin: 0.75rem 0;
+}
+.inn-room label {
+  font: 600 0.8rem system-ui;
+}
+.inn-room input,
+.inn-room select,
+.inn-room textarea {
+  background: #faf5e5;
+  color: #2d281e;
+  width: 100%;
+}
+.inn-room textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+.inn-room small,
+.inn-room time {
+  color: #625944;
+}
+.inn-room .inn-primary {
+  background: #4a4934;
+  border-color: #4a4934;
+  color: #fff6d9;
+  justify-self: start;
+}
+.inn-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.inn-subhead select {
+  width: auto;
+}
+.inn-post,
+.inn-company,
+.inn-letters li {
+  overflow-wrap: anywhere;
+  border-top: 1px solid #bbb099;
+  padding: 0.85rem 0;
+}
+.inn-post button,
+.inn-company button {
+  margin: 0.4rem 0;
+  justify-self: start;
+}
+.inn-letters {
+  max-height: 330px;
+  overflow: auto;
+}
+.inn-letters time {
+  font: 0.72rem system-ui;
+}
+.inn-room details > summary,
+.inn-guide summary {
+  cursor: pointer;
+}
+.inn-room details {
+  margin: 0.9rem 0;
+}
+.inn-company small {
+  display: block;
+}
+.inn-guide {
+  margin: 0.65rem 0;
+  font-size: 0.9rem;
+}
+.inn-guide summary {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.inn-guide > div {
+  max-width: 42rem;
+  padding: 0.5rem 0;
+}
+.inn-guide button {
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  margin: 0.4rem 0;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+.road-copy > .inn-guide {
+  color: #fff2da;
+}
+.road-copy > .inn-guide > div {
+  background: #1d1a14ed;
+  border-left: 2px solid #bfa97f;
+  padding: 0.45rem 0.8rem;
+}
+.inn-guide small {
+  display: block;
+}
+@media (max-width: 680px) {
+  .inn-hero {
+    min-height: 205px;
+    background-position: 62% 45%;
+  }
+  .inn-room {
+    width: 92%;
+  }
+  .inn-nav {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .inn-spread {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .inn-spread > aside {
+    padding: 0;
+    border: 0;
+    border-top: 1px solid #ac9c83;
+  }
+  .inn-subhead {
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+  .inn-subhead select {
+    font-size: 0.8rem;
+  }
+  .inn-company {
+    gap: 0.2rem;
+  }
+}

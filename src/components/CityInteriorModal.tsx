@@ -43,6 +43,7 @@ export interface CityInteriorModalProps {
   onOpenMarket: (cityId: string) => void;
   onOpenForge: () => void;
   onOpenCaravans: (cityId: string) => void;
+  onOpenInn:()=>void;
   onTavernRest: (costGold: number, cityName: string) => void;
   onStartArenaDuelWager: (entryFeeGold: number) => boolean;
   onArenaDuelComplete: (result: {
@@ -178,7 +179,7 @@ export const CityInteriorModal: React.FC<CityInteriorModalProps> = ({
   onOpenMarket,
   onOpenForge,
   onOpenCaravans,
-  onTavernRest,
+  onOpenInn, onTavernRest,
   onStartArenaDuelWager,
   onArenaDuelComplete,
 }) => {
@@ -641,6 +642,7 @@ export const CityInteriorModal: React.FC<CityInteriorModalProps> = ({
                   </div>
 
                   <div className="bg-[#070b12] border border-slate-800 rounded-lg p-2.5 text-[11px] text-slate-300 space-y-1">
+                    <button onClick={onOpenInn} className="text-amber-200 underline">Tablica ogłoszeń i stół gildii</button>
                     <div className="font-semibold text-amber-300">Plotka Giełdowa z Karczmy:</div>
                     <p>
                       Kupcy w {activeCity.name} płacą dziś wysoką premię za{' '}

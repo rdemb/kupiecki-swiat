@@ -15,6 +15,7 @@ export function installProvinces(
   authenticate: (req: Request) => { uid: string; displayName: string } | null,
   portCleared: () => boolean,
   useHarborTeam: () => boolean,
+  guildTravelBonus: (uid:string) => number,
 ) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS towns (
@@ -168,7 +169,7 @@ export function installProvinces(
           const callsAtPort = target.site === 'krolewska_przystan' || (cargo === 'handel' && mine?.site === 'krolewska_przystan');
           const handling = callsAtPort && portCleared() ? 30_000 : 60_000;
           const duration = handling - (callsAtPort && useHarborTeam() ? harborRules.savingSeconds * 1000 : 0);
-          db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + duration);
+          db.prepare('INSERT INTO freight VALUES(?,?,?,?)').run(me.uid, town, cargo, Date.now() + Math.round(duration * (100 - guildTravelBonus(me.uid)) / 100));
         } else if (action === 'arrive') {
           const job = db.prepare('SELECT * FROM freight WHERE carrier=?').get(me.uid);
           requireRule(

@@ -157,3 +157,9 @@ Operator VPS przypisuje tron do już zarejestrowanego, potwierdzonego konta. Uru
 ```sh
 GAME_DATA_DIR=/ścieżka/do/danych node scripts/seat-emperor.mjs LOGIN UID
 ```
+
+### Karczma, gildie i przewodnik
+
+W każdym z dwunastu miast karczma prowadzi własną tablicę. Zalogowany kupiec może zamieścić do trzech czynnych ogłoszeń, szukać chętnych do handlu lub wyprawy i zamknąć sprawę. Ogłoszenia wygasają po siedmiu dniach. Przy stole gildii gracze rozmawiają prywatnie, zakładają własny cech, rozpatrują prośby i przekazują proporzec. Serwer zapisuje te decyzje w SQLite. Każdy dodatkowy zrzeszony gracz skraca czas nowo wysyłanych konwojów kancelarii o 5%, maksymalnie o 20%. Liczy się rzeczywiste członkostwo.
+
+Podstawą tej korzyści jest [zarządzanie gildią w oryginale](https://kupiecki-swiat.wikidot.com/zarzadzanie-gildia). Współczynniki przewozu oraz wpływ sezonu, ulewy, mrozu i zarazy zbożowej na zbiory faktorii należą do zasad Odrodzenia. Cztery wskazówki na trakcie, w karczmie, gildii i księstwie można przeczytać lub odtworzyć na żądanie. Nagrania powstały lokalnie przy użyciu [polskiego głosu Piper Darkman](https://huggingface.co/rhasspy/piper-voices/blob/main/pl/pl_PL/darkman/medium/MODEL_CARD). Wnętrze karczmy to wygenerowany kadr.

@@ -1,3 +1,5 @@
+import { grainHarvest } from './economy/merchantInn';
+import type { InnTab } from './components/MerchantInn';
 import { gameRequest, gameSocketUrl } from './utils/gameServer';
 import { MerchantRoad, OpeningFilm, cinemaFile, quietPictures, roadStops, type RoadStop, type RoadPanel } from './components/MerchantRoad';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -219,12 +221,14 @@ function createInitialOfflineMarkets(): Record<CommodityId, CommodityMarketState
   return out;
 }
 
+const MerchantInn = React.lazy(() => import('./components/MerchantInn'));
 const HarborWorks = React.lazy(() => import('./components/HarborWorks'));
 const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
+  const startAtInn = place === 'karczma' || place === 'gildia';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -232,7 +236,7 @@ export default function App() {
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>(
-    isAutostart || startAtWorks || startAtPort || startAtCoast ? 'playing' : 'title',
+    isAutostart || startAtInn || startAtWorks || startAtPort || startAtCoast ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
   const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>('all');
@@ -260,11 +264,14 @@ export default function App() {
   const [showWorldLabels, setShowWorldLabels] = useState<boolean>(true);
   const [muted, setMuted] = useState<boolean>(false);
   const [showCinematicIntro, setShowCinematicIntro] = useState<boolean>(false);
-  const [onRoad, setOnRoad] = useState(startAtPort || startAtWorks);
+  const [onRoad, setOnRoad] = useState(startAtInn || startAtPort || startAtWorks);
   const [atWorks, setAtWorks] = useState(startAtWorks);
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
-  const returnToPort = useRef<'scales' | 'works' | null>(null);
+  type InnVisit={city:string;tab:InnTab};
+  const [inn,setInn]=useState<InnVisit|null>(startAtInn?{city:'krolewska_przystan',tab:place==='gildia'?'guild':'board'}:null);
+  const innAfterLogin=useRef<InnVisit|null>(null);
+  const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
   const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
   const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
   const [coastView,setCoastView] = useState(startAtCoast);
@@ -328,6 +335,12 @@ export default function App() {
   // Tech Tree, Guild, Caravans & Push Notifications
   const [unlockedTechIds, setUnlockedTechIds] = useState<string[]>(['handel_1']);
   const [playerGuildId, setPlayerGuildId] = useState<string>('g_zloto');
+  const [customGuildTag,setCustomGuildTag] = useState('');
+  const syncGuild = React.useCallback((id:string,tag:string)=>{setPlayerGuildId(id);setCustomGuildTag(tag);},[]);
+  useEffect(()=>{if(!backendToken){setCustomGuildTag('');return;}const abort=new AbortController();
+    gameRequest('/api/inn/krolewska_przystan',{signal:abort.signal,headers:{Authorization:'Bearer '+backendToken}}).then(async r=>{if(!r.ok)return;const b=await r.json();if(!abort.signal.aborted&&b.uid)syncGuild(b.membership,b.groups.find((g:{id:string;tag:string})=>g.id===b.membership)?.tag??'');}).catch(()=>{});
+    return ()=>abort.abort();
+  },[backendToken,syncGuild]);
   const [activeCaravans, setActiveCaravans] = useState<ActiveCaravan3D[]>([]);
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<PushNotificationItem[]>([
@@ -1063,7 +1076,7 @@ export default function App() {
         headers,
         body: JSON.stringify({
           sellerName: playerDisplayName,
-          sellerGuild: `[${playerGuild?.tag ?? 'ZŁOTO'}]`,
+          sellerGuild: `[${playerGuild?.tag || customGuildTag || 'WOLNY'}]`,
           cityId: params.cityId,
           commodityId: params.commodityId,
           quantity: params.quantity,
@@ -1525,7 +1538,7 @@ export default function App() {
     const newAuc: AuctionItem = {
       id: newId,
       sellerName: playerDisplayName,
-      sellerGuild: `[${playerGuild?.tag ?? 'ZŁOTO'}]`,
+      sellerGuild: `[${playerGuild?.tag || customGuildTag || 'WOLNY'}]`,
       itemName: params.itemName,
       commodityId: params.commodityId,
       quantity: params.quantity,
@@ -1577,7 +1590,7 @@ export default function App() {
       channel,
       sender: playerDisplayName,
       senderTitle: selectedRace.name.split(' ')[0],
-      guildTag: `[${playerGuild?.tag ?? 'ZŁOTO'}]`,
+      guildTag: `[${playerGuild?.tag || customGuildTag || 'WOLNY'}]`,
       text,
       timestamp: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -1786,6 +1799,8 @@ export default function App() {
     soundEngine.playTradeFill(true);
   };
 
+  const baseGrain = (DUCHY_BUILDINGS.find(b=>b.commodityYieldPerLevel.id==='zboze')?.commodityYieldPerLevel.qty ?? 0) * (duchy.buildings.faktoria ?? 0);
+  const harvestedGrain = grainHarvest(baseGrain,macro.activeSeason,macro.activeWeather,macro.activeDisaster ?? null);
   const handleCollectDuchyTribute = () => {
     const faktoriaGold = (duchy.buildings.faktoria ?? 0) * 420;
     const koszaryGold = (duchy.buildings.koszary ?? 0) * 260;
@@ -1805,7 +1820,7 @@ export default function App() {
         const lvl = duchy.buildings[b.id] ?? 0;
         if (lvl > 0) {
           next[b.commodityYieldPerLevel.id] =
-            (next[b.commodityYieldPerLevel.id] ?? 0) + b.commodityYieldPerLevel.qty * lvl;
+            (next[b.commodityYieldPerLevel.id] ?? 0) + (b.commodityYieldPerLevel.id==='zboze' ? harvestedGrain : b.commodityYieldPerLevel.qty * lvl);
         }
       }
       return next;
@@ -1813,7 +1828,7 @@ export default function App() {
     soundEngine.playTradeFill(true);
     pushNotification(
       'Zebrano Podatki i Plony Księstwa',
-      `Skarbiec Księstwa wypłacił +${payoutGold} zł dywidendy oraz dostarczył surowce z Twoich budowli do magazynu!`,
+      `Skarbiec Księstwa wypłacił +${payoutGold} zł dywidendy · zboże z faktorii: ${harvestedGrain} szt. Pozostała produkcja trafiła do magazynu.`,
       'trade',
     );
   };
@@ -2376,7 +2391,7 @@ export default function App() {
         historyUid: backendUid ?? undefined,
         name: [registeredPlayers.find(p=>p.uid===backendUid)?.prefix, playerDisplayName].filter(Boolean).join(' '),
         race: selectedRace.name.split(' ')[0],
-        guildTag: `[${playerGuild?.tag ?? 'ZŁOTO'}]`,
+        guildTag: `[${playerGuild?.tag || customGuildTag || 'WOLNY'}]`,
         netWorth,
         knightLevel: knight.level,
         monstersDefeated: knight.monstersDefeated,
@@ -2435,7 +2450,7 @@ export default function App() {
   const stopMarket = markets[roadStop.commodity];
   const stopSpot = stopMarket.cityPrices[roadStop.city] ?? stopMarket.currentPrice;
   const stopBuyPrice = stopSpot * (1 + stopMarket.spreadPct / 200) * (1 + tradeTaxPct / 100);
-  const showMap = gameState !== 'title' && !onRoad;
+  const showMap = gameState !== 'title' && !onRoad && !inn;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -2568,10 +2583,16 @@ export default function App() {
             onAccount={() => { returnToPort.current='works'; setAtWorks(false); openRoadPanel('profile'); }}/>
         </React.Suspense>
       )}
-      {onRoad && !atPort && !atWorks && gameState === 'playing' && !showCinematicIntro && (
+      {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
+        <MerchantInn key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({...inn,tab})}
+          muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>setInn(null)}
+          onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
+      </React.Suspense>}
+      {onRoad && !inn && !atPort && !atWorks && gameState === 'playing' && !showCinematicIntro && (
         <MerchantRoad
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
+          muted={muted} onInn={()=>setInn({city:roadStop.city,tab:'board'})}
           onTravel={visitStop} onMenu={openRoadPanel} onCoast={enterCoast} onWorks={()=>setAtWorks(true)}
           onWeighhouse={moving => {setPortMotion(moving);setAtPort(true);}}
           onBuy={commodityId => void handleExecuteTrade({ commodityId, quantity: 1, side: 'buy', cityId: roadStop.city })}
@@ -3154,6 +3175,7 @@ export default function App() {
                     onUpgradeDuchyBuilding={handleUpgradeDuchyBuilding}
                     onCastMageSpell={handleCastMageSpell}
                     onRecruitForces={handleRecruitForces}
+                    weatherLabel={macro.activeWeatherName} grain={harvestedGrain} baseGrain={baseGrain} muted={muted}
                     onCollectDuchyTribute={handleCollectDuchyTribute}
                     onCompleteRoyalContract={handleCompleteRoyalContract}
                     onClaimAchievement={handleClaimAchievement}
@@ -3191,7 +3213,8 @@ export default function App() {
                     onChronicle={uid=>{setChronicledPerson(uid);setActiveTab('duchy_story');}}
                     guilds={guilds}
                     playerGuildId={playerGuildId}
-                    onJoinGuild={setPlayerGuildId}
+                    onOpenGuild={()=>setInn({city:selectedCityId,tab:'guild'})}
+                    onJoinGuild={()=>setInn({city:selectedCityId,tab:'guild'})}
                     onDonateGuild={handleDonateGuild}
                     chatMessages={chatMessages}
                     onSendChatMessage={handleSendChatMessage}
@@ -3207,7 +3230,7 @@ export default function App() {
                     playerDisplayName={playerDisplayName}
                     playerTitle={playerTitle}
                     selectedRaceId={selectedRaceId}
-                    playerGuildTag={`[${playerGuild?.tag ?? 'ZŁOTO'}]`}
+                    playerGuildTag={`[${playerGuild?.tag || customGuildTag || 'WOLNY'}]`}
                     playerGold={playerGold}
                     playerBondsGold={playerBondsGold}
                     netWorth={netWorth}
@@ -3244,8 +3267,9 @@ export default function App() {
                       setSyncStatusMsg('Zalogowano i zsynchronizowano z bazą');
                       if (returnToPort.current) {
                         const destination = returnToPort.current;
-                        visitStop(roadStops[0]);
-                        if (destination === 'works') setAtWorks(true);
+                        visitStop(destination==='inn' ? roadStops.find(s=>s.city===innAfterLogin.current?.city)??roadStops[0] : roadStops[0]);
+                        if(destination==='inn') {setInn(innAfterLogin.current);innAfterLogin.current=null;}
+                        else if (destination === 'works') setAtWorks(true);
                         else setAtPort(true);
                       }
                       pushNotification(
@@ -3261,7 +3285,7 @@ export default function App() {
                           headers: { Authorization: `Bearer ${backendToken}` },
                         }).catch(() => {});
                       }
-                      setBackendToken(null);
+                      setBackendToken(null);setPlayerGuildId('');
                       setBackendUid(null);
                       setBackendUsername(null);
                       setSyncStatusMsg('Wylogowano');
@@ -3398,6 +3422,7 @@ export default function App() {
             setActiveTab('caravans');
             setDockCollapsed(false);
           }}
+          onOpenInn={()=>{setCityInteriorOpen(false);setInn({city:selectedCityId,tab:'board'});}}
           onTavernRest={handleTavernRest}
           onStartArenaDuelWager={handleStartArenaDuelWager}
           onArenaDuelComplete={handleArenaDuelComplete}

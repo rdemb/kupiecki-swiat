@@ -694,6 +694,7 @@ export const TechTreeView: React.FC<TechTreeViewProps> = ({
 interface GuildChatAndRankingsViewProps {
   guilds: GuildInfo[];
   playerGuildId: string;
+  onOpenGuild:()=>void;
   onJoinGuild: (guildId: string) => void;
   onDonateGuild: (guildId: string, amount: number) => void;
   chatMessages: ChatMessage[];
@@ -706,7 +707,7 @@ interface GuildChatAndRankingsViewProps {
 export const GuildChatAndRankingsView: React.FC<GuildChatAndRankingsViewProps> = ({
   guilds,
   playerGuildId,
-  onJoinGuild,
+  onOpenGuild, onJoinGuild,
   onDonateGuild,
   chatMessages,
   onSendChatMessage,
@@ -727,6 +728,7 @@ export const GuildChatAndRankingsView: React.FC<GuildChatAndRankingsViewProps> =
 
   return (
     <div className="space-y-3 text-slate-100">
+      <button className="rounded border border-amber-700 px-3 py-2 text-amber-200" onClick={onOpenGuild}>Stół gildii · rozmowa i przyjęcia</button>
       {/* Live D3 Guild Treasury Ranking Bar Chart */}
       <GuildTreasuryRankingChart guilds={guilds} playerGuildId={playerGuildId} />
 
@@ -737,7 +739,7 @@ export const GuildChatAndRankingsView: React.FC<GuildChatAndRankingsViewProps> =
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <span className="text-xs font-bold text-amber-400">Czat Kupiecki Live (WebSocket)</span>
             <div className="flex items-center gap-1">
-              {(['globalny', 'handel', 'gildia'] as const).map((ch) => (
+              {(['globalny', 'handel'] as const).map((ch) => (
                 <button
                   key={ch}
                   type="button"
