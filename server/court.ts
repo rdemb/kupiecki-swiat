@@ -2,8 +2,12 @@ import { CITIES } from '../src/economy/economyEngine';
 import type { Express, Request } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 
-interface Player { uid: string; username: string }
+import type { openSpurTrial } from './spurTrial';
+import { FeastRule } from './harvestLoaf';
+
+interface Player { uid: string; username: string; displayName: string }
 export function installCourt(app: Express, db: DatabaseSync, authenticate: (req: Request) => Player | null,
+  spurs: ReturnType<typeof openSpurTrial>,
   announce: (uid: string, prefix: string) => void) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS barPayments (town INTEGER, purpose TEXT, owner TEXT NOT NULL, cost INTEGER NOT NULL, PRIMARY KEY(town,purpose));
@@ -30,7 +34,26 @@ export function installCourt(app: Express, db: DatabaseSync, authenticate: (req:
       json_extract(profile,'$.displayName') name FROM players ORDER BY username`).all().map(p => ({
       ...p,...insignia(String(p.uid))
     })) : [];
-    res.set('Cache-Control','no-store').json({ ...insignia(me.uid), admin, players, history:admin ? history.all() : [] });
+    res.set('Cache-Control','no-store').json({ ...insignia(me.uid), admin, players, ...(admin ? {spurPetitions:spurs.pending()} : {}), history:admin ? history.all() : [] });
+  });
+  app.post('/api/court/spurs', (req,res,next) => {
+    const me = authenticate(req);
+    if (!me) { res.status(401).json({error:'Zaloguj się do dworu.'}); return; }
+    if (!emperor.get(me.uid)) { res.status(403).json({error:'Pieczęć należy do Imperatora.'}); return; }
+    const {load,verdict} = req.body ?? {};
+    if (!Number.isSafeInteger(load) || load<1 || (verdict!=='knighted' && verdict!=='declined')) {
+      res.status(400).json({error:'Wybierz świadectwo i decyzję.'}); return;
+    }
+    try {
+      db.exec('BEGIN IMMEDIATE');
+      spurs.decide(load,verdict,me);
+      db.exec('COMMIT');
+      res.json({load,verdict});
+    } catch (e) {
+      if (db.isTransaction) db.exec('ROLLBACK');
+      if (e instanceof FeastRule) res.status(409).json({error:e.message});
+      else next(e);
+    }
   });
   app.post('/api/court/decrees', (req,res) => {
     const me = authenticate(req);

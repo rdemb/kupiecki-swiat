@@ -87,6 +87,7 @@ import { DisasterEventModal } from './components/DisasterEventModal';
 import { DayTraderTerminal } from './components/DayTraderTerminal';
 import { KnightAndMissionsPanel } from './components/KnightAndMissionsPanel';
 import { DuchyAndStoryCampaignPanel } from './components/DuchyAndStoryCampaignPanel';
+import { CareerDesk } from './components/CareerDesk';
 import { WorldMapAtlasPanel } from './components/WorldMapAtlasPanel';
 import { ProvinceHall, useProvinceRegister } from './components/ProvinceHall';
 import { ImperialCourt } from './components/ImperialCourt';
@@ -231,6 +232,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
+  const startAtHope = place==='nowa-nadzieja';
   const startAtPort = place === 'waga-portowa';
   const startAtInn = place === 'lazaret' || place === 'koszary' || place === 'targ' || place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
@@ -240,16 +242,17 @@ export default function App() {
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>(
-    isAutostart || startAtInn || startAtWorks || startAtPort || startAtCoast ? 'playing' : 'title',
+    isAutostart || startAtInn || startAtWorks || startAtPort || startAtCoast || startAtHope ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
-  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>('all');
+  const [careerSite,setCareerSite]=useState('mierzeja');
+  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtHope?'nowa_nadzieja':'all');
   const [selectedCityId, setSelectedCityId] = useState<string>('krolewska_przystan');
-  const [selectedRegionId, setSelectedRegionId] = useState<string>('krolewska_przystan');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtHope?'mierzeja':'krolewska_przystan');
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
-  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>(place === 'mennica' ? 'mint' : startAtCoast ? 'coast' : 'world');
+  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>(startAtHope?'continent':place === 'mennica' ? 'mint' : startAtCoast ? 'coast' : 'world');
   const [trackedCaravanId, setTrackedCaravanId] = useState<string | null>(null);
   const [lightingMood, setLightingMood] = useState<LightingMoodId>('golden_hour');
   const [pbrWeather, setPbrWeather] = useState<PbrWeatherId>('clear');
@@ -267,6 +270,7 @@ export default function App() {
   const [trailEventOutcome, setTrailEventOutcome] = useState<TrailEventOutcome | null>(null);
   const [showWorldLabels, setShowWorldLabels] = useState<boolean>(true);
   const [muted, setMuted] = useState<boolean>(false);
+  const [showTrailer,setShowTrailer] = useState(false);
   const [showCinematicIntro, setShowCinematicIntro] = useState<boolean>(false);
   const [onRoad, setOnRoad] = useState(startAtInn || startAtPort || startAtWorks);
   const [atWorks, setAtWorks] = useState(startAtWorks);
@@ -283,7 +287,7 @@ export default function App() {
   const innAfterLogin=useRef<InnVisit|null>(null);
   const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
   const [roadStop, setRoadStop] = useState<RoadStop>(atRiver?roadStops[1]:innTown==='zelazna_kuznia'?roadStops[2]:roadStops[0]);
-  const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast);
+  const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast || startAtHope);
   const [coastView,setCoastView] = useState(startAtCoast);
   const [coastTracking,setCoastTracking] = useState(false);
   const [bellStrike, setBellStrike] = useState(-Infinity);
@@ -378,6 +382,15 @@ export default function App() {
   },[backendToken,syncGuild]);
   const [activeCaravans, setActiveCaravans] = useState<ActiveCaravan3D[]>([]);
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState<boolean>(false);
+  const [quietAlerts, setQuietAlerts] = useState(() => {
+    try { return localStorage.getItem('ks-quiet-alerts') === '1'; } catch { return false; }
+  });
+  const quietAlertsRef = useRef(quietAlerts);
+  function changeAlertMode(quiet: boolean) {
+    quietAlertsRef.current = quiet;
+    setQuietAlerts(quiet);
+    try { localStorage.setItem('ks-quiet-alerts', quiet ? '1' : '0'); } catch { /* private browsing */ }
+  }
   const [notifications, setNotifications] = useState<PushNotificationItem[]>([
     {
       id: 'notif_init_1',
@@ -520,6 +533,7 @@ export default function App() {
       read: false,
     };
     setNotifications((prev) => [item, ...prev.slice(0, 19)]);
+    if (quietAlertsRef.current) return;
     soundEngine.playAlertNotification();
 
     if (
@@ -1938,8 +1952,7 @@ export default function App() {
         SEASONS[prev.activeSeason].availabilityMultiplier * spawned.supplyShockMultiplier * 100,
       ),
     }));
-    setDisasterModalOpen(true);
-    soundEngine.playAlertNotification();
+    if (!quietAlertsRef.current) setDisasterModalOpen(true);
     pushNotification(
       `KATASTROFA ŚWIATA: ${spawned.shortLabel}!`,
       spawned.economicImpactSummary,
@@ -2523,12 +2536,14 @@ export default function App() {
               >
                 Obejrzyj prolog
               </button>
+              <button type="button" className="road-chip min-h-[48px]" onClick={() => setShowTrailer(true)}>Zwiastun · 12 s</button>
             </div>
 
           </div>
         </div>
       )}
 
+      {showTrailer && <OpeningFilm trailer onClose={() => setShowTrailer(false)} muted={muted} />}
       {showCinematicIntro && <OpeningFilm onClose={() => setShowCinematicIntro(false)} muted={muted} />}
       {onRoad && atPort && gameState === 'playing' && (
         <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie komory celnej…</p>}>
@@ -2554,6 +2569,7 @@ export default function App() {
         <MerchantRoad
           stop={roadStop} gold={playerGold} held={playerInventory[roadStop.commodity] ?? 0} price={stopBuyPrice}
           towns={provinces.data.towns} registerError={provinces.error}
+          onAlerts={()=>{openRoadPanel('world_map');setShowNotificationsDrawer(true);setNotifications(prev=>prev.map(n=>({...n,read:true})));}} unread={unreadCount}
           onField={()=>setInn({city:'srebrny_gaj',tab:'field'})}
           onFair={()=>setInn({city:roadStop.city,tab:'fair'})}
           muted={muted} onBridge={()=>setInn({city:'srebrny_gaj',tab:'bridge'})} onInn={()=>setInn({city:roadStop.city,tab:'board'})}
@@ -2814,13 +2830,6 @@ export default function App() {
                 onClick={() => {
                   setShowNotificationsDrawer((prev) => !prev);
                   setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-                  if (
-                    typeof window !== 'undefined' &&
-                    'Notification' in window &&
-                    Notification.permission === 'default'
-                  ) {
-                    Notification.requestPermission().catch(() => {});
-                  }
                 }}
                 aria-label="Powiadomienia Push"
                 className="relative px-2 py-1 rounded bg-[#111722] hover:bg-slate-800 border border-slate-700 text-[11px] font-medium text-slate-200 flex items-center gap-1 cursor-pointer"
@@ -2893,7 +2902,7 @@ export default function App() {
             <div className="pointer-events-auto self-end w-full max-w-sm bg-[#0c1118] border border-slate-700 rounded-lg p-3 shadow-2xl space-y-2">
               <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
                 <span className="text-xs font-bold text-amber-400">
-                  Centrum Powiadomień Push ({notifications.length})
+                  Powiadomienia ({notifications.length})
                 </span>
                 <button
                   type="button"
@@ -2903,6 +2912,12 @@ export default function App() {
                   Zamknij
                 </button>
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={quietAlerts} onChange={e => changeAlertMode(e.target.checked)} />
+                Tylko w karcie · wycisz okna i dźwięk
+              </label>
+              {!quietAlerts && 'Notification' in window && Notification.permission === 'default' &&
+                <button type="button" className="road-chip" onClick={() => void Notification.requestPermission().catch(() => {})}>Włącz powiadomienia systemowe</button>}
               <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                 {notifications.map((n) => (
                   <div key={n.id} className="bg-[#080b10] border border-slate-800 rounded p-2 text-xs">
@@ -2974,11 +2989,12 @@ export default function App() {
               <div className="w-full bg-[#080b10]/95 border border-slate-700 rounded-b-xl rounded-tr-xl p-3.5 shadow-2xl max-h-[58vh] overflow-y-auto">
                 {activeTab === 'world_map' && (
                   <WorldMapAtlasPanel
-                    towns={provinces.data.towns}
+                    token={backendToken} towns={provinces.data.towns}
                     selectedRegionId={selectedRegionId}
                     selectedContinentId={selectedContinentId}
                     onSelectContinent={(cid) => {
                       setSelectedContinentId(cid);
+                      if (cid === 'all') setSelectedRegionId(WORLD_REGIONS[0].id);
                       if (cid !== 'all') {
                         const firstReg = WORLD_REGIONS.find((r) => r.continentId === cid);
                         if (firstReg) {
@@ -3190,6 +3206,7 @@ export default function App() {
                   />
                 )}
 
+                {activeTab === 'profile' && <CareerDesk key={backendToken??'guest'} token={backendToken} site={careerSite} choose={setCareerSite}/>}
                 {activeTab === 'profile' && backendToken && <ImperialCourt key={backendToken} token={backendToken} />}
                 {activeTab === 'profile' && (
                   <AuthAndProfilePanel

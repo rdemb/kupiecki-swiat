@@ -27,7 +27,7 @@ export function quietPictures() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!network?.saveData;
 }
 
-export function OpeningFilm({ onClose, muted }: { onClose: () => void; muted: boolean }) {
+export function OpeningFilm({ onClose, muted, trailer = false }: { onClose: () => void; muted: boolean; trailer?: boolean }) {
   const [failed, setFailed] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -36,10 +36,10 @@ export function OpeningFilm({ onClose, muted }: { onClose: () => void; muted: bo
     return () => el?.close();
   }, []);
   return (
-    <dialog ref={dialog} className="road-film" aria-label="Pierwszy szlak" onCancel={e => { e.preventDefault(); onClose(); }}>
-      <video controls autoPlay playsInline muted={muted} poster={cinemaFile('sakwa.webp')}
-        onEnded={onClose} onError={() => setFailed(true)} src={cinemaFile('pierwszy-szlak.mp4')}>
-        <track kind="captions" srcLang="pl" label="Polskie opisy dźwięku" src={cinemaFile('pierwszy-szlak.vtt')} />
+    <dialog ref={dialog} className="road-film" aria-label={trailer ? 'Od worka do ostrogi · zwiastun' : 'Pierwszy szlak'} onCancel={e => { e.preventDefault(); onClose(); }}>
+      <video controls autoPlay playsInline muted={muted} poster={cinemaFile(trailer ? 'rynek.webp' : 'sakwa.webp')}
+        onEnded={onClose} onError={() => setFailed(true)} src={cinemaFile(trailer ? 'od-worka-do-ostrogi.mp4' : 'pierwszy-szlak.mp4')}>
+        <track kind="captions" srcLang="pl" label="Polskie opisy dźwięku" src={cinemaFile(trailer ? 'od-worka-do-ostrogi.vtt' : 'pierwszy-szlak.vtt')} />
       </video>
       <button type="button" className="road-chip road-film-skip" onClick={onClose} autoFocus>Pomiń film</button>
       {failed && <p role="status">Film nie załadował się. Możesz przejść do gry.</p>}
@@ -57,6 +57,8 @@ interface RoadProps {
   onTravel: (stop: RoadStop) => void;
   onMenu: (tab: RoadPanel, city?: string) => void;
   onBuy: (commodity: CommodityId) => void;
+  onAlerts: () => void;
+  unread: number;
   onFilm: () => void;
   onWorks: () => void;
   onCoast: () => void;
@@ -68,7 +70,7 @@ interface RoadProps {
   onWeighhouse: (moving:boolean) => void;
 }
 const money = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onWeighhouse, onCoast, onWorks,onInn,onBridge,onField,onFair,muted}: RoadProps) {
+export function MerchantRoad({stop, gold, held, price, towns, registerError, onTravel, onMenu, onBuy, onFilm, onAlerts, unread, onWeighhouse, onCoast, onWorks,onInn,onBridge,onField,onFair,muted}: RoadProps) {
   const [moving, setMoving] = useState(() => !quietPictures());
   const [sheets, setSheets] = useState(false);
   const [receipt, setReceipt] = useState('');
@@ -111,6 +113,7 @@ export function MerchantRoad({stop, gold, held, price, towns, registerError, onT
       <header className="road-head">
         <span className="road-wordmark">Kupiecki Świat</span>
         <div className="road-head-actions">
+          <button type="button" className="road-chip" onClick={onAlerts}>Powiadomienia ({unread})</button>
           <button type="button" className="road-chip" onClick={() => onMenu('profile')}>Konto</button>
           <button type="button" className="road-chip" onClick={() => onMenu('world_map')}>Mapa 3D</button>
         </div>

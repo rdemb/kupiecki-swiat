@@ -657,11 +657,15 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const playerDragonRig = new THREE.Group();
     const playerDragonModels: Record<DragonSpeciesId, THREE.Group> = {
+      pseudosmok: buildArticulatedDragon(materials, 'copper'),
+      blekit: buildArticulatedDragon(materials, 'sapphire'),
       ogien: buildArticulatedDragon(materials, 'crimson'),
       lod: buildArticulatedDragon(materials, 'frost'),
       szmaragd: buildArticulatedDragon(materials, 'emerald'),
       zloto: buildArticulatedDragon(materials, 'gold'),
     };
+    playerDragonModels.pseudosmok.scale.set(.42, .36, .38);
+    playerDragonModels.blekit.scale.set(1.14, .90, 1.26);
     (Object.keys(playerDragonModels) as DragonSpeciesId[]).forEach((sp) => {
       playerDragonModels[sp].visible = sp === playerDragonSpeciesRef.current;
       playerDragonRig.add(playerDragonModels[sp]);
@@ -1432,6 +1436,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         }
       }
 
+      skyDome.mesh.position.copy(camera.position);
       const quayDetail = isHarbourView();
       if (shadowAtHarbour !== quayDetail) {
         shadowAtHarbour = quayDetail;
@@ -1522,7 +1527,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         data-camera-preset={cameraPreset}
         data-tracked-caravan={trackedCaravanId ?? ''}
         className="w-full h-full"
-        aria-label="Trójwymiarowy realistyczny świat 6 kontynentów Kupiecki Świat"
+        aria-label="Kupiecki Świat 3D — Stary Ląd i Nowa Nadzieja"
       />
 
       {/* Projected 3D Region Labels across all 6 Continents */}

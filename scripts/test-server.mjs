@@ -93,12 +93,43 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
   } finally { ws.close(); }
   await request('/api/auth/logout', 200, {}, b.token);
   await request('/api/auth/me', 401, undefined, b.token);
+  const work={action:'start',id:randomUUID(),site:'mierzeja'};
+  await request('/api/careers',401,work);
+  const ledger=await request('/api/careers',200,work,a.token);
+  await request('/api/careers',200,work,a.token);
+  await request('/api/careers',409,{...work,id:randomUUID(),site:'solanki'},a.token);
+  assert.deepEqual((await request('/api/careers',200)).jobs,[]);
   await stop();
   await start();
   const restored = await request('/api/state', 200);
   assert.ok(restored.chatMessages.some((m) => m.id === 'test_chat'));
   assert.deepEqual(restored.markets, state.markets);
   const logged = await request('/api/auth/login', 200, first);
+  let lastPatron;
+  for(let i=0;i<9;i++){
+    const job=i===0?ledger.jobs[0]:(await request('/api/careers',200,{...work,id:randomUUID()},logged.token)).jobs[0];
+    assert.notEqual(job.patron,lastPatron);lastPatron=job.patron;
+    const finish={action:'finish',id:job.id,site:job.site,choice:job.task};
+    await request('/api/careers',409,{...finish,choice:(job.task+1)%3},logged.token);
+    const [delivery]=await Promise.all([request('/api/careers',200,finish,logged.token),request('/api/careers',200,finish,logged.token)]);
+    assert.equal(delivery.progress.bursztynnik,i+1);
+  }
+  const publicBook=await request('/api/careers',200);
+  assert.equal(publicBook.stocks.mierzeja,3+5*2+3);
+  assert.equal(publicBook.marks[0].craft,'bursztynnik');
+  assert.deepEqual(publicBook.progress,{});
+  for (const [site,solutions,count] of [['panwie',[1,2,0],4],['pochylnia',[2,0,1],5]]) {
+    for(let i=0;i<count;i++){
+      const job=(await request('/api/careers',200,{...work,id:randomUUID(),site},logged.token)).jobs[0];
+      const finish={id:job.id,site,choice:solutions[job.task],action:'finish'};
+      await request('/api/careers',200,finish,logged.token);
+      await request('/api/careers',200,finish,logged.token);
+    }
+  }
+  const fleet=await request('/api/careers',200);
+  assert.equal(fleet.sailings,1);
+  assert.equal(fleet.lastShipment.site,'pochylnia');
+  assert.equal(fleet.stores.szkutnik,1);
   const court = await request('/api/court',200,undefined,logged.token);
   assert.equal(court.admin,true);
   assert.equal(court.players.find(p=>p.uid===b.profile.uid).bars,4);
@@ -765,7 +796,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     const currentEmperor=(await request('/api/auth/login',200,first)).token;
     await exerciseShipyard({request,db:testDb,start,stop,imperator:currentEmperor});
     await exerciseCommonField({request,db:testDb,start,stop});
-    await exerciseBarter({request,db:testDb,start,stop});
+    await exerciseBarter({request,db:testDb,start,stop,emperorLogin:()=>request('/api/auth/login',200,first)});
     await exerciseInfirmary({request,db:testDb,start,stop});
   } finally {testDb.close();}
 });

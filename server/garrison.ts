@@ -14,6 +14,7 @@ import {
   type Dispatch,
   type GarrisonBook,
 } from '../src/economy/garrison';
+import { openSpurTrial } from './spurTrial';
 import { openGuildRelay } from './guildRelay';
 import { openStandardSchool } from './standardSchool';
 import { mentorMarks, schoolLegSeconds } from '../src/economy/standardSchool';
@@ -40,8 +41,9 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
   `);
   const school = openStandardSchool(db);
   const relay = openGuildRelay(db,transfer);
+  const spurs = openSpurTrial(db);
   const localGuides = (town: FeastTown, uid: string, now: number) =>
-    school.guides(town,uid,now).map(g => ({...g,relayDue:relay.guideDue(g.id,now)}));
+    school.guides(town,uid,now).map(g => ({...g,knighted:spurs.knighted(g.id),relayDue:relay.guideDue(g.id,now)}));
   const terms = db.prepare(
     'SELECT give,giveQty,want,wantQty FROM barterOffers WHERE circle=? ORDER BY id',
   );
@@ -115,6 +117,7 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
       .all(town);
     const kitchen = db.prepare('SELECT portions,carrier,sacks FROM garrisonKitchens WHERE town=?').get(town);
     return {
+      spurs: spurs.book(town,uid),
       relay: relay.book(uid),
       school: { closed, weather, guides: uid ? localGuides(town,uid,now) : [] },
       kitchen: {portions:Number(kitchen?.portions ?? 0), lastDelivery:kitchen ? {carrier:String(kitchen.carrier), sacks:Number(kitchen.sacks)} : null},
@@ -140,6 +143,10 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     closed: boolean,
   ) {
     const uid = me.uid;
+    if (cmd.action === 'witnessSpur') {
+      spurs.witness(town,me,cmd.load,cmd.testimony);
+      return;
+    }
     if (cmd.action === 'stockKitchen') {
       const sacks = cmd.quantity;
       requireRule(typeof sacks === 'number' && Number.isSafeInteger(sacks) && sacks >= 1 && sacks <= 20, 'Wybierz od 1 do 20 worków.');
@@ -276,5 +283,5 @@ export function openGarrison(db: DatabaseSync, transfer: Transfer) {
     const delay = provision(rules.crew);
     duty.run(uid, town, rules.duty, now + (rules.time + delay) * 1000, rules.marks);
   }
-  return { book, letters, command, school, relay };
+  return { book, letters, command, school, relay, spurs };
 }

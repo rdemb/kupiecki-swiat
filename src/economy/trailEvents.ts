@@ -84,6 +84,26 @@ interface TrailEventTemplate {
 
 export const TRAIL_EVENT_TEMPLATES: TrailEventTemplate[] = [
   {
+    templateId:'evt_latarniczka',title:'Zgaszona lampa Dobrochny',category:'mysterious_merchant',
+    categoryLabel:'Latarniczka',continentId:'nowa_nadzieja',regionName:'Kanał Wron',
+    position2D:[530,133],atlasPercent:[35.5,71.5],preferredTimes:['night','golden_hour'],
+    severity:'mystery',colorHex:'#e5ba7a',loreText:'Dobrochna osłania knot od bryzgu. Przez mgłę słychać wiosła barki. Przytrzymasz lampę czy popłyniesz po nową linę?',
+    commodityId:'drewno_elfickie',baseGoldReward:80,baseCommodityQty:2,basePrestigeReward:12,monsterPower:0,
+    choices:[{id:'light_the_lamp',kind:'tactical',label:'Przytrzymaj lampę',subtitle:'Barka trafi do przystani.',rewardHint:'80 zł od sternika'},
+      {id:'bring_line',kind:'interact',costGold:30,label:'Opłać łódź po linę',subtitle:'Cieśla odda dwie deski.',rewardHint:'2 szt. drewna'},
+      {id:'bypass',kind:'bypass',label:'Idź dalej',subtitle:'Dobrochna zaczeka na inną łódź.',rewardHint:'Wolne przejście'}],
+  },
+  {
+    templateId:'evt_liczman',title:'Rachmistrz zgubił liczman',category:'caravan_meeting',
+    categoryLabel:'Rachmistrz',continentId:'nowa_nadzieja',regionName:'Trakt Solny',
+    position2D:[766,66],atlasPercent:[73.55,60.65],preferredTimes:['midday','golden_hour'],
+    severity:'opportunity',colorHex:'#a0ccb9',loreText:'Iwo wysypuje na blat zawartość sakwy. Brakuje ostatniego liczmana i nie może zamknąć rachunku za przewóz soli.',
+    commodityId:'runiczny_pergamin',baseGoldReward:75,baseCommodityQty:1,basePrestigeReward:15,monsterPower:0,
+    choices:[{id:'check_tally',kind:'tactical',label:'Porównaj kwity przewoźników',subtitle:'Iwo zapłaci za odtworzenie rachunku.',rewardHint:'75 zł'},
+      {id:'copy_tally',kind:'interact',costGold:20,label:'Zamów odpis rejestru',subtitle:'Pisarz odstąpi ci arkusz.',rewardHint:'1 pergamin'},
+      {id:'bypass',kind:'bypass',label:'Odejdź od stołu',subtitle:'Droga jest wolna.',rewardHint:'Wolne przejście'}],
+  },
+  {
     templateId: 'evt_karawana_przystan',
     title: 'Spotkanie z Królewską Karawaną Kupiecką',
     category: 'caravan_meeting',

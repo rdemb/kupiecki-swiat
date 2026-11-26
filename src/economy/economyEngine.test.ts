@@ -157,10 +157,13 @@ import {
   evaluateAchievementProgress,
 } from './achievementsAndQuests.ts';
 
-test('6-continent world map defines 6 continents, 12 trade capitals, and 26 regions separated by oceans', () => {
-  assert.equal(WORLD_CONTINENTS.length, 6, 'Expected 6 continents across the world');
+test('Expanded map retains old ports and adds six workshops across the eastern strait', () => {
+  assert.equal(WORLD_CONTINENTS.length, 7);
   assert.equal(CITIES.length, 12, 'Expected 12 trade capitals across the 6 continents');
-  assert.equal(WORLD_REGIONS.length, 26, 'Expected 26 named regions across all 6 continents');
+  assert.equal(WORLD_REGIONS.length, 32);
+  const workshops=WORLD_REGIONS.filter(r=>r.continentId==='nowa_nadzieja');
+  assert.equal(workshops.length,6);
+  for(const {position2D:[x,z]} of workshops) assert.ok(x>310 && x<930 && getTerrainHeight(x,z)>1);
 
   const harborY = getTerrainHeight(4, 2); // Stary Kontynent — Królewska Przystań
   const mountainY = getTerrainHeight(-6, -56); // Stary Kontynent — Żelazna Kuźnia

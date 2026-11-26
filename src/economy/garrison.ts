@@ -66,6 +66,7 @@ export interface KitchenBook {
   lastDelivery: null | { carrier: string; sacks: number };
 }
 export interface GarrisonBook {
+  spurs?: import('./spurTrial').SpurBook;
   relay?: import('./guildRelay').RelayBook;
   school?: import('./standardSchool').SchoolBook;
   kitchen: KitchenBook;
@@ -85,6 +86,7 @@ export interface GarrisonBook {
   };
 }
 export type GarrisonCommand =
+  | { action: 'witnessSpur'; load: number; testimony: string }
   | import('./guildRelay').RelayCommand
   | import('./standardSchool').SchoolCommand
   | { action: 'fundGarrison'; level: number }

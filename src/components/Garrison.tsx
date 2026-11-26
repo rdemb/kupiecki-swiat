@@ -19,6 +19,7 @@ import {
 import type { FeastTown } from '../economy/harvestLoaf';
 import type { MillBook } from '../economy/mill';
 import { cinemaFile } from './MerchantRoad';
+import { SpurTrial } from './SpurTrial';
 import { GuildRelay } from './GuildRelay';
 import { StandardSchool } from './StandardSchool';
 import './garrison.css';
@@ -98,7 +99,7 @@ export function Garrison({ town, book, wallet, busy, sign, login, visit, knightA
   const withEscort = canEscort && escort;
   const kitchen = book.kitchen;
   useEffect(()=>{
-    if (kitchen && ['#kuchnia','#szkola','#sztafeta'].includes(location.hash)) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+    if (kitchen && ['#kuchnia','#szkola','#sztafeta','#ostroga'].includes(location.hash)) document.getElementById(location.hash.slice(1))?.scrollIntoView();
   },[town, !!kitchen]);
   const fatigue = m?.fatigue ?? 0;
   const escortMeal = rationPlan(ration, 1, fatigue);
@@ -137,6 +138,7 @@ export function Garrison({ town, book, wallet, busy, sign, login, visit, knightA
         canProvision={!!wallet && wallet.grain>=1+escortMeal.grain && (kitchen?.portions ?? 0)>=escortMeal.portions}/>
       {book.relay && book.school && <GuildRelay visit={visit} town={town} book={book} ration={ration} wallet={wallet}
         busy={busy} sign={sign} login={login}/>}
+      {book.spurs && <SpurTrial key={town} book={book.spurs} signedIn={!!wallet} busy={busy} login={login} sign={sign}/>}
       <div className="garrison-pages">
         <section>
           <h2>Księga załogi</h2>

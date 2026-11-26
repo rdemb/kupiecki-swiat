@@ -1,7 +1,8 @@
+import {worksites, crafts} from './newHope';
 import sanJuanElevation from '../assets/terrain/san-juan.json';
 import { CITIES, CommodityId, ContinentId } from './economyEngine';
 
-export type WorldRegionType = 'capital' | 'fear_place' | 'port' | 'sanctuary';
+export type WorldRegionType = 'capital' | 'fear_place' | 'port' | 'sanctuary' | 'workshop';
 
 export interface ContinentSpec {
   id: ContinentId;
@@ -95,6 +96,9 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     cameraOverviewLook: [154, 7, 156],
     capitalRegionId: 'obsydianowa_cytadela',
   },
+  {id:'nowa_nadzieja',name:'Nowa Nadzieja',shortName:'Nowa Nadzieja',subtitle:'Warsztaty za wschodnią cieśniną',
+    climate:'Morski',colorHex:'#ade1d2',description:'Kupcy zakładają warsztaty pomiędzy wydmami, solankami i szkutniczymi przystaniami.',
+    cameraOverviewPos:[620,235,291],cameraOverviewLook:[620,3,0],capitalRegionId:'mierzeja'},
 ];
 
 export interface WorldRegionNode {
@@ -603,6 +607,12 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     linkedQuestId: 'quest_tytan_obsydian',
     featuredCommodity: 'mithril',
   },
+  ...worksites.map((site):WorldRegionNode=>({
+    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:'nowa_nadzieja',type:'workshop',
+    typeLabel:'Warsztat kupiecki',biome:'Nadmorska Nizina',position2D:[site.x,site.z],
+    atlasPercent:[(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(newHopeHeight(site.x,site.z)),
+    dangerLabel:'Osada rzemieślnicza',loreDescription:site.description,colorHex:crafts[site.craft].color,
+  })),
 ];
 
 // --- DETERMINISTIC MULTI-OCTAVE FBM + RIDGE 4-CONTINENT HEIGHTMAP ---
@@ -731,7 +741,17 @@ export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWe
  * across the entire 620x620 Six-Continent Open World.
  * Ocean surface sits at Y = 0.
  */
+export function newHopeHeight(x:number,z:number):number {
+  const relief = fbm2D(x*.022,z*.022,3);
+  const wx=x+15*Math.sin(z*.041)+8*Math.sin(x*.062+z*.018);
+  const wz=z+13*Math.cos(x*.036)+8*Math.cos(z*.043);
+  const ridge=(cx:number,cz:number,rx:number,rz:number)=>1-Math.hypot((wx-cx)/rx,(wz-cz)/rz);
+  const land=Math.max(ridge(512,-126,167,113),ridge(632,84,180,151),ridge(782,-24,101,197));
+  const shelf=smoothstep(-.13,.25,land);
+  return -8+16*shelf+shelf*(Math.max(0,land)*relief*43 + 2.6*Math.sin(x*.14)*Math.cos(z*.11));
+}
 export function getTerrainHeight(x: number, z: number): number {
+  if(x>310) return newHopeHeight(x,z);
   // Domain warping for natural fractal coastlines (zero circular islands!)
   const warpX = (fbm2D(x * 0.015 + 3.1, z * 0.015 + 1.7, 3) - 0.5) * 28;
   const warpZ = (fbm2D(x * 0.015 - 4.2, z * 0.015 + 5.3, 3) - 0.5) * 28;

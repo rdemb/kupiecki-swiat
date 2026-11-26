@@ -1,4 +1,5 @@
 import express from 'express';
+import { installCareers } from './server/careers';
 import { installShipyard } from './server/shipyard';
 import { installRafts } from './server/rafts';
 import { installRiverGauge } from './server/riverGauge';
@@ -1187,15 +1188,15 @@ async function startServer() {
     res.json({ profile: sanitizeAccountForClient(acc), walletAdjustment });
   });
 
-  const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
-
+  installCareers(app,db,getAuthenticatedAccount);
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const river = installRiverGauge(db, WEATHER_ORDER[activeWeatherIndex]);
-  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table, (city,now)=>mill.fairBook(city,now), (city,now) => mill.newsLetters(city,now), (city,now)=>mill.ward.calls(city,now), (city,now)=>mill.roadRecords(city,now), city => mill.barterCalls(city));
+  const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds, river.reports, uid => shipyard.pilotBook(uid), uid => shipyard.launchBoard(uid), commonField.feast.table, (city,now)=>mill.fairBook(city,now), (city,now) => mill.newsLetters(city,now), (city,now)=>mill.ward.calls(city,now), (city,now)=>mill.roadRecords(city,now), city => mill.spurs.seals(city), city => mill.barterCalls(city));
   const mill = installMill(app, db, getAuthenticatedAccount, () => WEATHER_ORDER[activeWeatherIndex], (now): boolean => {
     bridge.advance(now);
     return bridge.sign().damaged;
   }, commonField, () => worldDayNumber);
+  const insignia = installCourt(app, db, getAuthenticatedAccount, mill.spurs, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
   const rafts = installRafts(db, mill.settleGold);
   const harbor = installHarborWorks(app, db, getAuthenticatedAccount, rafts);
   const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold,rafts);

@@ -310,7 +310,8 @@ export type ContinentId =
   | 'frostheim_polnoc'
   | 'aetheris_wschod'
   | 'valoria_zachod'
-  | 'obsydian_wulkan';
+  | 'obsydian_wulkan'
+  | 'nowa_nadzieja';
 
 export interface CityNode {
   id: string;

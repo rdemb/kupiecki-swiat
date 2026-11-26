@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-export async function exerciseRelay({read,send,request,db,start,stop,buyers,town,other}) {
+export async function exerciseRelay({read,send,request,db,start,stop,buyers,town,other,emperorLogin}) {
   const sender=3, receiver=1;
   const inn=async (i,cmd)=>request('/api/inn/'+town,200,{...cmd,nonce:randomUUID()},buyers[i].token);
   const group=(await request('/api/inn/'+town,200)).groups.find(g=>!g.privateHall).id;
@@ -62,6 +62,26 @@ export async function exerciseRelay({read,send,request,db,start,stop,buyers,town
   assert.equal(done.garrison.kitchen.portions,receiverBefore.garrison.kitchen.portions+2);
   assert.equal(done.garrison.kitchen.lastDelivery.carrier,'Lech');
   assert.equal((await read(receiver,other)).garrison.kitchen.portions,done.garrison.kitchen.portions);
+  const spur={action:'witnessSpur',load:load.id,testimony:'Lech dowiózł nasz worek mimo zamkniętego mostu.',nonce:randomUUID()};
+  const sign={load:load.id,verdict:'knighted'};
+  const witness=(await read(sender)).garrison.spurs;
+  assert.equal(witness.receipts[0].name,'Lech');
+  await send(receiver,spur,409,other);
+  await send(sender,spur,409,other);
+  await send(-1,spur,401);
+  await Promise.all([send(sender,spur),send(sender,spur)]);
+  assert.deepEqual((await read(0)).garrison.spurs.petitions,[]);
+  assert.equal((await read(receiver,other)).garrison.spurs.petitions[0].state,'pending');
+  const sovereign=(await emperorLogin()).token;
+  assert.equal((await request('/api/court',200,undefined,sovereign)).spurPetitions.length,1);
+  await request('/api/court/spurs',403,sign,buyers[sender].token);
+  await request('/api/court/spurs',200,sign,sovereign);
+  await request('/api/court/spurs',200,sign,sovereign);
+  await request('/api/court/spurs',409,{...sign,verdict:'declined'},sovereign);
+  assert.equal((await request('/api/inn/'+other,200)).spurRoll[0].name,'Lech');
+  assert.equal((await request('/api/inn/'+town,200)).spurRoll.length,0);
+  assert.equal((await read(receiver,other)).garrison.school.guides.find(g=>g.own).knighted,true);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM annals WHERE person=?").get('squire_'+changeGuide).n,1);
   // Run the return leg in the opposite direction. An unclaimed sack goes back even if its buyer leaves.
   const reverse=await send(receiver,{action:'startRelay',guide:changeGuide,ration:'pack'},200,other);
   const missing=reverse.garrison.relay.loads.find(l=>l.state==='open');

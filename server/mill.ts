@@ -255,12 +255,13 @@ export function installMill(
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
     const isBarter = ['postBarter','withdrawBarter','sealBarter','inviteBarter','recallBarterCall','answerBarterCall'].includes(action);
-    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews','stockKitchen','enrolSquire','guideWagon','startRelay','rideToRelay','takeRelay'].includes(action);
+    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews','stockKitchen','enrolSquire','guideWagon','startRelay','rideToRelay','takeRelay','witnessSpur'].includes(action);
     const isWard=wardActions.includes(action);
     if(isWard) fields.push(req.body.revision,req.body.sortie,req.body.step,req.body.stance);
     if (isGarrison) fields.push(req.body.level, req.body.unit, req.body.circle, req.body.escort);
     if (isGarrison && req.body.ration !== undefined) fields.push(req.body.ration);
     if (action === 'startRelay' || action === 'rideToRelay' || action === 'takeRelay') fields.push(req.body.guide,req.body.load,req.body.road);
+    if (action === 'witnessSpur') fields.push(req.body.load,req.body.testimony);
     if (action === 'guideWagon') fields.push(req.body.guide,req.body.road,req.body.lesson);
     if (action === 'enrolSquire') fields.push(req.body.name);
     if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
@@ -392,7 +393,7 @@ export function installMill(
     }
   });
   return {
-    ward, newsLetters: garrison.letters, roadRecords: garrison.school.records,
+    ward, spurs:garrison.spurs, newsLetters: garrison.letters, roadRecords: garrison.school.records,
     fairBook: fair.book,
     barterCalls: barter.calls,
     transfer,

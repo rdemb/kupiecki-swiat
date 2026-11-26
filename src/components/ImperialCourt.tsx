@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { CITIES } from '../economy/economyEngine';
+import { Testimony } from './SpurTrial';
+import type { SpurPetition, SpurVerdict } from '../economy/spurTrial';
 import { Crown } from 'lucide-react';
 import { gameRequest } from '../utils/gameServer';
 
 type Player = { uid: string; username: string; name: string; bars: number; prefix: string };
 type Decree = { id: number; recipient: string; kind: string; bars: number; prefix: string; reason: string; created: string };
-type Court = { admin: boolean; bars: number; prefix: string; players: Player[]; history: Decree[] };
+type Court = { spurPetitions?: SpurPetition[]; admin: boolean; bars: number; prefix: string; players: Player[]; history: Decree[] };
 
 export function ImperialCourt({ token }: { token: string }) {
   const [court, setCourt] = useState<Court>();
@@ -29,6 +31,22 @@ export function ImperialCourt({ token }: { token: string }) {
     return () => controller.abort();
   }, [token,revision]);
   const player = court?.players.find(p => p.uid===target);
+  async function seal(load:number,verdict:SpurVerdict) {
+    if (sending.current) return;
+    sending.current=true;
+    setBusy(true);
+    setMessage('');
+    try {
+      const r = await gameRequest('/api/court/spurs',{method:'POST',headers:{
+        Authorization:'Bearer '+token,'Content-Type':'application/json'
+      },body:JSON.stringify({load,verdict})});
+      const reply=await r.json();
+      if (!r.ok) throw Error(reply.error || 'Nie udało się opieczętować świadectwa.');
+      setMessage(verdict==='knighted' ? 'Pasowanie zapisano w koszarach i karczmie docelowej.' : 'Odmowę wpisano do akt próby.');
+      setRevision(n=>n+1);
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'Sprawdź decyzję w księdze dworu.'); }
+    finally { sending.current=false; setBusy(false); }
+  }
   async function grant() {
     if (!player || sending.current) return;
     sending.current = true;
@@ -54,6 +72,17 @@ export function ImperialCourt({ token }: { token: string }) {
       <button className="ml-auto text-xs underline" onClick={()=>setRevision(n=>n+1)}>Odśwież</button></header>
     {court && <p>Sztabki złota: <strong>{court.bars}</strong> · Przedrostek: <strong>{court.prefix || 'brak'}</strong></p>}
     {court?.admin && <>
+      <section className="border-y border-amber-700/50 py-3">
+        <h3 className="font-bold text-amber-200">Świadectwa do Próby ostrogi</h3>
+        {!court.spurPetitions?.length && <p>Dwór czeka na świadectwo nadawcy ukończonej sztafety.</p>}
+        {court.spurPetitions?.map(p=><article key={p.load} className="my-3 space-y-2 border-l-2 border-amber-700 pl-3">
+          <h4 className="font-bold">{p.name} · kandydat do pasowania</h4>
+          <Testimony petition={p}/>
+          <button className="rounded bg-amber-300 px-3 py-2 text-slate-950" disabled={busy}
+            onClick={()=>seal(p.load,'knighted')}>Nadaj tytuł Sir · {p.name}</button>
+          <button className="ml-3 underline" disabled={busy} onClick={()=>seal(p.load,'declined')}>Odmów pasowania</button>
+        </article>)}
+      </section>
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={e=>{e.preventDefault(); void grant();}}>
         <label>Gracz<select required className={input} value={target} onChange={e=>setTarget(e.target.value)}>
           <option value="">Wybierz gracza</option>{court.players.map(p=><option key={p.uid} value={p.uid}>{[p.prefix,p.name].filter(Boolean).join(' ')} (@{p.username}) · {p.bars} szt.</option>)}</select></label>

@@ -1,3 +1,4 @@
+import { CareerDesk } from './CareerDesk';
 import { fieldLabels } from '../economy/commonField';
 import { imageUrl } from '../utils/imageUrl';
 import React from 'react';
@@ -20,6 +21,7 @@ import { CameraPresetId, buildActiveRouteList } from '../world3d/cameraPresets';
 import type { ActiveCaravan3D } from './World3DCanvas';
 
 interface WorldMapAtlasPanelProps {
+  token: string|null;
   towns: {site:string;name:string;approved:number}[];
   selectedRegionId: string;
   selectedContinentId: ContinentId | 'all';
@@ -50,7 +52,7 @@ interface WorldMapAtlasPanelProps {
 }
 
 export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
-  towns, selectedRegionId,
+  token, towns, selectedRegionId,
   selectedContinentId,
   onSelectContinent,
   onSelectRegion,
@@ -81,12 +83,13 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
   const activeContinent =
     WORLD_CONTINENTS.find((c) => c.id === activeRegion.continentId) ?? WORLD_CONTINENTS[0];
 
+  const eastern=selectedContinentId==='nowa_nadzieja';
   const visibleRegions = WORLD_REGIONS.filter((r) =>
-    selectedContinentId === 'all' ? true : r.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' : r.continentId === selectedContinentId,
   );
 
   const visibleTrailEvents = trailEvents.filter((ev) =>
-    selectedContinentId === 'all' ? true : ev.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' : ev.continentId === selectedContinentId,
   );
 
   const visibleRoutes = buildActiveRouteList(activeCaravans, selectedContinentId);
@@ -105,7 +108,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-amber-400">
-              Wielki Atlas 6 Kontynentów — Kupiecki Świat ({WORLD_REGIONS.length} Regionów · {CITIES.length} Stolic Handlowych)
+              Atlas Starego Lądu i Nowej Nadziei ({WORLD_REGIONS.length} Regionów · {CITIES.length} Stolic Handlowych)
             </h3>
             <p className="text-[11px] text-slate-400">
               Wybierz kontynent lub kliknij dowolny region, aby przelecieć kamerą 3D, handlować zamorsko lub wysłać Rycerza.
@@ -121,7 +124,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   : 'bg-[#111722] text-slate-300 border border-slate-800 hover:bg-slate-800'
               }`}
             >
-              Cały Świat ({WORLD_REGIONS.length})
+              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja').length})
             </button>
             {WORLD_CONTINENTS.map((cont) => {
               const count = WORLD_REGIONS.filter((r) => r.continentId === cont.id).length;
@@ -147,15 +150,15 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         {/* High-Altitude Photorealistic 6-Continent Satellite Map */}
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
-            src={imageUrl('world_map_six_continents_1795672943420.jpg')}
-            alt="Realistyczna mapa sześciu kontynentów Kupiecki Świat"
+            src={eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
+            alt={eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover"
+            className={eastern?'w-full h-full object-fill':'w-full h-full object-cover'}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/25 pointer-events-none" />
 
           {/* SVG Intercontinental Trade Lanes (Land Caravans + Trans-Oceanic Galleon Routes across 6 Continents) */}
-          <svg
+          {!eastern && <svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             className="absolute inset-0 w-full h-full pointer-events-none"
@@ -180,7 +183,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             {/* Aetheris & Solaria -> Archipelag Obsydianowy (Far-SE Volcanoes) */}
             <path d="M 85.0 39.0 Q 86 58 81.0 75.0" fill="none" stroke="#f97316" strokeWidth="0.4" strokeDasharray="1.4,0.9" opacity="0.92" />
             <path d="M 39.0 78.0 Q 58 84 74.0 82.0" fill="none" stroke="#f97316" strokeWidth="0.38" strokeDasharray="1.4,0.9" opacity="0.85" />
-          </svg>
+          </svg>}
 
           {/* Interactive Clickable Region Pins */}
           {visibleRegions.map((reg) => {
@@ -240,7 +243,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
           })}
 
           {/* Interactive Active Caravan Pins on Atlas (Click for Instant 3D Follow) */}
-          {visibleRoutes
+          {!eastern && visibleRoutes
             .filter((route) => route.kind === 'player' || route.id === trackedCaravanId)
             .map((route) => {
               const isTracked = cameraPreset === 'caravan' && trackedCaravanId === route.id;
@@ -301,7 +304,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                     : 'bg-[#070b12]/92 hover:bg-slate-800 text-amber-300 border-amber-500/50'
                 }`}
               >
-                {cinematicTourActive ? 'Zakończ Przelot 3D' : 'Kino 3D: Przelot 6 Kontynentów'}
+                {cinematicTourActive ? 'Zakończ Przelot 3D' : 'Kino 3D · przelot przez świat'}
               </button>
             )}
           </div>
@@ -533,6 +536,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             </button>
           </div>
 
+          {activeRegion.type==='workshop' && <CareerDesk key={(token??'guest')+activeRegion.id} token={token} site={activeRegion.id} choose={onSelectRegion}/>}
           {activeRegion.linkedCityId === 'srebrny_gaj' && <button type="button" onClick={onField} className="w-full rounded border border-emerald-700/70 py-2 text-emerald-200">Wspólne pole{macro.fieldStage && ' · ' + fieldLabels[macro.fieldStage]}</button>}
           {CITIES.some(c => c.id===activeRegion.linkedCityId && c.isCoastalPort && c.id!=='oaza_alkharim') &&
             <button type="button" onClick={onQuayView} className="w-full rounded border border-amber-700/70 py-2 text-amber-200">Widok z nabrzeża</button>}

@@ -180,3 +180,16 @@
 .relay-load a { color:#f4d996; text-decoration:underline; }
 .relay-load button { margin:.35rem .5rem .1rem 0; }
 @media(prefers-reduced-motion:reduce) { .relay-track i { transition:none; } }
+
+.spur-trial { background:#392e29; border-color:#a3794d; }
+.spur-heading { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); gap:clamp(1rem,4vw,3.5rem); align-items:center; margin-bottom:1rem; }
+.spur-heading img { display:block; width:100%; height:auto; border-radius:2px; }
+.spur-document { max-width:64ch; border-left:2px solid #ba945f; background:#2b221f; padding:.7rem 1.15rem; margin-top:1rem; overflow-wrap:anywhere; }
+.spur-document summary { cursor:pointer; color:#f5dfb3; }
+.spur-facts { margin:.5rem 0; }
+.spur-facts p { margin:.2rem 0; }
+.spur-document label,.spur-document textarea { display:block; width:100%; }
+.spur-document textarea { background:#fbf4df; color:#2b221f; padding:.5rem; margin-top:.35rem; }
+.spur-document blockquote,.post-register blockquote { margin:.7rem 0; font-family:Georgia,serif; }
+.spur-document cite,.post-register cite { display:block; }
+@media(max-width:650px) { .spur-heading { grid-template-columns:1fr; gap:.85rem; } }

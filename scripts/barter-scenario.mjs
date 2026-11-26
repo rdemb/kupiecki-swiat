@@ -4,7 +4,7 @@ import { exerciseGarrison } from './garrison-scenario.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-export async function exerciseBarter({ request, db, stop, start }) {
+export async function exerciseBarter({ request, db, stop, start, emperorLogin }) {
   const town = 'zelazna_kuznia',
     other = 'krolewska_przystan';
   const buyers = [];
@@ -164,5 +164,5 @@ export async function exerciseBarter({ request, db, stop, start }) {
   for (const buyer of buyers) buyer.token = (await request('/api/auth/login', 200, buyer.credentials)).token;
   await exerciseGarrison({read,send,request,db,stop,start,town,other,circle:next.id,terms:lots.map(({action,...terms})=>terms)});
   await exerciseSchool({read,send,request,db,stop,start,buyers,town,other});
-  await exerciseRelay({read,send,request,db,stop,start,buyers,town,other});
+  await exerciseRelay({read,send,request,db,stop,start,buyers,town,other,emperorLogin});
 }

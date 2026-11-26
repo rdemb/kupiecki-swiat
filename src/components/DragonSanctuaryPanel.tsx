@@ -12,7 +12,7 @@ import {
 } from '../economy/dragonBreeding';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const ALL_SPECIES_IDS: DragonSpeciesId[] = ['ogien', 'lod', 'szmaragd', 'zloto'];
+const ALL_SPECIES_IDS: DragonSpeciesId[] = Object.keys(DRAGON_SPECIES) as DragonSpeciesId[];
 
 interface DragonSanctuaryPanelProps {
   sanctuary: DragonSanctuaryState;
@@ -272,7 +272,7 @@ export const DragonSanctuaryPanel: React.FC<DragonSanctuaryPanelProps> = ({
             {/* 4 Elemental Dragon Species Egg Market (All 4 Bespoke Artworks) */}
             <div className="space-y-1">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Kup Jajo z 6 Kontynentów:
+                Jaja z hodowli kupieckich
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 {ALL_SPECIES_IDS.map((sid) => {

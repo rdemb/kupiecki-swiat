@@ -8,7 +8,7 @@ import { imageUrl } from '../utils/imageUrl';
 
 import type { CommodityId } from './economyEngine';
 
-export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto';
+export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit';
 
 export type DragonLifeStage = 1 | 2 | 3 | 4 | 5;
 
@@ -18,7 +18,7 @@ export interface DragonSpeciesSpec {
   elementLabel: string;
   originContinentName: string;
   artworkUrl: string;
-  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold';
+  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire';
   accentHex: string;
   favoriteCommodity: CommodityId;
   favoriteCommodityName: string;
@@ -30,6 +30,20 @@ export interface DragonSpeciesSpec {
 }
 
 export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
+  pseudosmok: {
+    id: 'pseudosmok', name: 'Pseudosmok pokładowy', elementLabel: 'Wiatr przybrzeżny',
+    originContinentName: 'Nowa Nadzieja', artworkUrl: imageUrl('pseudosmok.webp'), variant3D: 'copper',
+    accentHex: '#e39d65', favoriteCommodity: 'zboze', favoriteCommodityName: 'Zboże',
+    specialtySummary: 'Lekki zwiadowca. Podczas eskorty dodaje 4 punkty do premii prędkości karawan.',
+    baseFirePower: 9, baseFlightSpeed: 32, baseHoardGreed: 11, eggCostGold: 1600,
+  },
+  blekit: {
+    id: 'blekit', name: 'Błękitny smok przypływu', elementLabel: 'Woda i sztorm',
+    originContinentName: 'Nowa Nadzieja', artworkUrl: imageUrl('blekit-przyplywu.webp'), variant3D: 'sapphire',
+    accentHex: '#79b8d7', favoriteCommodity: 'krysztaly_many', favoriteCommodityName: 'Kryształy Many',
+    specialtySummary: 'Wyczuwa zmianę ciśnienia. Zwiększa odporność na katastrofy o 8 punktów.',
+    baseFirePower: 23, baseFlightSpeed: 25, baseHoardGreed: 18, eggCostGold: 3400,
+  },
   ogien: {
     id: 'ogien',
     name: 'Smok Ognia Ignisa',
@@ -194,6 +208,8 @@ export const DRAGON_MISSIONS: DragonMissionSpec[] = [
 ];
 
 const DRAGON_NAMES_BY_SPECIES: Record<DragonSpeciesId, string[]> = {
+  pseudosmok: ['Szelest', 'Kłębek', 'Bosman'],
+  blekit: ['Głębia', 'Bryzg', 'Witraż'],
   ogien: ['Ignis Vaelor', 'Pyrrhos Żaru', 'Karmazynowy Kael', 'Magmos'],
   lod: ['Glacius Boreal', 'Kryształowy Fenrir', 'Aurelia Szronu', 'Błękitny Skadi'],
   szmaragd: ['Aetherion Wiatru', 'Jadeitowy Sylph', 'Virelia z Valorii', 'Zefiros'],
@@ -263,7 +279,7 @@ export function computeDragonGlobalBonuses(sanctuary: DragonSanctuaryState): Dra
   const knightAttackBonus = Math.round(active.firePower * 0.45 + active.stage * 4 + fleetBonus * 3);
   const caravanSpeedBonusPct = Math.min(
     40,
-    Math.round(active.flightSpeed * 0.45 + (active.speciesId === 'szmaragd' ? 6 : 0) + fleetBonus * 2),
+    Math.round(active.flightSpeed * 0.45 + (active.speciesId === 'szmaragd' ? 6 : active.speciesId === 'pseudosmok' ? 4 : 0) + fleetBonus * 2),
   );
   const duchyIncomeBonusPct = Math.min(
     55,
@@ -271,7 +287,7 @@ export function computeDragonGlobalBonuses(sanctuary: DragonSanctuaryState): Dra
   );
   const disasterResistancePct = Math.min(
     50,
-    Math.round(active.stage * 7 + active.bondPct * 0.15 + fleetBonus * 3),
+    Math.round(active.stage * 7 + active.bondPct * 0.15 + fleetBonus * 3 + (active.speciesId === 'blekit' ? 8 : 0)),
   );
 
   return {

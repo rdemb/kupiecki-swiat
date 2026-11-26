@@ -1,3 +1,4 @@
+import {worksites} from '../economy/newHope';
 import { insideCommonField } from './commonField';
 import * as THREE from 'three';
 import { nearPort, portGroves, portWoodland, type WoodlandGround } from './portWoodland';
@@ -937,7 +938,31 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
     const [lx, lz] = lm.position2D;
     const ly = Math.max(0.05, getTerrainHeight(lx, lz));
 
-    if (lm.id === 'twierdza_rebeliantow') {
+    if (lm.type === 'workshop') {
+      const craft = worksites.find(s=>s.id===lm.id)!.craft;
+      function block(x:number,y:number,z:number,w:number,h:number,d:number,material:THREE.Material) {
+        const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);
+        part.position.set(x,y,z);lmGroup.add(part);return part;
+      }
+      block(0,.15,0,9,2.2,6,materials.castleStone);
+      for(const x of [-3.8,3.8]) for(const z of [-2.2,2.2])
+        block(x,3.1,z,.24,4,.24,materials.timberWood);
+      for(const side of [-1,1]) block(0,5.4,side*1.46,9.4,.16,3.25,materials.slateRoof).rotation.x=side*.35;
+      if(craft==='szkutnik') {
+        const yard=merchantCraft(materials);yard.quay(-5,1.2,2);yard.finish(lmGroup);
+      }else if(craft==='warzelnik'){
+        for(const x of [-2.1,2.1]){
+          block(x,1.65,.1,3.3,.7,3.5,materials.darkBasaltStone);
+          block(x,2.01,.1,3.07,.05,3.26,materials.oasisWaterMat);
+        }
+      }else{
+        block(0,1.9,1,5.8,.38,1.7,materials.timberWood);
+        for(let i=0;i<8;i++){
+          const amber=new THREE.Mesh(new THREE.IcosahedronGeometry(.22+(i%3)*.06),materials.gildedBrass);
+          amber.position.set(-2.3+i*.65,2.28,1+Math.sin(i)*.31);lmGroup.add(amber);
+        }
+      }
+    } else if (lm.id === 'twierdza_rebeliantow') {
       for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2;
         const log = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 2.6, 6), materials.timberWood);
@@ -1191,11 +1216,13 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
  */
 export function buildArticulatedDragon(
   materials: SharedWorldMaterials,
-  variant: 'crimson' | 'frost' | 'emerald' | 'gold' = 'crimson',
+  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' = 'crimson',
 ): THREE.Group {
   const dragon = new THREE.Group();
 
   const palette = {
+    copper: { body: 0x765035, wing: 0x955939, emissive: 0x763817, roughness: 0.77, metalness: 0.14 },
+    sapphire: { body: 0x194767, wing: 0x284357, emissive: 0x31608b, roughness: 0.32, metalness: 0.45 },
     crimson: { body: 0x7f1d1d, wing: 0x450a0a, emissive: 0x9a3412, roughness: 0.42, metalness: 0.48 },
     frost: { body: 0x1e40af, wing: 0x0f172a, emissive: 0x0ea5e9, roughness: 0.28, metalness: 0.52 },
     emerald: { body: 0x065f46, wing: 0x022c22, emissive: 0x10b981, roughness: 0.34, metalness: 0.50 },
