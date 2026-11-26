@@ -1,4 +1,4 @@
-import type { ReturnOrder, ReturnChoice } from './returnFreight';
+import type { ReturnOrder, ReturnChoice, FreightAccount } from './returnFreight';
 import type { Course, PilotBook } from './pilotage';
 import { bridgeRules } from './bridge';
 import { harborRules } from './harborWorks';
@@ -70,6 +70,7 @@ export interface MaidenLetter extends MaidenPassage {
 }
 
 export interface LaunchBoard {
+  freightAccounts: FreightAccount[];
   returns: ReturnOrder[];
   lastMaiden: MaidenPassage | null;
   open: LaunchNotice[];
@@ -126,6 +127,7 @@ export type YardAction =
       offer?: number;
     };
 export interface YardBook {
+  freightAccounts: FreightAccount[];
   returns: ReturnOrder[];
   now: number;
   oak: number;

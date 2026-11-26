@@ -9,3 +9,14 @@
 .return-lot { border-top: 1px solid #baa98c; padding: .6rem 0; }
 .return-choice { min-width: 0; margin: .7rem 0; padding: .8rem; border: 1px solid #978567; }
 .return-choice button { margin: .2rem; }
+.freight-quote { display: flex; flex-wrap: wrap; gap: .75rem 1.2rem; }
+.freight-quote input { display: block; width: 5rem; padding: .3rem; background: #fff9e9; color: #302a21; border: 1px solid #978567; }
+.freight-quote p { flex-basis: 100%; margin: 0; }
+.freight-price, .freight-ledger { margin: .8rem 0; }
+.freight-price summary, .freight-ledger summary { cursor: pointer; color: #473519; font-weight: 600; }
+.freight-price[open] summary, .freight-ledger[open] summary { margin-bottom: .65rem; }
+.freight-ledger { border-block: 1px solid #aa9875; padding: .8rem .3rem; }
+.freight-ledger ol { list-style: none; margin: 0; padding: 0; }
+.freight-ledger li { border-top: 1px solid #c5b593; padding: .65rem 0; font-variant-numeric: tabular-nums; }
+.freight-ledger-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem 1rem; }
+.freight-ledger-line time { font-size: .85em; }

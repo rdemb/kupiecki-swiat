@@ -5,6 +5,10 @@ export async function exerciseReturnFreight({ db, request, send, read, master, o
   commissionTrip, arrive, start, stop, logIn }) {
   const list = async () => (await request(inn, 200)).launches.returns;
   const purse = async who => (await request('/api/auth/me', 200, undefined, who.token)).profile;
+  const account = async (actor, id) => {
+    const { launches } = await request(inn, 200, undefined, actor?.token);
+    return launches.freightAccounts.find(entry => entry.id === id);
+  };
   const fields = { fee: 8, ask: 32 };
   const post = (actor, data = fields, code = 200) => send(actor, 'postReturn', data, code);
   const ownOrder = async actor => (await read(actor)).returns.find(r => r.own);
@@ -53,6 +57,10 @@ export async function exerciseReturnFreight({ db, request, send, read, master, o
   const landed = (await list()).find(r=>r.id===offer);
   assert.deepEqual([landed.state,landed.remaining,landed.vessel],['stall',2,'Skowronek']);
   assert.equal((await purse(smith)).gold,captainGold+18+8);
+  assert.equal(await account(null,offer),undefined);
+  assert.equal(await account(smith,offer),undefined);
+  assert.deepEqual(await account(oak,offer),{ id:offer, vessel:'Skowronek', landed:(await read(null,'?ship='+ship.ship)).ship.journal.find(v => v.id === charter).settled,
+    cost:48, fee:8, sacks:2, remaining:2, sold:0, revenue:0 });
   assert.equal((await read(null,'?ship='+ship.ship)).ship.journal[0].backhaul.cargo.fee,8);
   await send(oak,'buyReturn',{offer},409);
   await send(short,'buyReturn',{offer},409);
@@ -63,6 +71,8 @@ export async function exerciseReturnFreight({ db, request, send, read, master, o
   assert.equal((await purse(master)).inventory.zboze,buyer.inventory.zboze+1);
   assert.equal((await purse(master)).gold,buyer.gold-32);
   assert.equal((await purse(oak)).gold,opening.gold-56+32);
+  const half = await account(oak,offer);
+  assert.deepEqual([half.revenue,half.sold,half.remaining],[32,1,1]);
   await send(oak,'collectReturn',{offer});
   assert.equal((await purse(oak)).inventory.zboze,opening.inventory.zboze+1);
   await send(master,'buyReturn',{offer},409);
@@ -70,7 +80,9 @@ export async function exerciseReturnFreight({ db, request, send, read, master, o
   await stop(); await start();
   for(const a of [master,oak,smith]) await logIn(a);
   assert.equal((await purse(smith)).gold,captainGold+26);
-  await post(oak);
+  const stored = await account(oak,offer);
+  assert.deepEqual([stored.revenue,stored.sold,stored.remaining],[32,1,0]);
+  await post(oak,{fee:9,ask:32});
   const next = (await ownOrder(oak)).id;
   const plain = {...ship,charter:await commissionTrip()};
   const first = (await send(smith,'sail',plain)).ship.job;
@@ -90,9 +102,28 @@ export async function exerciseReturnFreight({ db, request, send, read, master, o
   await send(smith,'sail',final);
   await send(smith,'loadReturn',{...final,offer:next});
   await arrive(final.charter);
-  await send(master,'buyReturn',{offer:next});
-  const buyers = await Promise.allSettled([send(master,'buyReturn',{offer:next}),send(smith,'buyReturn',{offer:next})]);
+  const firstBuyer = { offer:next, quote:32, nonce:randomUUID() };
+  await send(master,'buyReturn',firstBuyer);
+  const change = {offer:next,quote:32,ask:27,nonce:randomUUID()};
+  await send(smith,'repriceReturn',{...change},409);
+  await send(oak,'repriceReturn',{...change,ask:0},409);
+  await Promise.all([send(oak,'repriceReturn',change),send(oak,'repriceReturn',change)]);
+  await send(oak,'repriceReturn',{...change,ask:25},409);
+  assert.equal((await list()).find(r=>r.id===next).ask,27);
+  const unchanged = (await purse(oak)).gold;
+  await send(master,'buyReturn',{offer:next,quote:32},409);
+  await send(master,'buyReturn',{offer:next},409);
+  await send(master,'buyReturn',firstBuyer);
+  assert.equal((await purse(oak)).gold,unchanged);
+  const purchase = {offer:next,quote:27};
+  const buyers = await Promise.allSettled([send(master,'buyReturn',purchase),send(smith,'buyReturn',purchase)]);
   assert.equal(buyers.filter(x=>x.status==='fulfilled').length,1);
   assert.equal(buyers.find(x=>x.status==='rejected').reason.actual,409);
   assert.ok(!(await list()).some(r=>r.id===next));
+  await stop(); await start(); await logIn(oak);
+  const closed = await account(oak,next);
+  assert.deepEqual([closed.cost,closed.fee,closed.sold,closed.remaining,closed.revenue],[48,9,2,0,59]);
+  assert.equal(closed.revenue-closed.cost-closed.fee,2);
+  assert.equal((await purse(oak)).gold,unchanged+27);
+  assert.equal(await account(null,next),undefined);
 }

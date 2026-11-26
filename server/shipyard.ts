@@ -92,6 +92,7 @@ export function installShipyard(
   function launchBoard(uid: string | null): LaunchBoard {
     return {
       returns: returns.board(uid, Date.now()),
+      freightAccounts: returns.accounts(uid),
       lastMaiden: maidens.latest(),
       open: openNotices.all() as unknown as LaunchNotice[],
       lastLaunch:
@@ -178,6 +179,7 @@ export function installShipyard(
     const s = hull.get(id ?? own?.id ?? fleet[0]?.id ?? 0);
     const book: YardBook = {
       returns: returns.board(me?.uid ?? null, now),
+      freightAccounts: returns.accounts(me?.uid ?? null),
       now,
       oak: rafts.portStock(),
       salt: harbor.salt(),
@@ -273,15 +275,16 @@ export function installShipyard(
     offer: unknown,
     fee: unknown,
     ask: unknown,
+    quote: unknown,
     now: number,
   ): number {
     if (action === 'postReturn') {
       returns.post(me, fee, ask, now);
       return 0;
     }
-    if (action === 'cancelReturn' || action === 'buyReturn' || action === 'collectReturn') {
+    if (action === 'cancelReturn' || action === 'buyReturn' || action === 'collectReturn' || action === 'repriceReturn') {
       check(positive(offer), 'Wybierz zlecenie frachtowe.');
-      returns.trade(me, action, offer);
+      returns.trade(me, action, offer, quote, ask);
       return 0;
     }
     if (action === 'offerLighter' || action === 'recallLighter') {
@@ -567,6 +570,7 @@ export function installShipyard(
         offer,
         fee,
         ask,
+        quote,
         nonce,
       } = req.body ?? {};
       check(
@@ -582,7 +586,10 @@ export function installShipyard(
       const parts = [action, ship, name, charter];
       if (course !== undefined || reference !== undefined)
         parts.push(course, reference);
-      if (offer !== undefined || fee !== undefined) parts.push({ offer, fee });
+      if (offer !== undefined || fee !== undefined) {
+        const signedQuote = (action === 'buyReturn' || action === 'repriceReturn') ? quote : undefined;
+        parts.push({ offer, fee, quote: signedQuote });
+      }
       if (ask !== undefined) parts.push({ ask });
       const payload = JSON.stringify(parts);
       const slip = db
@@ -607,6 +614,7 @@ export function installShipyard(
           offer,
           fee,
           ask,
+          quote,
           now,
         );
         db.prepare('INSERT INTO yardSlips VALUES(?,?,?,?)').run(

@@ -210,10 +210,10 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
-                  {book.launches?.returns && <ReturnFreightDesk orders={book.launches.returns} token={token} login={onAccount}
+                  {book.launches?.returns && <ReturnFreightDesk orders={book.launches.returns} accounts={book.launches.freightAccounts ?? []} token={token} login={onAccount}
                     yard={()=>onTab('shipyard')} refresh={read} update={page => {
                       ++seq.current;
-                      setBook(prev => prev?.launches ? { ...prev, launches: { ...prev.launches, returns: page.returns } } : prev);
+                      setBook(prev => prev?.launches ? { ...prev, launches: { ...prev.launches, returns: page.returns, freightAccounts: page.freightAccounts } } : prev);
                       if (page.wallet) onSettlement(page.wallet.uid, page.wallet.mark);
                     }}/>}
                   {book.launches && <LaunchBoard board={book.launches} yard={()=>onTab('shipyard')}/>}

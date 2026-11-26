@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { returnTerms as terms, type ReturnDeskAction, type ReturnOrder } from '../economy/returnFreight';
+import { returnTerms as terms, type ReturnDeskAction, type ReturnOrder, type FreightAccount } from '../economy/returnFreight';
 import type { Charter, YardBook } from '../economy/shipyard';
 import { gameRequest } from '../utils/gameServer';
+import { FreightLedger, FreightQuote, StallPrice } from './FreightLedger';
 import { PortLink } from './PortLink';
 import { cinemaFile } from './MerchantRoad';
 import './returnFreight.css';
 
 type DeskProps = {
-  orders: ReturnOrder[]; token: string | null; login: () => void; yard: () => void;
+  orders: ReturnOrder[]; accounts: FreightAccount[]; token: string | null; login: () => void; yard: () => void;
   update: (page: YardBook) => void; refresh: () => void;
 };
-export function ReturnFreightDesk({ orders, token, login, yard, update, refresh }: DeskProps) {
+export function ReturnFreightDesk({ orders, accounts, token, login, yard, update, refresh }: DeskProps) {
   const [fee, setFee] = useState('8'), [ask, setAsk] = useState('32');
   const [busy, setBusy] = useState(false), [note, setNote] = useState('');
   const lock = useRef(false), retry = useRef<{ key: string; nonce: string } | null>(null);
@@ -57,11 +58,13 @@ export function ReturnFreightDesk({ orders, token, login, yard, update, refresh 
       <p>Zamów dwa worki zboża u kupców na redzie. Szyper może zabrać je po dostawie soli.
         Po powrocie dostanie przewoźne, a twoje zboże trafi na stragan po cenie, którą wpiszesz.</p>
       {!mine && (token ? <form onSubmit={e => { e.preventDefault(); void send({ action:'postReturn', fee:Number(fee), ask:Number(ask) }, 'List wisi w karczmie. Złoto odłożone.'); }}>
-        <label>Przewoźne za oba worki (zł)<input type="number" min="1" max={terms.maxFee} required step="1" value={fee} onChange={e=>setFee(e.target.value)}/></label>
-        <label>Cena sprzedaży za worek (zł)<input type="number" min="1" max={terms.maxAsk} required step="1" value={ask} onChange={e=>setAsk(e.target.value)}/></label>
+        <FreightQuote {...{ fee, ask, setFee, setAsk }} />
         <p>Dwa worki kosztują {terms.lotCost} zł. Jeśli nikt nie przyjmie listu przez {terms.orderMs/60000} minut, cały depozyt wróci do sakwy.</p>
         <button type="submit" disabled={busy}>Wywieś list i odłóż {terms.lotCost + Number(fee)} zł</button>
-      </form> : <button onClick={login}>Zaloguj się, żeby zamówić fracht</button>)}
+      </form> : <>
+        <details className="freight-price"><summary>Policz opłacalność rejsu</summary>
+          <FreightQuote {...{ fee, ask, setFee, setAsk }} /></details>
+        <button onClick={login}>Zaloguj się, żeby zamówić fracht</button></>)}
       {orders.some(o=>o.state !== 'stall') && <h3>Listy frachtowe</h3>}
       {orders.filter(o=>o.state !== 'stall').map(o=><div className="return-lot" key={o.id}>
         <b>{o.name}</b> · 2 worki zboża · {o.fee} zł dla szypra.
@@ -75,10 +78,14 @@ export function ReturnFreightDesk({ orders, token, login, yard, update, refresh 
       {!orders.some(o=>o.state==='stall') && <p>Stragan czeka na dostawę z redy.</p>}
       {orders.filter(o=>o.state==='stall').map(o=><div className="return-lot" key={o.id}>
         <b>{o.name}</b> · szkuta „{o.vessel}” · na straganie {o.remaining === 1 ? '1 worek' : o.remaining + ' worki'} · {o.ask} zł za worek.{' '}
-        {o.own ? <button disabled={busy} onClick={()=>send({action:'collectReturn',offer:o.id},'Pozostałe zboże trafiło do twojego magazynu.')}>Odbierz pozostałe zboże</button> :
-          token ? <button disabled={busy} onClick={()=>send({action:'buyReturn',offer:o.id},'Worek trafił do twojego magazynu. Kupiec otrzymał zapłatę.')}>Kup worek za {o.ask} zł</button> :
+        {o.own ? <>
+          <StallPrice key={o.ask} order={o} entry={accounts.find(entry => entry.id === o.id)} busy={busy}
+            change={ask => void send({action:'repriceReturn', offer:o.id, quote:o.ask, ask}, 'Nowa cena wisi na straganie.')} />
+          <button disabled={busy} onClick={()=>send({action:'collectReturn',offer:o.id},'Pozostałe zboże trafiło do twojego magazynu.')}>Odbierz pozostałe zboże</button></> :
+          token ? <button disabled={busy} onClick={()=>send({action:'buyReturn',offer:o.id,quote:o.ask},'Worek trafił do twojego magazynu. Kupiec otrzymał zapłatę.')}>Kup worek za {o.ask} zł</button> :
           <button onClick={login}>Zaloguj się, by kupić zboże</button>}
       </div>)}
+      {token && <FreightLedger entries={accounts} />}
       {note && <p role="status">{note}</p>}
     </div>
   </section>;

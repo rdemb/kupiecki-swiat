@@ -8,10 +8,26 @@ export type ReturnOrder = {
   state: 'open' | 'aboard' | 'stall'; expires: number; own: boolean;
   ship: number | null; vessel: string | null;
 };
+export interface FreightAccount {
+  id: number; vessel: string; landed: number;
+  cost: number; fee: number; sacks: number; remaining: number; sold: number; revenue: number;
+}
+
+export function freightEstimate(cost: number, fee: number, stock: number, ask: number, revenue = 0) {
+  const outlay = cost + fee;
+  return {
+    outlay,
+    breakEven: stock > 0 ? Math.ceil(Math.max(0, outlay - revenue) / stock) : null,
+    projected: revenue + stock * ask - outlay,
+  };
+}
+
 export type ReturnChoice = { cargo: null | { name: string; fee: number } };
 export type ReturnDeskAction =
   | { action: 'postReturn'; fee: number; ask: number }
-  | { action: 'cancelReturn' | 'buyReturn' | 'collectReturn'; offer: number };
+  | { action: 'buyReturn'; offer: number; quote: number }
+  | { action: 'repriceReturn'; offer: number; quote: number; ask: number }
+  | { action: 'cancelReturn' | 'collectReturn'; offer: number };
 
 export function roadstead(departed: number, due: number, loaded = false) {
   const baseDue = due - (loaded ? returnTerms.loadMs : 0);
