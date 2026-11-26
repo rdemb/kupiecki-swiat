@@ -26,6 +26,17 @@
   max-width: 37rem;
   margin: 0;
 }
+.barter-letter {
+  margin: 1rem clamp(1rem, 3vw, 2rem) 0;
+  padding: 1rem 1.25rem;
+  background: #352b1f;
+  border-inline-start: 3px solid #d8b57d;
+  overflow-wrap: anywhere;
+}
+.barter-tip a {
+  color: #ebc57d;
+  text-decoration: underline;
+}
 .barter-content {
   display: grid;
   grid-template-columns: 1fr 1fr;

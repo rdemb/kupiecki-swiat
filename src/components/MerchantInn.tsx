@@ -17,7 +17,7 @@ import { ReturnFreightDesk } from './ReturnFreight';
 import { LaunchBoard } from './LaunchBoard';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
-import { barterHref } from '../economy/barter';
+import { barterHref, barterLot } from '../economy/barter';
 import { fairGoods, fairHref, isFairTown } from '../economy/harvestFair';
 import { HarvestTable } from './HarvestFeast';
 import { feastTowns, type FeastTown } from '../economy/harvestLoaf';
@@ -227,6 +227,19 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {isFairTown(city) && book.barterCalls && (
+                    <section className="feast-table" id="wezwania-kupcow" aria-label="Wezwania z targu">
+                      <h3>Wezwania z targu</h3>
+                      {book.barterCalls.length ? <ul>{book.barterCalls.map(call => (
+                        <li key={call.id}>
+                          <strong>{call.firstName} i {call.secondName}</strong> szukają trzeciego kupca.
+                          <p>Przynieś {barterLot(call.give, call.giveQty)}. Otrzymasz {barterLot(call.want, call.wantQty)} po podpisaniu umowy.</p>
+                          <PortLink href={barterHref(city, call.id)} go={() => onTab('barter', city)}>Obejrzyj tę wymianę</PortLink>
+                        </li>
+                      ))}</ul> : <p>Dziś na tablicy nie ma czynnych wezwań.</p>}
+                      <PortLink href={barterHref(city)} go={() => onTab('barter', city)}>Przejdź na targ bez monety</PortLink>
+                    </section>
+                  )}
                   {book.harvestTable && feastTowns.some(town=>town===city) && <HarvestTable visit={onTab} loaves={book.harvestTable}/>}
                   {isFairTown(city) && <section className="feast-table">
                     {book.fair?.opening && <><h3>Zamówienia przy stole</h3><ul>{fairGoods.map(good=>{

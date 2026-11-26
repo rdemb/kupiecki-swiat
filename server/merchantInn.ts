@@ -27,6 +27,7 @@ export function installMerchantInn(
   launchBoard: (uid: string | null) => LaunchBoard,
   harvestTable: (city:string, now:number)=>import('../src/economy/harvestLoaf').Loaf[],
   fairBook: (city:string, now:number)=>FairBook,
+  barterCalls: (city: string) => import('../src/economy/barter').BarterCall[],
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -91,7 +92,7 @@ export function installMerchantInn(
         : [],
       boardAt,
       harvestTable:harvestTable(city,boardAt),
-      ...(isFairTown(city) ? {fair:fairBook(city,boardAt)} : {}),
+      ...(isFairTown(city) ? {fair:fairBook(city,boardAt), barterCalls:barterCalls(city)} : {}),
       launches: city === 'krolewska_przystan' ? launchBoard(uid) : null,
       pilotage: city === 'krolewska_przystan' ? pilotBook(uid) : null,
       riverReports: city === bridgeSite ? riverReports(boardAt) : [],

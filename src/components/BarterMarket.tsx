@@ -1,14 +1,17 @@
 import { useState } from 'react';
+import { PortLink } from './PortLink';
 import { CITIES } from '../economy/economyEngine';
 import {
   barterGoods,
   barterNames,
+  barterHref,
+  barterLot as lot,
+  findBarterPair,
   maxBarterLot,
   type BarterBook,
   type BarterCircle,
   type BarterCommand,
   type BarterGood,
-  type BarterOffer,
   type BarterTerms,
 } from '../economy/barter';
 import type { MillBook } from '../economy/mill';
@@ -23,21 +26,7 @@ type Props = {
   sign: (cmd: BarterCommand, note: string) => Promise<boolean>;
   login: () => void;
 };
-const lot = (item: BarterGood, qty: number) => qty + ' × ' + barterNames[item];
 const stockKey = { zboze: 'grain', drewno_elfickie: 'wood', zelazo: 'iron' } as const;
-function missingOffer(waiting: BarterOffer[]) {
-  for (const a of waiting) {
-    const b = waiting.find(
-      (o) => a.want === o.give && a.wantQty === o.giveQty && o.want !== a.give,
-    );
-    if (b)
-      return {
-        first: a,
-        second: b,
-        terms: { give: b.want, giveQty: b.wantQty, want: a.give, wantQty: a.giveQty },
-      };
-  }
-}
 function Contract({ circle, busy, sign }: { circle: BarterCircle } & Pick<Props, 'busy' | 'sign'>) {
   const seals = circle.offers.filter((o) => o.sealed).length;
   const mine = circle.offers.find((o) => o.mine);
@@ -117,7 +106,17 @@ export function BarterMarket({ city, book, wallet, busy, sign, login }: Props) {
   });
   const own = book.waiting.find((o) => o.mine);
   const engaged = !!own || book.circles.some((c) => c.offers.some((o) => o.mine));
-  const missing = missingOffer(book.waiting);
+  const missing = findBarterPair(book.waiting, own);
+  const calls = book.calls ?? [];
+  const posted = own && calls.find((n) => n.postedBy === own.id);
+  const hanging =
+    missing && calls.some((n) => n.first === missing.first.id && n.second === missing.second.id);
+  const [addressed, setAddressed] = useState(() =>
+    new URLSearchParams(window.location.search).get('wezwanie'),
+  );
+  const [answered, setAnswered] = useState<number | null>(null);
+  const invited = addressed === null ? undefined : calls.find((n) => String(n.id) === addressed);
+  const invitedStock = invited ? (wallet?.[stockKey[invited.give]] ?? 0) : 0;
   const stock = wallet?.[stockKey[terms.give]] ?? 0;
   function input(side: 'give' | 'want', label: string) {
     const opposite = side === 'give' ? 'want' : 'give';
@@ -178,6 +177,52 @@ export function BarterMarket({ city, book, wallet, busy, sign, login }: Props) {
           pieczęć przeniesie towar do każdego magazynu.
         </p>
       </header>
+      {addressed !== null && (
+        <section className="barter-letter" aria-label="Wezwanie z karczmy" aria-live="polite">
+          <h2>Wezwanie z karczmy</h2>
+          {invited ? (
+            <>
+              <p>
+                Przy stole czekają <strong>{invited.firstName}</strong> i{' '}
+                <strong>{invited.secondName}</strong>.
+              </p>
+              <p>
+                Odłożysz {lot(invited.give, invited.giveQty)}. Po trzech podpisach otrzymasz{' '}
+                {lot(invited.want, invited.wantQty)}.
+              </p>
+              {engaged ? (
+                <p>Masz już ofertę na tym placu.</p>
+              ) : wallet ? (
+                <>
+                  <button
+                    disabled={busy || invitedStock < invited.giveQty}
+                    onClick={async () => {
+                      if (
+                        await sign(
+                          { action: 'answerBarterCall', call: invited.id },
+                          'Kupcy są przy stole. Sprawdź umowę i przyłóż pieczęć.',
+                        )
+                      )
+                        setAnswered(invited.id);
+                    }}
+                  >
+                    Dołącz do tych kupców i odłóż towar
+                  </button>
+                  {invitedStock < invited.giveQty && (
+                    <p>W magazynie masz {lot(invited.give, invitedStock)}.</p>
+                  )}
+                </>
+              ) : (
+                <button onClick={login}>Zaloguj się, żeby odpowiedzieć</button>
+              )}
+            </>
+          ) : answered !== null && String(answered) === addressed ? (
+            <p>Twoja odpowiedź dotarła. Umowę znajdziesz w księdze poniżej.</p>
+          ) : (
+            <p>Wezwanie zniknęło z tablicy. Aktualne oferty i umowy znajdziesz poniżej.</p>
+          )}
+        </section>
+      )}
       <div className="barter-content">
         <section>
           <h2>Księga ofert</h2>
@@ -210,7 +255,61 @@ export function BarterMarket({ city, book, wallet, busy, sign, login }: Props) {
               Wycofaj ofertę i odbierz towar
             </button>
           )}
-          {!engaged && missing && (
+          {own && posted && (
+            <aside className="barter-tip">
+              <strong>Twoje wezwanie w karczmie</strong>
+              <p>
+                <PortLink
+                  href={barterHref(city, posted.id)}
+                  go={() => setAddressed(String(posted.id))}
+                >
+                  Otwórz list dla trzeciego kupca
+                </PortLink>
+              </p>
+              <button
+                className="barter-quiet"
+                disabled={busy}
+                onClick={() =>
+                  void sign(
+                    { action: 'recallBarterCall', call: posted.id },
+                    'Wezwanie zdjęte. Twoja oferta nadal leży na targu.',
+                  )
+                }
+              >
+                Zdejmij wezwanie
+              </button>
+            </aside>
+          )}
+          {own && !posted && missing && (
+            <aside className="barter-tip">
+              <strong>Potrzebny trzeci kupiec</strong>
+              <p>
+                {missing.first.name} i {missing.second.name} szukają kogoś, kto odda{' '}
+                {lot(missing.terms.give, missing.terms.giveQty)} za{' '}
+                {lot(missing.terms.want, missing.terms.wantQty)}.
+              </p>
+              {hanging ? (
+                <p>Wezwanie do tej wymiany już wisi w karczmie.</p>
+              ) : (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void sign(
+                      {
+                        action: 'inviteBarter',
+                        first: missing.first.id,
+                        second: missing.second.id,
+                      },
+                      'Wezwanie wisi na tablicy w miejscowej karczmie.',
+                    )
+                  }
+                >
+                  Wywieś wezwanie w karczmie
+                </button>
+              )}
+            </aside>
+          )}
+          {!engaged && missing && !invited && (
             <aside className="barter-tip">
               <strong>Brakuje trzeciego kupca</strong>
               <p>

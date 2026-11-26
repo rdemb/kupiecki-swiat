@@ -245,8 +245,10 @@ export function installMill(
     const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow', ...seedActions].includes(action);
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
-    const isBarter = ['postBarter','withdrawBarter','sealBarter'].includes(action);
+    const isBarter = ['postBarter','withdrawBarter','sealBarter','inviteBarter','recallBarterCall','answerBarterCall'].includes(action);
     if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
+    if (action === 'inviteBarter') fields.push(req.body.first, req.body.second);
+    if (action === 'recallBarterCall' || action === 'answerBarterCall') fields.push(req.body.call);
     if (action === 'supplyFair') fields.push(req.body.loaf, req.body.good);
     if (isFeast) fields.push(req.body.loaf, req.body.town);
     if (action === 'recallHarvestSeed' || action === 'acceptHarvestSeed') fields.push(req.body.lot);
@@ -367,6 +369,7 @@ export function installMill(
   });
   return {
     fairBook: fair.book,
+    barterCalls: barter.calls,
     transfer,
     settleGold: (uid: string, change: number) => transfer(uid, change, 0),
     useRation: (uid: string) =>

@@ -30,6 +30,35 @@ export async function exerciseBarter({ request, db, stop, start }) {
   await send(0, lots[0], 409);
   assert.equal((await read(0)).wallet.grain, initial[0].grain - 4);
   await send(1, lots[1]);
+  const inn = async (city = town) => (await request('/api/inn/' + city, 200)).barterCalls;
+  assert.deepEqual(await inn(), [], 'the inn displays only notices players actually post');
+  await send(0, lots[0], 200, other);
+  const [overA, overB] = (await send(1, lots[1], 200, other)).barter.waiting;
+  await send(0, { action: 'inviteBarter', first: overA.id, second: overB.id }, 200, other);
+  const [lost] = await inn(other);
+  await send(1, { action: 'withdrawBarter', offer: overB.id }, 200, other);
+  assert.deepEqual(await inn(other), []);
+  await send(2, { action: 'answerBarterCall', call: lost.id }, 409, other);
+  await send(0, { action: 'withdrawBarter', offer: overA.id }, 200, other);
+  const [a, b] = (await read()).barter.waiting;
+  const invite = { action: 'inviteBarter', first: a.id, second: b.id };
+  await send(2, invite, 409);
+  await send(0, { ...invite, first: b.id, second: a.id }, 409);
+  const invitation = { ...invite, nonce: randomUUID() };
+  await Promise.all([send(0, invitation), send(0, invitation)]);
+  const [letter] = await inn();
+  assert.deepEqual(await inn(other), []);
+  assert.equal(letter.give, lots[2].give);
+  assert.equal(letter.wantQty, lots[2].wantQty);
+  assert.ok(!('owner' in letter) && !('uid' in letter));
+  await send(1, { action: 'recallBarterCall', call: letter.id }, 409);
+  await send(2, { action: 'answerBarterCall', call: letter.id }, 409, other);
+  await send(0, { action: 'recallBarterCall', call: letter.id });
+  await send(2, { action: 'answerBarterCall', call: letter.id }, 409);
+  assert.deepEqual(await inn(), []);
+  assert.equal((await read(2)).wallet.iron, initial[2].iron);
+  await send(1, invite);
+  const [nextLetter] = await inn();
   const base = initial[1];
   await request(
     '/api/profile/sync',
@@ -41,6 +70,11 @@ export async function exerciseBarter({ request, db, stop, start }) {
     legacy,
   );
   assert.equal((await read(1)).wallet.wood, base.wood - 2, 'old tab cannot return the deposit');
+  await stop();
+  await start();
+  for (const buyer of buyers)
+    buyer.token = (await request('/api/auth/login', 200, buyer.credentials)).token;
+  assert.deepEqual(await inn(), [nextLetter]);
   const abroad = await send(2, lots[2], 200, other);
   assert.equal((await read()).barter.waiting.length, 2);
   await send(2, { action: 'withdrawBarter', offer: abroad.barter.waiting[0].id }, 200, other);
@@ -48,7 +82,21 @@ export async function exerciseBarter({ request, db, stop, start }) {
   assert.equal(wrong.barter.waiting.length, 3);
   assert.equal(wrong.barter.circles.length, 0);
   await send(2, { action: 'withdrawBarter', offer: wrong.barter.waiting.find((o) => o.mine).id });
-  const cycle = (await send(2, lots[2])).barter.circles[0];
+  // Another offer has the same terms. Answering the letter must seat exactly its two signatories.
+  const competing = (await send(3, lots[0])).barter.waiting.find((o) => o.mine);
+  await send(1, { action: 'recallBarterCall', call: nextLetter.id });
+  await send(3, { ...invite, first: competing.id });
+  const [specific] = await inn();
+  const answer = { action: 'answerBarterCall', call: specific.id, nonce: randomUUID() };
+  await Promise.all([send(2, answer), send(2, answer)]);
+  const selected = (await read()).barter.circles[0];
+  assert.ok(selected.offers.some((o) => o.id === competing.id));
+  assert.ok(!selected.offers.some((o) => o.id === a.id));
+  assert.deepEqual(await inn(), []);
+  await send(3, { action: 'withdrawBarter', offer: competing.id });
+  const cycle = (await read()).barter.circles[0];
+  assert.ok(cycle.offers.some((o) => o.id === a.id));
+  await send(2, { action: 'answerBarterCall', call: specific.id }, 409);
   function seal(c, i) {
     const offer = c.offers.find((o) => o.give === lots[i].give);
     return { action: 'sealBarter', offer: offer.id, circle: c.id };
@@ -104,5 +152,10 @@ export async function exerciseBarter({ request, db, stop, start }) {
   assert.equal(barter.recent.length, 1);
   assert.equal(barter.recent[0].id, next.id);
   assert.ok(barter.recent[0].offers.every((o) => o.sealed && !o.mine && !('owner' in o)));
-  assert.deepEqual((await read(undefined, other)).barter, { waiting: [], circles: [], recent: [] });
+  assert.deepEqual((await read(undefined, other)).barter, {
+    waiting: [],
+    circles: [],
+    recent: [],
+    calls: [],
+  });
 }
