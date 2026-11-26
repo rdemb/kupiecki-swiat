@@ -12,6 +12,8 @@ import {
   sailingSeconds,
   shipRules as r,
   type Hull,
+  type LaunchBoard,
+  type LaunchNotice,
   type YardBook,
 } from '../src/economy/shipyard';
 import type { WeatherConditionId } from '../src/economy/economyEngine';
@@ -48,6 +50,7 @@ export function installShipyard(
     CREATE TABLE IF NOT EXISTS yardBuild(id INTEGER PRIMARY KEY,ship INTEGER NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('oak','iron')),
       owner TEXT NOT NULL,name TEXT NOT NULL,at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS yardBuildHull ON yardBuild(ship,id);
+    CREATE TABLE IF NOT EXISTS yardInvitations(ship INTEGER PRIMARY KEY REFERENCES yardShips(id), signer TEXT NOT NULL, posted INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS yardVoyages(id INTEGER PRIMARY KEY, ship INTEGER NOT NULL,sponsor TEXT NOT NULL,payer TEXT NOT NULL,
       captain TEXT,skipper TEXT,offered INTEGER NOT NULL,expires INTEGER NOT NULL,departed INTEGER,due INTEGER,settled INTEGER,
       closed INTEGER NOT NULL DEFAULT 0,barrels INTEGER NOT NULL,wage INTEGER NOT NULL,freight INTEGER NOT NULL, teams INTEGER NOT NULL DEFAULT 0);
@@ -65,6 +68,30 @@ export function installShipyard(
   const plank = db.prepare(
     'SELECT id,name,kind,at FROM yardBuild WHERE ship=? ORDER BY id',
   );
+  const invitation = db.prepare(
+    'SELECT signer,posted FROM yardInvitations WHERE ship=?',
+  );
+  // Deliveries and launch status always come from the ship's original register.
+  const notices = `SELECT s.id AS ship,s.guildName AS guild,i.signer,i.posted,s.name AS vessel,s.launched,
+    ${r.oakLoads}-(SELECT COUNT(*) FROM yardBuild b WHERE b.ship=s.id AND b.kind='oak') AS oakMissing,
+    ${r.ironLots}-(SELECT COUNT(*) FROM yardBuild b WHERE b.ship=s.id AND b.kind='iron') AS ironMissing
+    FROM yardInvitations i JOIN yardShips s ON s.id=i.ship JOIN innGuilds g ON g.id=s.guild `;
+  const openNotices = db.prepare(
+    notices +
+      'WHERE s.launched IS NULL AND g.archived=0 ORDER BY i.posted,s.id',
+  );
+  const lastLaunch = db.prepare(
+    notices +
+      'WHERE s.launched IS NOT NULL ORDER BY s.launched DESC,s.id DESC LIMIT 1',
+  );
+  function launchBoard(): LaunchBoard {
+    return {
+      open: openNotices.all() as unknown as LaunchNotice[],
+      lastLaunch:
+        (lastLaunch.get() as unknown as LaunchNotice | undefined) ?? null,
+      portOak: rafts.portStock(),
+    };
+  }
   const live = db.prepare(
     'SELECT * FROM yardVoyages WHERE ship=? AND closed=0',
   );
@@ -206,6 +233,10 @@ export function installShipyard(
       oak: deliveries.filter((i) => i.kind === 'oak').length,
       iron: deliveries.filter((i) => i.kind === 'iron').length,
       deliveries,
+      invitation:
+        (invitation.get(s.id) as unknown as NonNullable<
+          YardBook['ship']
+        >['invitation']) ?? null,
       job: job ? charter(job) : null,
       journal: rows.slice(0, 8).map(charter),
       more: rows.length > 8,
@@ -263,7 +294,32 @@ export function installShipyard(
     check(positive(ship), 'Wybierz statek z rejestru.');
     const s = hull.get(ship);
     check(s, 'W rejestrze nie ma takiego statku.');
-    if (action === 'oak' || action === 'iron') {
+    if (action === 'inviteBuilders' || action === 'removeInvitation') {
+      check(s.launched === null, 'Ta szkuta została już zwodowana.');
+      check(
+        !guild.get(s.guild)?.archived && master(me, s),
+        'Zaproszeniem rozporządza mistrz czynnej gildii.',
+      );
+      if (action === 'inviteBuilders') {
+        check(
+          !invitation.get(ship),
+          'Zaproszenie na tę pochylnię już wisi w gospodzie.',
+        );
+        check(
+          plank.all(ship).length < r.oakLoads + r.ironLots,
+          'Kadłub ma już wszystkie materiały.',
+        );
+        db.prepare(
+          'INSERT INTO yardInvitations(ship,signer,posted) VALUES(?,?,?)',
+        ).run(ship, me.displayName, now);
+      } else {
+        check(
+          db.prepare('DELETE FROM yardInvitations WHERE ship=?').run(ship)
+            .changes,
+          'W karczmie nie ma tego zaproszenia.',
+        );
+      }
+    } else if (action === 'oak' || action === 'iron') {
       check(s.launched === null, 'Ta szkuta jest już na wodzie.');
       const isOak = action === 'oak',
         max = isOak ? r.oakLoads : r.ironLots,
@@ -544,5 +600,5 @@ export function installShipyard(
     db.exec('ROLLBACK');
     throw e;
   }
-  return { advance, pilotBook: pilots.book };
+  return { advance, pilotBook: pilots.book, launchBoard };
 }

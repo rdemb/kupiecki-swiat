@@ -1,4 +1,5 @@
 import type { MillMark } from './mill';
+import type { LaunchBoard } from './shipyard';
 import type { PilotBook } from './pilotage';
 import type { RiverReading } from './river';
 import type { SeasonId, WeatherConditionId } from './economyEngine';
@@ -26,6 +27,7 @@ export interface InnBook {
   letters: { id: number; name: string; body: string; at: number }[];
   boardAt: number;
   pilotage: PilotBook | null;
+  launches: LaunchBoard | null;
   riverReports: RiverReading[];
   notices: {
     id: number;

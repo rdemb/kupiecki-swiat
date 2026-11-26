@@ -19,6 +19,7 @@ type Props = {
   muted: boolean;
   close: () => void;
   login: () => void;
+  inn: () => void;
   pilots: () => void;
   guild: () => void;
   harbor: () => void;
@@ -54,6 +55,7 @@ export default function Shipyard({
   muted,
   close,
   login,
+  inn,
   guild,
   pilots,
   harbor,
@@ -179,6 +181,8 @@ export default function Shipyard({
       const messages: Record<YardAction['action'], string> = {
         offerLighter: 'Twoja oferta wisi na kei. Szyper może wynająć twoją łódź.',
         recallLighter: 'Oferta zdjęta z kei.',
+        inviteBuilders: 'Podpisane zaproszenie wisi na tablicy Gospody Pod Złotym Gryfem.',
+        removeInvitation: 'Zaproszenie zdjęto z tablicy.',
         commission: 'Stępka położona. Można dostarczać materiały.',
         oak: 'Sześć dębowych belek wydano na poszycie.',
         iron: 'Okucia z kuźni przyjęte na pochylnię.',
@@ -204,6 +208,11 @@ export default function Shipyard({
         Math.max(0, (now - job.departed!) / (job.due! - job.departed!)),
       )
     : 0;
+  const requested = new URLSearchParams(location.search).get('dostawa');
+  const material = requested === 'dab' || requested === 'okucia' ? requested : null;
+  useEffect(() => {
+    if (hull?.id && material) document.getElementById('wybrana-dostawa')?.focus();
+  }, [hull?.id, material]);
   const hullReady = ship?.oak === r.oakLoads && ship?.iron === r.ironLots;
   return (
     <main className="merchant-inn shipyard">
@@ -307,6 +316,7 @@ export default function Shipyard({
                         fundator i budowniczowie.
                       </p>
                     )}
+                    {material && hull.launched && <p tabIndex={-1} id="wybrana-dostawa">Ta szkuta jest już na wodzie. Podpisy dostawców znajdziesz poniżej.</p>}
                     <a href={shipLink(hull.id).href}>
                       Stały adres metryki nr {number(hull.id)}
                     </a>
@@ -314,6 +324,15 @@ export default function Shipyard({
                   {!hull.launched ? (
                     <section className="yard-build">
                       <h3>Na pochylni</h3>
+                      {ship.invitation && !ship.archived && <p>Podpis na zaproszeniu · {ship.invitation.signer}. <PortLink href="?miejsce=karczma" go={inn}>Otwórz tablicę w karczmie</PortLink></p>}
+                      {ship.mayManage && !ship.archived && (ship.invitation || !hullReady) && <button disabled={disabled}
+                        onClick={()=>act({action:ship.invitation?'removeInvitation':'inviteBuilders',ship:hull.id})}>
+                        {ship.invitation?'Zdejmij zaproszenie z karczmy':'Podpisz i wywieś zaproszenie w karczmie'}
+                      </button>}
+                      {material && <p tabIndex={-1} id="wybrana-dostawa">
+                        {material==='dab' ? ship.oak>=r.oakLoads ? 'Całe poszycie jest już na pochylni.' : page.oak===0 ? 'Wybrano dąb. Port czeka na tratwę ze Srebrnego Gaju.' : 'Wybrano sześć belek dębu. Koszt dostawcy wynosi '+r.oakPrice+' zł.' :
+                         ship.iron>=r.ironLots ? 'Komplet okuć jest już na pochylni.' : 'Wybrano komplet okuć. Koszt dostawcy wynosi '+r.ironPrice+' zł.'}
+                      </p>}
                       <p>
                         Dębowe partie {ship.oak}/{r.oakLoads} · Komplety okuć{' '}
                         {ship.iron}/{r.ironLots}
@@ -321,7 +340,7 @@ export default function Shipyard({
                       {page.wallet && (
                         <div className="yard-buttons">
                           {ship.oak < r.oakLoads && (
-                            <button
+                            <button data-chosen={material==='dab'}
                               disabled={
                                 disabled ||
                                 page.oak < 1 ||
@@ -335,7 +354,7 @@ export default function Shipyard({
                             </button>
                           )}
                           {ship.iron < r.ironLots && (
-                            <button
+                            <button data-chosen={material==='okucia'}
                               disabled={
                                 disabled || page.wallet.gold < r.ironPrice
                               }

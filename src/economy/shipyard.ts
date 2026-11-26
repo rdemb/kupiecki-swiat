@@ -40,6 +40,22 @@ export interface Hull {
   begun: number;
   launched: number | null;
 }
+export interface LaunchNotice {
+  ship: number;
+  guild: string;
+  signer: string;
+  posted: number;
+  oakMissing: number;
+  ironMissing: number;
+  vessel: string | null;
+  launched: number | null;
+}
+export interface LaunchBoard {
+  open: LaunchNotice[];
+  lastLaunch: LaunchNotice | null;
+  portOak: number;
+}
+
 export interface LighterOffer {
   id: number;
   name: string;
@@ -71,7 +87,10 @@ export type YardAction =
   | { action: 'offerLighter'; fee: number; ship?: number }
   | { action: 'recallLighter'; offer: number; ship?: number }
   | { action: 'commission' }
-  | { action: 'oak' | 'iron' | 'hire'; ship: number }
+  | {
+      action: 'oak' | 'iron' | 'hire' | 'inviteBuilders' | 'removeInvitation';
+      ship: number;
+    }
   | { action: 'launch'; ship: number; name: string }
   | { action: 'withdraw'; ship: number; charter: number }
   | {
@@ -109,6 +128,7 @@ export interface YardBook {
     archived: boolean;
     oak: number;
     iron: number;
+    invitation: { signer: string; posted: number } | null;
     deliveries: {
       id: number;
       name: string;

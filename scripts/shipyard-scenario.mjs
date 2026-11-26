@@ -48,6 +48,34 @@ export async function exerciseShipyard({
   assert.equal(built.wallet.gold, first.wallet.gold - 35);
   assert.equal((await send(master, 'commission', slip)).ship.hull.id, id);
   await send(master, 'commission', {}, 409);
+  const notices = async () => (await request(inn, 200)).launches;
+  assert.equal((await notices()).open.length, 0);
+  assert.equal((await request('/api/inn/srebrny_gaj', 200)).launches, null);
+  await send(undefined, 'inviteBuilders', ship, 401);
+  await send(smith, 'inviteBuilders', ship, 409);
+  const noticeSlip = { ...ship, nonce: randomUUID() };
+  await Promise.all([
+    send(master, 'inviteBuilders', noticeSlip),
+    send(master, 'inviteBuilders', noticeSlip),
+  ]);
+  assert.equal((await notices()).open.length, 1);
+  await send(master, 'inviteBuilders', ship, 409);
+  await send(oak, 'removeInvitation', ship, 409);
+  await send(master, 'removeInvitation', ship);
+  assert.equal((await notices()).open.length, 0);
+  await send(master, 'inviteBuilders', ship);
+  const published = (await notices()).open[0];
+  assert.deepEqual(
+    [
+      published.ship,
+      published.guild,
+      published.signer,
+      published.oakMissing,
+      published.ironMissing,
+    ],
+    [id, 'Bractwo Szkutników', 'Róża', 2, 1],
+  );
+  assert.equal((await read()).ship.invitation.signer, 'Róża');
   await send(master, 'launch', { ...ship, name: 'Skowronek' }, 409);
   db.exec('UPDATE raftYard SET port=0');
   await send(oak, 'oak', ship, 409);
@@ -69,7 +97,9 @@ export async function exerciseShipyard({
   const signed = { ...ship, nonce: randomUUID() };
   const oakStart = (await read(oak)).wallet.gold;
   await send(oak, 'oak', signed);
+  assert.equal((await notices()).open[0].oakMissing, 1);
   await send(oak, 'oak', signed);
+  assert.equal((await notices()).open[0].oakMissing, 1);
   await send(oak, 'iron', signed, 409);
   await send(oak, 'oak', ship);
   assert.equal((await read(oak)).wallet.gold, oakStart - 60);
@@ -77,6 +107,11 @@ export async function exerciseShipyard({
   const iron = await send(smith, 'iron', ship);
   assert.equal(iron.oak, 0);
   assert.equal(iron.ship.deliveries.length, 3);
+  const readyBill = (await notices()).open[0];
+  assert.deepEqual(
+    [readyBill.oakMissing, readyBill.ironMissing, readyBill.launched],
+    [0, 0, null],
+  );
   assert.deepEqual(
     iron.ship.deliveries.map((d) => d.name),
     ['Jan od dębu', 'Jan od dębu', 'Ida z Kuźni'],
@@ -85,6 +120,12 @@ export async function exerciseShipyard({
   await send(master, 'launch', { ...ship, name: '??' }, 409);
   const named = await send(master, 'launch', { ...ship, name: 'Skowronek' });
   assert.equal(named.ship.hull.name, 'Skowronek');
+  const archivedBill = await notices();
+  assert.equal(archivedBill.open.length, 0);
+  assert.equal(archivedBill.lastLaunch.vessel, 'Skowronek');
+  assert.equal(archivedBill.lastLaunch.ship, id);
+  await send(master, 'inviteBuilders', ship, 409);
+  await send(master, 'removeInvitation', ship, 409);
   await send(master, 'iron', ship, 409);
   db.exec('UPDATE harborStores SET salt=0');
   await send(master, 'hire', ship, 409);
@@ -123,6 +164,11 @@ export async function exerciseShipyard({
   await start();
   for (const a of [master, oak, smith]) await logIn(a);
   assert.equal((await read(master, '?ship=' + id)).ship.job.id, actual.id);
+  assert.equal((await notices()).lastLaunch.signer, 'Róża');
+  assert.deepEqual(
+    (await read(null, '?ship=' + id)).ship.deliveries.map((d) => d.name),
+    ['Jan od dębu', 'Jan od dębu', 'Ida z Kuźni'],
+  );
   db.prepare('UPDATE yardVoyages SET due=? WHERE id=?').run(
     Date.now() - 2,
     actual.id,

@@ -13,6 +13,7 @@ import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
 import Shipyard from './Shipyard';
 import { PortLink } from './PortLink';
+import { LaunchBoard } from './LaunchBoard';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
 import {MillHouse} from './MillHouse';
@@ -149,7 +150,7 @@ export default function MerchantInn({
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
   if(tab==='pilots') return <PilotHouse yard={()=>onTab('shipyard')} inn={()=>onTab('board')} book={book?.pilotage ?? null} error={readError} retry={read} close={onClose} muted={muted}/>;
-  if(tab==='shipyard') return <Shipyard pilots={()=>onTab('pilots')} token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
+  if(tab==='shipyard') return <Shipyard inn={()=>onTab('board')} pilots={()=>onTab('pilots')} token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
   if(tab==='bridge' || tab==='rafting') return <BridgeHouse onYard={()=>onTab('shipyard')} onHarbor={onHarbor} key={tab} atLanding={tab==='rafting'} switchLanding={()=>onTab(tab==='rafting'?'bridge':'rafting')} token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
   return (
     <main className="merchant-inn">
@@ -208,6 +209,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {book.launches && <LaunchBoard board={book.launches} yard={()=>onTab('shipyard')}/>}
                   {book.pilotage && <>
                     <PortLink href="?miejsce=stocznia&keja=lichtugi" go={()=>onTab('shipyard')}>Praca na wodzie · keja lichtug</PortLink>
                     <PilotNotice book={book.pilotage} open={()=>onTab('pilots')} />

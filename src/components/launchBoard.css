@@ -1,0 +1,10 @@
+.launch-board { margin: 0 0 2rem; padding: clamp(1rem, 3vw, 1.65rem); border-block: 3px double #968364; background: #f1e7d1; color: #302b22; }
+.launch-board h2 { margin: 0 0 .6rem; font: italic 500 clamp(1.8rem,4vw,2.6rem)/1.08 Georgia,serif; }
+.launch-board h3 { margin: 0; overflow-wrap: anywhere; }
+.launch-board p, .launch-board dl { margin: .5rem 0 .8rem; }
+.launch-bill { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid #b3a181; }
+.launch-bill dl > div { padding: .4rem 0; }
+.launch-bill dt { font-weight: 700; }
+.launch-bill dd { margin: .15rem 0 0; }
+.launch-bill a, .launch-board > a, .launch-news a { color: #284e42; text-decoration: underline; }
+.yard-build [data-chosen="true"] { outline: 2px solid #41634f; outline-offset: 2px; }
