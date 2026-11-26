@@ -43,6 +43,7 @@ interface KnightAndMissionsPanelProps {
   onStartKnightQuest: (quest: MonsterQuestSpec) => void;
   onExecuteKnightTurn: (tactic: 'aggressive' | 'balanced' | 'defensive') => void;
   onRestockKnightTurnsWithGrain: (grainCost: number, goldCost: number) => void;
+  onOpenGarrison?: () => void;
   onOpenKnightArena?: () => void;
 }
 
@@ -69,6 +70,7 @@ export const KnightAndMissionsPanel: React.FC<KnightAndMissionsPanelProps> = ({
   onExecuteKnightTurn,
   onRestockKnightTurnsWithGrain,
   onOpenKnightArena,
+  onOpenGarrison,
 }) => {
   const [subView, setSubView] = useState<'expeditions' | 'personalization' | 'armory'>('expeditions');
   const [selectedQuestId, setSelectedQuestId] = useState<string>(MONSTER_QUESTS[0].id);
@@ -246,6 +248,7 @@ export const KnightAndMissionsPanel: React.FC<KnightAndMissionsPanelProps> = ({
           >
             3. Zbrojownia i Łupy ({ownedItems.length})
           </button>
+          {onOpenGarrison && <button type="button" className="min-h-[36px] rounded-md border border-amber-700 px-3 text-xs text-amber-200" onClick={onOpenGarrison}>Koszary i służba rycerza</button>}
           {onOpenKnightArena && (
             <button
               type="button"

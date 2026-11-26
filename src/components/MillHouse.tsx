@@ -9,6 +9,9 @@ import {
 } from '../economy/mill';
 import type { FreightCommand } from '../economy/waybills';
 import { PortLink } from './PortLink';
+import { Garrison } from './Garrison';
+import { isFairTown } from '../economy/harvestFair';
+import type { GarrisonCommand } from '../economy/garrison';
 import { BarterMarket } from './BarterMarket';
 import type { BarterCommand } from '../economy/barter';
 import { HarvestFair } from './HarvestFair';
@@ -20,14 +23,14 @@ import type { FieldCommand } from '../economy/commonField';
 import CarrierMutual from './CarrierMutual';
 import WaybillDesk from './WaybillDesk';
 const number = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 });
-type Command = FieldCommand | FreightCommand | FeastCommand | FairCommand | BarterCommand
+type Command = GarrisonCommand | FieldCommand | FreightCommand | FeastCommand | FairCommand | BarterCommand
   | { action: 'post'; quantity: number; price: number; purpose: Consignee }
   | { action: 'deliver'; order: number; quantity: number }
   | { action: 'cancel'; order: number }
   | { action: 'ration' };
 interface Props {
   visit: FeastVisit;
-  room?: 'mill' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair' | 'barter';
+  room?: 'mill' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair' | 'barter' | 'garrison';
   city: string;
   token: string | null;
   onAccount: () => void;
@@ -213,7 +216,7 @@ export function MillHouse({ city, token, onSettlement, onAccount, visit, room = 
     +price < 1 ||
     +price > rules.maxPrice;
   return (
-    <section className="mill-house" aria-label={room==='barter' ? 'Targ bez monety' : room==='fair' ? 'Plac dożynkowy' : room==='feast' ? 'Piekarnia dożynkowa' : room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
+    <section className="mill-house" aria-label={room==='garrison' ? 'Koszary i poczta traktowa' : room==='barter' ? 'Targ bez monety' : room==='fair' ? 'Plac dożynkowy' : room==='feast' ? 'Piekarnia dożynkowa' : room==='field' ? "Wspólne pole pod Srebrnym Gajem" : room==='mutual' ? "Kasa gildii" : room==='freight' ? "Listy przewozowe"  : "Kontrakty na zboże"}>
       {loadError && (
         <p role="alert">
           Księga młyna jest chwilowo niedostępna. <button onClick={refresh}>Odśwież</button>
@@ -221,7 +224,8 @@ export function MillHouse({ city, token, onSettlement, onAccount, visit, room = 
       )}
       {note && <p role="status">{note}</p>}
       {error && <p role="alert">{error}</p>}
-      {!book && !loadError && <p>Młynarz otwiera księgę…</p>}
+      {!book && !loadError && <p>{room === 'garrison' ? 'Pisarz otwiera księgę garnizonu…' : 'Młynarz otwiera księgę…'}</p>}
+      {book && room==='garrison' && (book.garrison && isFairTown(city) ? <Garrison town={city} book={book.garrison} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/> : <p role="alert">Księga garnizonu jest chwilowo niedostępna.</p>)}
       {book && room==='barter' && (book.barter ? <BarterMarket key={city} city={city} book={book.barter} wallet={book.wallet} busy={busy} sign={action} login={onAccount}/> : <p role="alert">Księga targu jest chwilowo niedostępna.</p>)}
       {book && room==='fair' && (book.fair ? <HarvestFair city={city} fair={book.fair} wallet={book.wallet} busy={busy} login={onAccount} sign={action} visit={visit}/> : <p role="alert">Księga jarmarku jest chwilowo niedostępna.</p>)}
       {book && room==='feast' && (book.feast ? <HarvestFeast visit={visit} feast={book.feast} book={book} busy={busy} login={onAccount} sign={action}/> : <p role="alert">Księga wypieków jest chwilowo niedostępna.</p>)}

@@ -8,6 +8,8 @@ import {
   type NoticeKind,
 } from '../economy/merchantInn';
 import { gameRequest } from '../utils/gameServer';
+import { NewsBoard } from './Garrison';
+import { garrisonHref } from '../economy/garrison';
 import { cinemaFile } from './MerchantRoad';
 import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
@@ -25,7 +27,7 @@ import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair' | 'barter';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair' | 'barter' | 'garrison';
 interface Props {
   city: string;
   token: string | null;
@@ -154,8 +156,8 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
-  if ((tab === 'fair' || tab === 'barter') && isFairTown(city)) return <main className="merchant-inn common-field">
-    <nav className="field-nav" aria-label="Drogi z jarmarku">{tab === 'fair' ? <PortLink href={barterHref(city)} go={()=>onTab('barter',city)}>Targ bez monety</PortLink> : <PortLink href={fairHref(city)} go={()=>onTab('fair',city)}>Wróć na plac dożynkowy</PortLink>}<PortLink href={'?miejsce=karczma&miasto='+city+'#stol-dozynkowy'} go={()=>onTab('board',city)}>Do stołu w karczmie</PortLink><button onClick={onClose}>Na trakt</button></nav>
+  if ((tab === 'fair' || tab === 'barter' || tab === 'garrison') && isFairTown(city)) return <main className="merchant-inn common-field">
+    <nav className="field-nav" aria-label="Drogi między targiem i koszarami">{tab !== 'garrison' && <PortLink href={garrisonHref(city)} go={()=>onTab('garrison',city)}>Koszary i poczta traktowa</PortLink>}{tab !== 'barter' ? <PortLink href={barterHref(city)} go={()=>onTab('barter',city)}>Targ bez monety</PortLink> : <PortLink href={fairHref(city)} go={()=>onTab('fair',city)}>Wróć na plac dożynkowy</PortLink>}<PortLink href={'?miejsce=karczma&miasto='+city+'#stol-dozynkowy'} go={()=>onTab('board',city)}>Do stołu w karczmie</PortLink><button onClick={onClose}>Na trakt</button></nav>
     <MillHouse visit={onTab} room={tab} city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
   </main>;
   if (tab === 'feast') return <main className="merchant-inn common-field">
@@ -227,6 +229,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {isFairTown(city) && <section className="feast-table"><NewsBoard letters={book.newsLetters ?? []} now={book.boardAt}/><PortLink href={garrisonHref(city)} go={()=>onTab('garrison',city)}>Odwiedź koszary i pocztę traktową</PortLink></section>}
                   {isFairTown(city) && book.barterCalls && (
                     <section className="feast-table" id="wezwania-kupcow" aria-label="Wezwania z targu">
                       <h3>Wezwania z targu</h3>

@@ -3,6 +3,7 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { openGarrison } from './garrison';
 import { openBarter } from './barter';
 import { openHarvestFair } from './harvestFair';
 import { isFairTown } from '../src/economy/harvestFair';
@@ -99,6 +100,7 @@ export function installMill(
   const barter = openBarter(db, (uid, good, amount) => {
     transfer(uid, 0, good === 'zboze' ? amount : 0, good === 'zelazo' ? amount : 0, good === 'drewno_elfickie' ? amount : 0);
   });
+  const garrison = openGarrison(db, transfer);
   function endOrder(
     o: Pick<MillOrder, 'id' | 'remaining' | 'price' | 'issuer'>,
     city: string,
@@ -182,7 +184,7 @@ export function installMill(
     const m = getMill.get(city)!;
     const purse = uid ? wallet(uid) : null;
     return {
-      ...(isFairTown(city) ? { fair: fair.book(city, Date.now()), barter: barter.book(city, uid) } : {}),
+      ...(isFairTown(city) ? { fair: fair.book(city, Date.now()), barter: barter.book(city, uid), garrison: garrison.book(city, uid, Date.now()) } : {}),
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
@@ -246,6 +248,8 @@ export function installMill(
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
     const isBarter = ['postBarter','withdrawBarter','sealBarter','inviteBarter','recallBarterCall','answerBarterCall'].includes(action);
+    const isGarrison = ['fundGarrison','recruitUnit','knightDuty','carryNews'].includes(action);
+    if (isGarrison) fields.push(req.body.level, req.body.unit, req.body.circle, req.body.escort);
     if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
     if (action === 'inviteBarter') fields.push(req.body.first, req.body.second);
     if (action === 'recallBarterCall' || action === 'answerBarterCall') fields.push(req.body.call);
@@ -270,7 +274,10 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (isBarter) {
+        if (isGarrison) {
+          check(isFairTown(city), 'Koszary traktowe stoją przy dwóch targach bez monety.');
+          garrison.command(city, me, req.body, now, weather(), bridgeClosed(now));
+        } else if (isBarter) {
           check(isFairTown(city), 'Targ bez monety odbywa się na placu jarmarcznym.');
           barter.command(city, me, req.body, now);
         } else if (action === 'supplyFair') {
@@ -368,6 +375,7 @@ export function installMill(
     }
   });
   return {
+    newsLetters: garrison.letters,
     fairBook: fair.book,
     barterCalls: barter.calls,
     transfer,

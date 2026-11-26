@@ -27,6 +27,7 @@ export function installMerchantInn(
   launchBoard: (uid: string | null) => LaunchBoard,
   harvestTable: (city:string, now:number)=>import('../src/economy/harvestLoaf').Loaf[],
   fairBook: (city:string, now:number)=>FairBook,
+  newsLetters: (city: string, now: number) => import('../src/economy/garrison').Dispatch[],
   barterCalls: (city: string) => import('../src/economy/barter').BarterCall[],
 ) {
   db.exec(`
@@ -92,7 +93,7 @@ export function installMerchantInn(
         : [],
       boardAt,
       harvestTable:harvestTable(city,boardAt),
-      ...(isFairTown(city) ? {fair:fairBook(city,boardAt), barterCalls:barterCalls(city)} : {}),
+      ...(isFairTown(city) ? {fair:fairBook(city,boardAt), barterCalls:barterCalls(city), newsLetters:newsLetters(city,boardAt)} : {}),
       launches: city === 'krolewska_przystan' ? launchBoard(uid) : null,
       pilotage: city === 'krolewska_przystan' ? pilotBook(uid) : null,
       riverReports: city === bridgeSite ? riverReports(boardAt) : [],

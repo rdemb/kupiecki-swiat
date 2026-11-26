@@ -41,6 +41,7 @@ interface DuchyAndStoryCampaignPanelProps {
   onClaimStoryChapter: (chapter: StoryChapterSpec) => void;
   onUpgradeDuchyBuilding: (building: DuchyBuildingSpec, costGold: number, reqQty: number) => void;
   onCastMageSpell: (spell: MageSpellSpec) => void;
+  onOpenGarrison: () => void;
   onRecruitForces: (unitType: 'guards' | 'galleons' | 'dragon_feed', costGold: number) => void;
   weatherLabel:string; grain:number; baseGrain:number; muted:boolean;
   onCollectDuchyTribute: () => void;
@@ -69,6 +70,7 @@ export const DuchyAndStoryCampaignPanel: React.FC<DuchyAndStoryCampaignPanelProp
   onClaimStoryChapter,
   onUpgradeDuchyBuilding,
   onCastMageSpell,
+  onOpenGarrison,
   onRecruitForces,
   weatherLabel,grain,baseGrain,muted,onCollectDuchyTribute,
   onCompleteRoyalContract,
@@ -427,6 +429,7 @@ export const DuchyAndStoryCampaignPanel: React.FC<DuchyAndStoryCampaignPanelProp
                 <div className="font-bold text-amber-400 border-b border-slate-800 pb-1">
                   Siły Zbrojne Księstwa, Flota i Smoczy Strażnik
                 </div>
+                <button type="button" onClick={onOpenGarrison} className="rounded border border-amber-800 px-3 py-2 text-amber-200">Koszary traktowe · pobór i służba</button>
 
                 <div className="flex items-center justify-between">
                   <div>

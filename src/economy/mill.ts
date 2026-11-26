@@ -32,6 +32,7 @@ export interface MillOrder {
   expires: number;
 }
 export interface MillBook {
+  garrison?: import('./garrison').GarrisonBook;
   barter?: import('./barter').BarterBook;
   fair?: import('./harvestFair').FairBook;
   feast?: import('./harvestLoaf').FeastBook;

@@ -1,0 +1,117 @@
+.garrison-cover {
+  height: clamp(260px, 42vh, 540px);
+  background: #37352a;
+}
+.garrison-cover img {
+  object-position: 50% 53%;
+}
+.garrison-cover::after {
+  background: linear-gradient(3deg, #181710eb, transparent 60%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .garrison-cover img {
+    animation: garrison-arrival 2.4s cubic-bezier(0.2, 0.65, 0.3, 1) both;
+  }
+  @keyframes garrison-arrival {
+    from {
+      transform: scale(1.035);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+}
+.garrison-pages {
+  width: min(90%, 1050px);
+  margin: 0 auto 4rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  padding: 1.8rem 0;
+  color: #302c20;
+  overflow-wrap: anywhere;
+}
+.garrison-pages h2 {
+  font:
+    normal clamp(1.7rem, 3.3vw, 2.3rem) / 1.1 Georgia,
+    serif;
+  margin: 0 0 0.7rem;
+}
+.garrison-pages h3,
+.post-register h3 {
+  font:
+    normal 1.35rem/1.2 Georgia,
+    serif;
+  margin: 0.6rem 0;
+}
+.garrison-pages p,
+.post-register p {
+  margin: 0.6rem 0;
+}
+.garrison-pages small,
+.post-register small {
+  font: normal 0.86rem/1.4 system-ui;
+  color: #554d39;
+}
+.garrison-pages aside {
+  border-left: 1px solid #a79a7a;
+  padding-left: clamp(1rem, 3vw, 2.4rem);
+}
+.garrison-pages button {
+  margin: 0.3rem 0.4rem 0.3rem 0;
+}
+.garrison-fund small,
+.garrison-document small {
+  display: block;
+}
+.garrison-quantity,
+.garrison-escort {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.garrison-quantity input {
+  width: 5rem;
+}
+.garrison-purse {
+  font: 0.9rem/1.5 system-ui;
+}
+.garrison-roster section,
+.garrison-document,
+.garrison-pages .post-register {
+  border-top: 1px solid #ac9e80;
+  padding: 0.6rem 0;
+  margin-top: 0.7rem;
+}
+.post-register details,
+.garrison-document details {
+  margin: 0.6rem 0;
+}
+.post-register summary,
+.garrison-document summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.post-register ul,
+.garrison-document ul {
+  list-style: disc;
+  padding-left: 1.3rem;
+}
+@media (max-width: 700px) {
+  .garrison-pages {
+    grid-template-columns: 1fr;
+  }
+  .garrison-pages aside {
+    border-left: 0;
+    border-top: 1px solid #a79a7a;
+    padding: 1.2rem 0;
+  }
+  .garrison-cover img {
+    object-position: 55% 50%;
+  }
+  .field-nav {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
