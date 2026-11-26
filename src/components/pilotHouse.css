@@ -1,0 +1,130 @@
+.pilot-house .pilot-hero {
+  --picture-width: clamp(497px, 74.64vh, 871px);
+  height: clamp(280px, 42vh, 490px);
+  background-color: #192826;
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: auto 100%;
+}
+.pilot-house .pilot-hero::before {
+  background: linear-gradient(90deg, #192826 max(0px, calc(100% - var(--picture-width) + 5px)), transparent calc(100% - var(--picture-width) + 31%)),
+    linear-gradient(0deg, #1220209c, transparent 40%);
+}
+@media (max-width: 720px) {
+  .pilot-house .pilot-hero { background-size: cover; background-position: 61% 40%; }
+  .pilot-house .pilot-hero::before { background: linear-gradient(0deg,#142321e6,transparent 75%); }
+}
+.pilot-hero h1 {
+  max-width: 18ch;
+}
+.pilot-nav,
+.pilot-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.1rem;
+}
+.pilot-nav {
+  padding: 1rem 0;
+  border-bottom: 1px solid #9a8b71;
+}
+.pilot-house a,
+.pilot-notice a,
+.shipyard a.pilot-link {
+  color: #28524c;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.pilot-spread {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: clamp(1.25rem, 4vw, 4rem);
+  margin-top: 1rem;
+}
+.pilot-spread h2 {
+  margin-bottom: 0.85rem;
+}
+.pilot-tabs {
+  gap: 0.35rem;
+}
+.pilot-tabs button[aria-pressed='true'] {
+  background: #264e4c;
+  color: #f8f1dd;
+  border-color: #264e4c;
+}
+.pilot-plate {
+  margin: 0.8rem 0 1rem;
+  border-block: 3px double #927e58;
+}
+.pilot-map {
+  width: 100%;
+  aspect-ratio: 700/274;
+  display: block;
+}
+.pilot-plate figcaption {
+  padding: 0.8rem 0;
+  min-height: 4.6em;
+}
+.pilot-register {
+  border-left: 1px solid #ab9b7e;
+  padding-left: clamp(1rem, 2.4vw, 2rem);
+}
+.pilot-register li {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #ac9a77;
+  list-style: none;
+}
+.pilot-register li > strong {
+  font:
+    italic 1.65rem Georgia,
+    serif;
+  margin-right: 0.7rem;
+}
+.pilot-register li > span,
+.pilot-storm,
+.pilot-register time {
+  font: 0.8rem/1.5 system-ui;
+  color: #514c3f;
+}
+.pilot-register li p {
+  margin: 0.18rem 0;
+}
+.pilot-news,
+.pilot-notice {
+  border-left: 3px solid #50736a;
+  padding: 0.5rem 0.85rem;
+  background: #dcd9c2;
+  margin: 0.7rem 0;
+}
+.pilot-notice p {
+  margin: 0.3rem 0;
+}
+.yard-passage {
+  margin: 0.65rem 0;
+}
+.yard-passage label {
+  display: block;
+}
+.yard-passage select {
+  margin: 0.4rem 0;
+  display: block;
+  max-width: 100%;
+}
+@media (max-width: 720px) {
+  .pilot-spread {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pilot-register {
+    border-left: 0;
+    border-top: 1px solid #ab9b7e;
+    padding: 0.6rem 0;
+  }
+  .pilot-nav {
+    gap: 0.6rem 1rem;
+  }
+  .pilot-tabs button {
+    font-size: 0.78rem;
+  }
+  .pilot-plate figcaption {
+    min-height: 0;
+  }
+}

@@ -8,6 +8,8 @@ import type { MillMark } from '../economy/mill';
 import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
 import { InnGuide } from './InnGuide';
+import { courseNames } from '../economy/pilotage';
+import { PassageOrder } from './PassageOrder';
 import './shipyard.css';
 
 type Props = {
@@ -204,6 +206,7 @@ export default function Shipyard({
           <button onClick={landing}>Flisacy i drewno</button>
           <button onClick={harbor}>Warzelnia i sól</button>
           <button onClick={guild}>Stół gildii</button>
+          <a className="pilot-link" href="?miejsce=piloci">Księga pilotów Zatoki</a>
         </nav>
         {error && (
           <p role="alert">
@@ -398,6 +401,7 @@ export default function Shipyard({
                             . Do powrotu{' '}
                             {Math.max(0, Math.ceil((job.due! - now) / 1000))} s.
                           </p>
+                          <p>{courseNames[job.course]}{job.pilot && ' · według pomiaru: '+job.pilot}</p>
                           <progress
                             value={progress}
                             max={1}
@@ -418,19 +422,8 @@ export default function Shipyard({
                           </p>
                           {page.wallet && (
                             <div className="yard-buttons">
-                              <button
-                                className="inn-primary"
-                                disabled={disabled || page.seconds === null}
-                                onClick={() =>
-                                  act({
-                                    action: 'sail',
-                                    ship: hull.id,
-                                    charter: job.id,
-                                  })
-                                }
-                              >
-                                Obejmij ster i wypłyń
-                              </button>
+                              <PassageOrder key={job.id} book={page.pilotage} seconds={page.seconds} busy={disabled}
+                                sail={(course,reference)=>act({action:'sail',ship:hull.id,charter:job.id,course,reference})}/>
                               {(ship.mayManage || job.mine) && (
                                 <button
                                   disabled={disabled}
@@ -481,6 +474,8 @@ export default function Shipyard({
                                 {v.barrels} beczki soli na redę · wystawca{' '}
                                 {v.payer} · żołd {v.wage} zł
                               </small>
+                              <small>{courseNames[v.course]}{v.course === 'survey' && (v.depth === null ? ' · sztorm uniemożliwił pomiar' : ' · sonda wskazała '+v.depth+' cm')}
+                                {v.course === 'cut' && ' · pomiar: '+v.pilot+' ('+v.depth+' cm)'}</small>
                             </li>
                           ))}
                         </ol>

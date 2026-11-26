@@ -1,3 +1,4 @@
+import type { PilotBook } from '../src/economy/pilotage';
 import type { RiverReading } from '../src/economy/river';
 import { bridgeSite } from '../src/economy/bridge';
 import { randomUUID } from 'node:crypto';
@@ -19,6 +20,7 @@ export function installMerchantInn(
   authenticate: (req: Request) => { uid: string; displayName: string; guildId: string } | null,
   companies: GuildInfo[],
   riverReports: (now: number) => RiverReading[],
+  pilotBook: () => PilotBook,
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -82,6 +84,7 @@ export function installMerchantInn(
             .reverse()
         : [],
       boardAt,
+      pilotage: city === 'krolewska_przystan' ? pilotBook() : null,
       riverReports: city === bridgeSite ? riverReports(boardAt) : [],
       notices: db
         .prepare(

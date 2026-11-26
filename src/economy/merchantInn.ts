@@ -1,3 +1,4 @@
+import type { PilotBook } from './pilotage';
 import type { RiverReading } from './river';
 import type { SeasonId, WeatherConditionId } from './economyEngine';
 import type { ActiveWorldDisaster } from './worldDisasters';
@@ -22,6 +23,7 @@ export interface InnBook {
   applicants: { uid: string; name: string }[];
   letters: { id: number; name: string; body: string; at: number }[];
   boardAt: number;
+  pilotage: PilotBook | null;
   riverReports: RiverReading[];
   notices: {
     id: number;

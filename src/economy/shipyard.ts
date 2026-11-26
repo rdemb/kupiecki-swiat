@@ -1,3 +1,4 @@
+import type { Course, PilotBook } from './pilotage';
 import { bridgeRules } from './bridge';
 import { harborRules } from './harborWorks';
 import { raftRules } from './rafts';
@@ -54,18 +55,23 @@ export interface Charter {
   freight: number;
   mine: boolean;
   myJob: boolean;
+  course: Course;
+  pilot: string | null;
+  depth: number | null;
 }
 export type YardAction =
   | { action: 'commission' }
   | { action: 'oak' | 'iron' | 'hire'; ship: number }
   | { action: 'launch'; ship: number; name: string }
-  | { action: 'sail' | 'withdraw'; ship: number; charter: number };
+  | { action: 'withdraw'; ship: number; charter: number }
+  | { action: 'sail'; ship: number; charter: number; course?: Course; reference?: number };
 export interface YardBook {
   now: number;
   oak: number;
   salt: number;
   seconds: number | null;
   fleet: Hull[];
+  pilotage: PilotBook;
   wallet: {
     uid: string;
     gold: number;

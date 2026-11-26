@@ -12,11 +12,12 @@ import { cinemaFile } from './MerchantRoad';
 import { RiverReports } from './RiverMarks';
 import BridgeHouse from './BridgeHouse';
 import Shipyard from './Shipyard';
+import { PilotHouse, PilotNotice } from './PilotHouse';
 import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'rafting' | 'freight' | 'mutual';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual';
 interface Props {
   city: string;
   token: string | null;
@@ -144,6 +145,7 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
+  if(tab==='pilots') return <PilotHouse book={book?.pilotage ?? null} error={readError} retry={read} close={onClose} muted={muted}/>;
   if(tab==='shipyard') return <Shipyard token={token} muted={muted} close={onClose} login={onAccount} guild={()=>onTab('guild')} landing={()=>onTab('rafting')} harbor={onHarbor} settlement={onSettlement}/>;
   if(tab==='bridge' || tab==='rafting') return <BridgeHouse onYard={()=>onTab('shipyard')} onHarbor={onHarbor} key={tab} atLanding={tab==='rafting'} switchLanding={()=>onTab(tab==='rafting'?'bridge':'rafting')} token={token} muted={muted} onAccount={onAccount} onClose={onClose} onGuild={()=>onTab('guild')} onBoard={()=>onTab('board')} onSettlement={onSettlement}/>;
   return (
@@ -203,6 +205,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {book.pilotage && <PilotNotice book={book.pilotage} />}
                   {city === 'srebrny_gaj' && <RiverReports reports={book.riverReports} now={book.boardAt} go={()=>onTab('bridge')}/>}
                   <div className="inn-subhead">
                     <h2>Ogłoszenia kupców</h2>

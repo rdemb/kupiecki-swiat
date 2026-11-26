@@ -140,8 +140,124 @@ export async function exerciseShipyard({
       .length,
     0,
   );
+  // A second skipper can act on a signed sounding. Work entirely in the fixture port.
+  db.exec('UPDATE harborStores SET salt=24');
+  db.exec('UPDATE pilotBank SET cm=146');
+  async function commissionTrip() {
+    return (await send(master, 'hire', ship)).ship.job.id;
+  }
+  async function arrive(voyage) {
+    db.prepare('UPDATE yardVoyages SET due=? WHERE id=?').run(
+      Date.now() - 1,
+      voyage,
+    );
+    return read(null);
+  }
+  async function setSky(index) {
+    await stop();
+    db.prepare(
+      "UPDATE world SET snapshot=json_set(snapshot,'$.activeWeatherIndex',?,'$.tickCounter',1)",
+    ).run(index);
+    await start();
+    for (const a of [master, oak, smith]) await logIn(a);
+  }
+  await setSky(0);
+  const survey = await commissionTrip();
+  await send(
+    smith,
+    'sail',
+    { ...ship, charter: survey, course: 'cut', reference: 999999 },
+    409,
+  );
+  const surveySlip = {
+    ...ship,
+    charter: survey,
+    course: 'survey',
+    nonce: randomUUID(),
+  };
+  const outbound = (await send(oak, 'sail', surveySlip)).ship.job;
+  assert.equal(outbound.due - outbound.departed, 72000);
+  await send(oak, 'sail', { ...surveySlip, course: 'outer' }, 409);
+  assert.equal((await read()).pilotage.latest, null);
+  const witnessed = (await arrive(survey)).pilotage.latest;
+  assert.equal(witnessed.cm, 146);
+  assert.equal(witnessed.skipper, 'Jan od dębu');
+  assert.equal(witnessed.voyage, survey);
+  assert.equal((await request(inn, 200)).pilotage.latest.voyage, survey);
+  assert.equal((await request('/api/inn/srebrny_gaj', 200)).pilotage, null);
+  const passage = await commissionTrip();
+  const choice = {
+    ...ship,
+    charter: passage,
+    course: 'cut',
+    reference: survey,
+    nonce: randomUUID(),
+  };
+  const fast = (await send(smith, 'sail', choice)).ship.job;
+  assert.equal(fast.due - fast.departed, 40000);
+  assert.equal(fast.pilot, 'Jan od dębu');
+  assert.equal((await send(smith, 'sail', choice)).ship.job.id, passage);
+  const arrived = (await arrive(passage)).ship.journal[0];
+  assert.equal(arrived.skipper, 'Ida z Kuźni');
+  assert.equal(arrived.pilot, 'Jan od dębu');
+  assert.equal(arrived.depth, 146);
+  const crossing = await commissionTrip();
+  await send(smith, 'sail', { ...ship, charter: crossing, course: 'survey' });
+  await setSky(3);
+  const squall = (await read()).pilotage;
+  assert.equal(squall.storm, true);
+  assert.equal(squall.edition, witnessed.edition + 1);
+  assert.equal((await arrive(crossing)).ship.journal[0].depth, null);
+  assert.equal((await read()).pilotage.latest.voyage, survey);
+  await setSky(3);
+  assert.equal((await read()).pilotage.edition, squall.edition);
+  const after = await commissionTrip();
+  await send(oak, 'sail', { ...ship, charter: after, course: 'outer' }, 409);
+  await setSky(0);
+  await send(
+    oak,
+    'sail',
+    { ...ship, charter: after, course: 'cut', reference: survey },
+    409,
+  );
+  db.exec('UPDATE pilotBank SET cm=108');
+  await send(oak, 'sail', { ...ship, charter: after, course: 'survey' });
+  const low = (await arrive(after)).pilotage.latest;
+  assert.equal(low.cm, 108);
+  assert.equal(low.edition, squall.edition);
+  const last = await commissionTrip();
+  await send(
+    smith,
+    'sail',
+    { ...ship, charter: last, course: 'cut', reference: after },
+    409,
+  );
+  await send(smith, 'sail', { ...ship, charter: last }); // Existing clients take the deep route.
+  assert.equal((await arrive(last)).ship.journal[0].course, 'outer');
+  assert.equal((await read()).pilotage.history.length, 2);
+  // A shared arrival time exercises the archive's secondary cursor (voyage number).
+  db.exec('UPDATE harborStores SET salt=32');
+  for (let n = 0; n < 8; n++) {
+    const next = await commissionTrip();
+    await send(oak, 'sail', { ...ship, charter: next, course: 'survey' });
+    await arrive(next);
+  }
+  db.exec('UPDATE pilotSoundings SET at=1000');
+  const firstPage = await request('/api/pilots', 200);
+  assert.equal(firstPage.history.length, 8);
+  assert.equal(firstPage.more, true);
+  const secondPage = await request(
+    '/api/pilots?before=' + firstPage.history.at(-1).voyage,
+    200,
+  );
+  assert.deepEqual(
+    secondPage.history.map((m) => m.voyage),
+    [after, survey],
+  );
+  assert.equal(secondPage.more, false);
+  await request('/api/pilots?before=xyz', 400);
   await innAction('leave');
   const archive = await read(smith, '?ship=' + id);
   assert.ok(archive.ship.archived && archive.ship.mayManage);
-  assert.equal(archive.ship.completed, 1);
+  assert.equal(archive.ship.completed, 14);
 }
