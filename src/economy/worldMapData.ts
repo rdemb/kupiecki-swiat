@@ -96,6 +96,9 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     cameraOverviewLook: [154, 7, 156],
     capitalRegionId: 'obsydianowa_cytadela',
   },
+  {id:'kresy_nadziei',name:'Dalekie Wybrzeże Nowej Nadziei',shortName:'Dalekie Wybrzeże',subtitle:'Ławice, kredowe progi i smocze mokradła',
+    climate:'Morski i bagienny',colorHex:'#a1bd82',description:'Za dawnym krańcem mapy kupcy utrzymują osady na czterech wyspach.',
+    cameraOverviewPos:[1510,360,395],cameraOverviewLook:[1510,0,0],capitalRegionId:'biale_progi'},
   {id:'nowa_nadzieja',name:'Nowa Nadzieja',shortName:'Nowa Nadzieja',subtitle:'Warsztaty za wschodnią cieśniną',
     climate:'Morski',colorHex:'#ade1d2',description:'Kupcy zakładają warsztaty pomiędzy wydmami, solankami i szkutniczymi przystaniami.',
     cameraOverviewPos:[620,235,291],cameraOverviewLook:[620,3,0],capitalRegionId:'mierzeja'},
@@ -608,9 +611,9 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     featuredCommodity: 'mithril',
   },
   ...worksites.map((site):WorldRegionNode=>({
-    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:'nowa_nadzieja',type:'workshop',
+    id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
     typeLabel:'Warsztat kupiecki',biome:'Nadmorska Nizina',position2D:[site.x,site.z],
-    atlasPercent:[(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(newHopeHeight(site.x,site.z)),
+    atlasPercent:[site.x>930?(site.x-930)/12.4:(site.x-310)/6.2,(site.z+310)/6.2],altitudeMeters:Math.round(getTerrainHeight(site.x,site.z)),
     dangerLabel:'Osada rzemieślnicza',loreDescription:site.description,colorHex:crafts[site.craft].color,
   })),
 ];
@@ -707,6 +710,11 @@ export interface ContinentBiomeWeights {
  * Pure geographic biome classifier across all 6 Continents in 620x620 world space.
  */
 export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWeights {
+  if (x>930) {
+    const basin=(cx:number,cz:number,rx:number,rz:number)=>1-smoothstep(.45,1.2,Math.hypot((x-cx)/rx,(z-cz)/rz));
+    return {desert:.68*basin(1435,-110,165,132),jade:.6*basin(1985,-41,163,165),
+      oasis:.95*basin(1700,114,195,110),volcanic:.35*basin(1110,83,148,128),glacier:0};
+  }
   // Solaria Desert Continent (South & Southwest)
   const desertDist = Math.hypot((x + 68) * 0.82, (z - 126) * 0.96);
   const desert = 1 - smoothstep(42, 86, desertDist);
@@ -751,6 +759,16 @@ export function newHopeHeight(x:number,z:number):number {
   return -8+16*shelf+shelf*(Math.max(0,land)*relief*43 + 2.6*Math.sin(x*.14)*Math.cos(z*.11));
 }
 export function getTerrainHeight(x: number, z: number): number {
+  if(x>930) {
+    const wx=x+12*Math.sin(z*.046), wz=z+16*Math.cos(x*.028);
+    const island=(cx:number,cz:number,rx:number,rz:number)=>1-Math.hypot((wx-cx)/rx,(wz-cz)/rz);
+    const cliff=island(1435,-110,165,132);
+    const marsh=island(1700,114,195,110);
+    const land=Math.max(island(1110,83,148,128),cliff,marsh,island(1985,-41,163,165));
+    const shelf=smoothstep(-.14,.24,land);
+    return -9+shelf*(16+Math.max(0,land)*fbm2D(x*.025,z*.025,3)*(marsh===land?8:46)
+      +22*smoothstep(.16,.26,cliff)+2*Math.sin(x*.07)*Math.cos(z*.09));
+  }
   if(x>310) return newHopeHeight(x,z);
   // Domain warping for natural fractal coastlines (zero circular islands!)
   const warpX = (fbm2D(x * 0.015 + 3.1, z * 0.015 + 1.7, 3) - 0.5) * 28;

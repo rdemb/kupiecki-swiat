@@ -20,7 +20,7 @@ const week = 7 * 86400_000;
 export function installMerchantInn(
   app: Express,
   db: DatabaseSync,
-  authenticate: (req: Request) => { uid: string; displayName: string; guildId: string; millMark?: MillMark } | null,
+  authenticate: (req: Request) => { uid: string; displayName: string; guildId: string; gold: number; millMark?: MillMark } | null,
   companies: GuildInfo[],
   riverReports: (now: number) => RiverReading[],
   pilotBook: (uid: string | null) => PilotBook,
@@ -32,6 +32,7 @@ export function installMerchantInn(
   roadRecords: (city: string, now: number) => import('../src/economy/standardSchool').RoadRecord[],
   spurRoll: (city: string) => import('../src/economy/spurTrial').SpurPetition[],
   barterCalls: (city: string) => import('../src/economy/barter').BarterCall[],
+  postOffice: () => Pick<ReturnType<typeof import('./shipyard').installShipyard>, 'mail'|'sealReport'>,
 ) {
   db.exec(`
   CREATE TABLE IF NOT EXISTS innGuilds(id TEXT PRIMARY KEY, name TEXT NOT NULL, nameKey TEXT NOT NULL UNIQUE, tag TEXT NOT NULL UNIQUE, founder TEXT, archived INTEGER NOT NULL DEFAULT 0);
@@ -95,6 +96,7 @@ export function installMerchantInn(
             .reverse()
         : [],
       boardAt,
+      seaMail: postOffice().mail.book(uid, mine ? membership : '', boardAt),
       harvestTable:harvestTable(city,boardAt),
       ...(isFairTown(city) ? {spurRoll:spurRoll(city),fair:fairBook(city,boardAt), reliefCalls:reliefCalls(city,boardAt), barterCalls:barterCalls(city), newsLetters:newsLetters(city,boardAt), roadRecords:roadRecords(city,boardAt)} : {}),
       launches: city === 'krolewska_przystan' ? launchBoard(uid) : null,
@@ -154,7 +156,19 @@ export function installMerchantInn(
         const mine = group.get(me.guildId);
         const target = typeof groupId === 'string' ? group.get(groupId) : undefined;
         const leader = mine?.founder === uid;
-        if (action === 'create') {
+        if (action === 'sealPost' || action === 'recallPost' || action === 'roadPost') {
+          requireRule(city === 'krolewska_przystan','Pisarz przyjmuje pocztę w Królewskiej Przystani.');
+          const office = postOffice();
+          let problem: string | undefined;
+          if (action === 'sealPost') {
+            requireRule(target,'Wybierz czynną gildię adresata.');
+            problem = office.sealReport(uid,me.displayName,groupId,kind,now);
+          } else {
+            requireRule(Number.isSafeInteger(notice) && notice>0,'Wybierz swoją kopertę.');
+            problem = office.mail.reroute(uid,notice,me.gold,action==='recallPost',now);
+          }
+          if (problem) throw new InnRule(problem);
+        } else if (action === 'create') {
           const name = clean(body),
             badge = clean(tag).toLocaleUpperCase('pl');
           requireRule(!leader, 'Najpierw przekaż prowadzenie lub opuść swoją gildię.');
@@ -271,7 +285,7 @@ export function installMerchantInn(
       }
       const result = read(uid, city);
       db.exec('COMMIT');
-      res.json(result);
+      res.json({ ...result, walletMark: authenticate(req)?.millMark ?? null });
     } catch (e) {
       if (db.isTransaction) db.exec('ROLLBACK');
       if (e instanceof InnRule) res.status(400).json({ error: e.message });

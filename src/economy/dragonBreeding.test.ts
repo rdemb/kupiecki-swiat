@@ -27,7 +27,7 @@ test('Dragon Sanctuary initializes with starter Fire Dragon, incubating Frost Eg
   const s = createInitialDragonSanctuary();
   assert.equal(s.dragons.length, 1);
   assert.equal(s.eggs.length, 1);
-  assert.equal(Object.keys(DRAGON_SPECIES).length, 6);
+  assert.equal(Object.keys(DRAGON_SPECIES).length, 8);
 
   const bonuses = computeDragonGlobalBonuses(s);
   assert.ok(bonuses.knightAttackBonus > 0);
@@ -109,7 +109,7 @@ test('Feeding dragon grants XP, evolves stage across thresholds, and aerial miss
 });
 
 test('Coastal eggs hatch into companions with distinct travel and weather bonuses', () => {
-  for (const speciesId of ['pseudosmok', 'blekit'] as const) {
+  for (const speciesId of ['pseudosmok', 'blekit','dwuglowy','brazowy'] as const) {
     const bought = purchaseOrBreedDragonEgg({
       sanctuary: createInitialDragonSanctuary(), speciesId, playerGold: 100000, isCrossBreed: false,
     });
@@ -124,7 +124,7 @@ test('Coastal eggs hatch into companions with distinct travel and weather bonuse
     const neutral = computeDragonGlobalBonuses({
       ...party, dragons: party.dragons.map(d => d.id === dragon.id ? { ...d, speciesId: 'ogien' } : d),
     });
-    assert.equal(bonus.caravanSpeedBonusPct - neutral.caravanSpeedBonusPct, speciesId === 'pseudosmok' ? 4 : 0);
-    assert.equal(bonus.disasterResistancePct - neutral.disasterResistancePct, speciesId === 'blekit' ? 8 : 0);
+    assert.equal(bonus.caravanSpeedBonusPct - neutral.caravanSpeedBonusPct, speciesId === 'pseudosmok' ? 4 : speciesId === 'dwuglowy' ? 5 : 0);
+    assert.equal(bonus.disasterResistancePct - neutral.disasterResistancePct, speciesId === 'blekit' ? 8 : speciesId === 'brazowy' ? 5 : 0);
   }
 });

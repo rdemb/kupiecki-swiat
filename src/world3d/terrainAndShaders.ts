@@ -195,7 +195,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   const size = 620;
   const segments = 324;
   const eastColumns = 176;
-  const columns = segments + eastColumns;
+  const coastColumns = 248;
+  const columns = segments + eastColumns + coastColumns;
   const geo = new THREE.PlaneGeometry(size, size, columns, segments);
   geo.rotateX(-Math.PI / 2);
 
@@ -206,7 +207,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
 
   for (let i = 0; i < count; i++) {
     const column = i % (columns+1);
-    const vx = column <= segments ? surveyAxis(column/segments,-76,98) : size/2+(column-segments)*size/eastColumns;
+    const vx = column <= segments ? surveyAxis(column/segments,-76,98) : column <= segments+eastColumns ? size/2+(column-segments)*size/eastColumns : 930+(column-segments-eastColumns)*1240/coastColumns;
     const vz = surveyAxis(posAttr.getZ(i) / size + 0.5, -96, 42);
     const vy = getTerrainHeight(vx, vz);
     posAttr.setXYZ(i, vx, vy, vz);
@@ -671,7 +672,7 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
   }
   for (let i = 0; i < pos.count; i++) {
     const innerX = gridCoordinate(pos.getX(i));
-    const x = innerX + Math.max(0,innerX-240)*620/380;
+    const x = innerX + Math.max(0,innerX-240)*1860/380;
     const z = gridCoordinate(pos.getZ(i));
     pos.setXYZ(i, x, 0, z);
     depths[i] = -getTerrainHeight(x, z);

@@ -158,12 +158,20 @@ import {
 } from './achievementsAndQuests.ts';
 
 test('Expanded map retains old ports and adds six workshops across the eastern strait', () => {
-  assert.equal(WORLD_CONTINENTS.length, 7);
+  assert.equal(WORLD_CONTINENTS.length, 8);
   assert.equal(CITIES.length, 12, 'Expected 12 trade capitals across the 6 continents');
-  assert.equal(WORLD_REGIONS.length, 32);
+  assert.equal(WORLD_REGIONS.length, 39);
   const workshops=WORLD_REGIONS.filter(r=>r.continentId==='nowa_nadzieja');
   assert.equal(workshops.length,6);
   for(const {position2D:[x,z]} of workshops) assert.ok(x>310 && x<930 && getTerrainHeight(x,z)>1);
+
+  const coast=WORLD_REGIONS.filter(r=>r.continentId==='kresy_nadziei');
+  assert.equal(coast.length,7);
+  for(const r of coast) {
+    const [x,z]=r.position2D;
+    assert.ok(x>930 && x<2170 && getTerrainHeight(x,z)>1,r.name);
+    assert.deepEqual(r.atlasPercent,[(x-930)/12.4,(z+310)/6.2]);
+  }
 
   const harborY = getTerrainHeight(4, 2); // Stary Kontynent — Królewska Przystań
   const mountainY = getTerrainHeight(-6, -56); // Stary Kontynent — Żelazna Kuźnia

@@ -8,7 +8,7 @@ import { imageUrl } from '../utils/imageUrl';
 
 import type { CommodityId } from './economyEngine';
 
-export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit';
+export type DragonSpeciesId = 'ogien' | 'lod' | 'szmaragd' | 'zloto' | 'pseudosmok' | 'blekit' | 'brazowy' | 'dwuglowy';
 
 export type DragonLifeStage = 1 | 2 | 3 | 4 | 5;
 
@@ -18,7 +18,7 @@ export interface DragonSpeciesSpec {
   elementLabel: string;
   originContinentName: string;
   artworkUrl: string;
-  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire';
+  variant3D: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin';
   accentHex: string;
   favoriteCommodity: CommodityId;
   favoriteCommodityName: string;
@@ -30,6 +30,18 @@ export interface DragonSpeciesSpec {
 }
 
 export const DRAGON_SPECIES: Record<DragonSpeciesId, DragonSpeciesSpec> = {
+  brazowy: {
+    id:'brazowy', name:'Brązowy smok klifowy', elementLabel:'Ziemia i urwiska', originContinentName:'Dalekie Wybrzeże Nowej Nadziei',
+    artworkUrl:imageUrl('smok-klifowy.webp'),variant3D:'umber',accentHex:'#cd9566',favoriteCommodity:'mithril',favoriteCommodityName:'Sztaby Mithrilu',
+    specialtySummary:'Krępy smok skalnych półek. Wyróżnia się siłą i odpornością podczas klęsk (+5 pkt odporności).',
+    baseFirePower:32,baseFlightSpeed:14,baseHoardGreed:17,eggCostGold:3100,
+  },
+  dwuglowy: {
+    id:'dwuglowy', name:'Dwugłowy zielony smok', elementLabel:'Bagna i szuwary', originContinentName:'Dalekie Wybrzeże Nowej Nadziei',
+    artworkUrl:imageUrl('smok-dwuglowy.webp'),variant3D:'twin',accentHex:'#a4c484',favoriteCommodity:'zboze',favoriteCommodityName:'Zboże',
+    specialtySummary:'Obie głowy wypatrują drogi po przeciwnych stronach konwoju. Pod eskortą karawana zyskuje 5 dodatkowych punktów prędkości.',
+    baseFirePower:25,baseFlightSpeed:21,baseHoardGreed:19,eggCostGold:3250,
+  },
   pseudosmok: {
     id: 'pseudosmok', name: 'Pseudosmok pokładowy', elementLabel: 'Wiatr przybrzeżny',
     originContinentName: 'Nowa Nadzieja', artworkUrl: imageUrl('pseudosmok.webp'), variant3D: 'copper',
@@ -208,6 +220,8 @@ export const DRAGON_MISSIONS: DragonMissionSpec[] = [
 ];
 
 const DRAGON_NAMES_BY_SPECIES: Record<DragonSpeciesId, string[]> = {
+  brazowy:['Rdzawiec','Skalnik','Krzemień'],
+  dwuglowy:['Dwugłos','Rozwidleniec','Szuwar'],
   pseudosmok: ['Szelest', 'Kłębek', 'Bosman'],
   blekit: ['Głębia', 'Bryzg', 'Witraż'],
   ogien: ['Ignis Vaelor', 'Pyrrhos Żaru', 'Karmazynowy Kael', 'Magmos'],
@@ -279,7 +293,7 @@ export function computeDragonGlobalBonuses(sanctuary: DragonSanctuaryState): Dra
   const knightAttackBonus = Math.round(active.firePower * 0.45 + active.stage * 4 + fleetBonus * 3);
   const caravanSpeedBonusPct = Math.min(
     40,
-    Math.round(active.flightSpeed * 0.45 + (active.speciesId === 'szmaragd' ? 6 : active.speciesId === 'pseudosmok' ? 4 : 0) + fleetBonus * 2),
+    Math.round(active.flightSpeed * 0.45 + (active.speciesId === 'szmaragd' ? 6 : active.speciesId === 'pseudosmok' ? 4 : active.speciesId === 'dwuglowy' ? 5 : 0) + fleetBonus * 2),
   );
   const duchyIncomeBonusPct = Math.min(
     55,
@@ -287,7 +301,7 @@ export function computeDragonGlobalBonuses(sanctuary: DragonSanctuaryState): Dra
   );
   const disasterResistancePct = Math.min(
     50,
-    Math.round(active.stage * 7 + active.bondPct * 0.15 + fleetBonus * 3 + (active.speciesId === 'blekit' ? 8 : 0)),
+    Math.round(active.stage * 7 + active.bondPct * 0.15 + fleetBonus * 3 + (active.speciesId === 'blekit' ? 8 : active.speciesId === 'brazowy' ? 5 : 0)),
   );
 
   return {

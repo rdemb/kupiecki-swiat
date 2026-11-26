@@ -172,6 +172,16 @@ export async function exerciseShipyard({
   assert.equal((await read()).salt, 4);
   const actual = (await send(master, 'hire', ship)).ship.job;
   await send(smith, 'sail', { ...ship, charter: job.id }, 409);
+  const guildId=(await request(inn,200,undefined,master.token)).membership;
+  const post=(actor,action,data,status=200)=>request(inn,status,{action,nonce:randomUUID(),...data},actor.token);
+  const seal={kind:'salt',groupId:guildId,nonce:randomUUID()};
+  const parcel=(await post(carpenter,'sealPost',seal)).seaMail.sent[0];
+  assert.match(parcel.body,/Beczki soli/);
+  assert.equal((await post(carpenter,'sealPost',seal)).seaMail.sent[0].id,parcel.id);
+  await post(smith,'roadPost',{notice:parcel.id},400);
+  assert.deepEqual((await request(inn,200,undefined,master.token)).seaMail.received,[]);
+  assert.deepEqual((await read()).mailbag,[]);
+  assert.ok(!(await read(oak)).mailbag.some(m=>'body' in m));
   const tickets = [oak, smith];
   const fees = await Promise.all(
     tickets.map(async (who) => (await read(who)).wallet.gold),
@@ -179,13 +189,15 @@ export async function exerciseShipyard({
   await request('/api/world/season', 200, { seasonId: 'lato' }, imperator);
   const race = await Promise.allSettled(
     tickets.map((actor) =>
-      send(actor, 'sail', { ...ship, charter: actual.id }),
+      send(actor, 'sail', { ...ship, charter: actual.id,letter:parcel.id }),
     ),
   );
   assert.equal(race.filter((r) => r.status === 'fulfilled').length, 1);
   const i = race.findIndex((r) => r.status === 'fulfilled');
   assert.ok(race[i].value.ship.job.departed);
   assert.equal(race[1 - i].reason.actual, 409);
+  await post(carpenter,'roadPost',{notice:parcel.id},400);
+  assert.deepEqual((await request(inn,200,undefined,master.token)).seaMail.received,[]);
   const teams = (await request('/api/harbor-works', 200)).provisions;
   await stop();
   await start();
@@ -211,6 +223,21 @@ export async function exerciseShipyard({
   assert.deepEqual(paid.ship.marks.routes,[{course:'outer',trips:1}]);
   assert.deepEqual((await read(null,'?ship='+id+'&before='+actual.id)).ship.marks.routes,paid.ship.marks.routes);
   await send(smith,'fitFirst',ship,409);
+  const delivered=(await request(inn,200,undefined,master.token)).seaMail.received[0];
+  assert.deepEqual([delivered.id,delivered.vessel,delivered.body],[parcel.id,'Skowronek',parcel.body]);
+  assert.deepEqual((await request(inn,200,undefined,smith.token)).seaMail.received,[]);
+  await logIn(carpenter);
+  const funds=(await read(carpenter)).wallet.gold;
+  const second=(await post(carpenter,'sealPost',{kind:'grain',groupId:guildId})).seaMail.sent[0];
+  const roadSlip={nonce:randomUUID(),notice:second.id};
+  await Promise.all([post(carpenter,'roadPost',roadSlip),post(carpenter,'roadPost',roadSlip)]);
+  assert.equal((await read(carpenter)).wallet.gold,funds-3);
+  assert.equal((await request(inn,200,undefined,master.token)).seaMail.received.length,1);
+  db.prepare('UPDATE seaMail SET roadDue=? WHERE id=?').run(Date.now()-1,second.id);
+  assert.equal((await request(inn,200,undefined,master.token)).seaMail.received[0].id,second.id);
+  const coastOrder={action:'start',site:'lawica_krabow',id:randomUUID()};
+  const coastJob=(await request('/api/careers',200,coastOrder,carpenter.token)).jobs[0];
+  await request('/api/careers',200,{...coastOrder,action:'finish',choice:[2,0,1][coastJob.task]},carpenter.token);
   const maiden = paid.ship.maiden;
   assert.deepEqual([maiden.voyage, maiden.vessel, maiden.course, maiden.barrels, maiden.teams, maiden.payer],
     [actual.id, 'Skowronek', 'outer', 4, 1, 'Róża']);

@@ -657,6 +657,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const playerDragonRig = new THREE.Group();
     const playerDragonModels: Record<DragonSpeciesId, THREE.Group> = {
+      brazowy: buildArticulatedDragon(materials,'umber'),
+      dwuglowy: buildArticulatedDragon(materials,'twin'),
       pseudosmok: buildArticulatedDragon(materials, 'copper'),
       blekit: buildArticulatedDragon(materials, 'sapphire'),
       ogien: buildArticulatedDragon(materials, 'crimson'),
@@ -664,6 +666,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       szmaragd: buildArticulatedDragon(materials, 'emerald'),
       zloto: buildArticulatedDragon(materials, 'gold'),
     };
+    playerDragonModels.brazowy.scale.set(1.48,1.08,1.12);
     playerDragonModels.pseudosmok.scale.set(.42, .36, .38);
     playerDragonModels.blekit.scale.set(1.14, .90, 1.26);
     (Object.keys(playerDragonModels) as DragonSpeciesId[]).forEach((sp) => {

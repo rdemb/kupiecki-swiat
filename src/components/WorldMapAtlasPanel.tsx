@@ -83,13 +83,14 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
   const activeContinent =
     WORLD_CONTINENTS.find((c) => c.id === activeRegion.continentId) ?? WORLD_CONTINENTS[0];
 
-  const eastern=selectedContinentId==='nowa_nadzieja';
+  const farCoast=selectedContinentId==='kresy_nadziei';
+  const eastern=selectedContinentId==='nowa_nadzieja' || farCoast;
   const visibleRegions = WORLD_REGIONS.filter((r) =>
-    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' : r.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' : r.continentId === selectedContinentId,
   );
 
   const visibleTrailEvents = trailEvents.filter((ev) =>
-    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' : ev.continentId === selectedContinentId,
+    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' : ev.continentId === selectedContinentId,
   );
 
   const visibleRoutes = buildActiveRouteList(activeCaravans, selectedContinentId);
@@ -124,7 +125,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   : 'bg-[#111722] text-slate-300 border border-slate-800 hover:bg-slate-800'
               }`}
             >
-              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja').length})
+              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei').length})
             </button>
             {WORLD_CONTINENTS.map((cont) => {
               const count = WORLD_REGIONS.filter((r) => r.continentId === cont.id).length;
@@ -150,7 +151,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         {/* High-Altitude Photorealistic 6-Continent Satellite Map */}
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
-            src={eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
+            src={farCoast ? imageUrl('dalekie-wybrzeze.webp') : eastern ? imageUrl('nowa-nadzieja.webp') : imageUrl('world_map_six_continents_1795672943420.jpg')}
             alt={eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
             referrerPolicy="no-referrer"
             className={eastern?'w-full h-full object-fill':'w-full h-full object-cover'}

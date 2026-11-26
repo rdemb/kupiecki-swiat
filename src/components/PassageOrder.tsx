@@ -17,8 +17,9 @@ export function PassageOrder({
 }: {
   page: YardBook;
   busy: boolean;
-  sail: (course: Course, reference?: number, offer?: number) => void;
+  sail: (course: Course, reference?: number, offer?: number, letter?: number) => void;
 }) {
+  const [letter,setLetter] = useState(0);
   const [choice, setChoice] = useState('outer');
   const { pilotage: book, seconds, wallet } = page;
   const offers = page.lighterOffers ?? [];
@@ -73,6 +74,7 @@ export function PassageOrder({
       });
     }
   const route = options.find((o) => o.key === choice);
+  const missingLetter = !!letter && !page.mailbag?.some(m=>m.id===letter);
   const short = route?.price !== undefined && (wallet?.gold ?? 0) < route.price;
   return (
     <div className="yard-passage">
@@ -95,6 +97,12 @@ export function PassageOrder({
           ))}
         </select>
       </label>
+      {(!!page.mailbag?.length || missingLetter) && <label>Worek pocztowy
+        <select value={letter} onChange={e=>setLetter(Number(e.target.value))} disabled={busy}>
+          {missingLetter && <option value={letter} disabled>Kopertę zabrano · wybierz ponownie</option>}
+          <option value={0}>Wypłyń bez listu</option>
+          {page.mailbag.map(m=><option key={m.id} value={m.id}>{m.sender} → {m.guild} · list {m.id}</option>)}
+        </select></label>}
       {book.storm ? (
         <p>Sztorm zamknął redę.</p>
       ) : !route ? (
@@ -127,9 +135,9 @@ export function PassageOrder({
       {short && <p>W sakwie brakuje monet na wybraną lichtugę.</p>}
       <button
         className="inn-primary"
-        disabled={busy || seconds === null || !route || short || !!wallet?.duty}
+        disabled={busy || seconds === null || !route || short || missingLetter || !!wallet?.duty}
         onClick={() =>
-          route && sail(route.course, route.reference, route.offer)
+          route && sail(route.course, route.reference, route.offer, letter || undefined)
         }
       >
         {route?.offer ? 'Wynajmij lichtugę i wypłyń' : 'Obejmij ster i wypłyń'}

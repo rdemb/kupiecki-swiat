@@ -17,6 +17,7 @@ export interface InnGuild {
   founder: string | null;
 }
 export interface InnBook {
+  seaMail: import('./seaMail').PostBook;
   groups: InnGuild[];
   uid: string | null;
   walletMark?: MillMark | null;

@@ -232,7 +232,8 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
-  const startAtHope = place==='nowa-nadzieja';
+  const startAtCoastlands = place==='dalekie-wybrzeze';
+  const startAtHope = place==='nowa-nadzieja' || startAtCoastlands;
   const startAtPort = place === 'waga-portowa';
   const startAtInn = place === 'lazaret' || place === 'koszary' || place === 'targ' || place === 'jarmark' || place === 'dozynki' || place === 'pole' || place === 'piloci' || place === 'stocznia' || place === 'flisacy' || place === 'karczma' || place === 'gildia' || place === 'mlyn' || place === 'most' || place === 'przewozy' || place === 'kasa-gildii';
   const startAtWorks = place === 'warzelnia';
@@ -246,9 +247,9 @@ export default function App() {
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
   const [careerSite,setCareerSite]=useState('mierzeja');
-  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtHope?'nowa_nadzieja':'all');
+  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
   const [selectedCityId, setSelectedCityId] = useState<string>('krolewska_przystan');
-  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtHope?'mierzeja':'krolewska_przystan');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);

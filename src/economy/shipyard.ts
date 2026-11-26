@@ -126,11 +126,13 @@ export type YardAction =
       action: 'sail';
       ship: number;
       charter: number;
+      letter?: number;
       course?: Course;
       reference?: number;
       offer?: number;
     };
 export interface YardBook {
+  mailbag: import('./seaMail').Envelope[];
   stallBids: StallBid[];
   freightAccounts: FreightAccount[];
   returns: ReturnOrder[];

@@ -485,7 +485,7 @@ export default function Shipyard({
                           {page.wallet && (
                             <div className="yard-buttons">
                               <PassageOrder key={job.id} page={page} busy={disabled}
-                                sail={(course,reference,offer)=>act({action:'sail',ship:hull.id,charter:job.id,course,reference,offer})}/>
+                                sail={(course,reference,offer,letter)=>act({action:'sail',ship:hull.id,charter:job.id,course,reference,offer,letter})}/>
                               {(ship.mayManage || job.mine) && (
                                 <button
                                   disabled={disabled}

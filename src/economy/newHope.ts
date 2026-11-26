@@ -1,7 +1,7 @@
 export const crafts = {
-  bursztynnik: {name:'Bursztynnik', product:'paciory bursztynu', color:'#ebb76e', patrons:['Ruta z Mierzei','Tobiasz Sitnik','Hanka z Wydm']},
-  warzelnik: {name:'Warzelnik', product:'miary soli', color:'#b5d8d3', patrons:['Salomea Warzelna','Olek Bednarz','Inga z Solanek']},
-  szkutnik: {name:'Szkutnik', product:'klepki kadłuba', color:'#c0a083', patrons:['Mira Szkutniczka','Boruta Smolarz','Józwa Kil']},
+  bursztynnik: {name:'Bursztynnik', product:'paciory bursztynu', color:'#ebb76e', patrons:['Ruta z Mierzei','Tobiasz Sitnik','Hanka z Wydm','Nela Sitarka','Eryk od Inkluzji']},
+  warzelnik: {name:'Warzelnik', product:'miary soli', color:'#b5d8d3', patrons:['Salomea Warzelna','Olek Bednarz','Inga z Solanek','Hugo z Progów','Maryna Solna']},
+  szkutnik: {name:'Szkutnik', product:'klepki kadłuba', color:'#c0a083', patrons:['Mira Szkutniczka','Boruta Smolarz','Józwa Kil','Celina Smolarka','Wit od Wręg']},
 };
 export type Craft = keyof typeof crafts;
 export interface Worksite { id:string; name:string; craft:Craft; x:number; z:number; description:string }
@@ -12,6 +12,13 @@ export const worksites: Worksite[] = [
   {id:'solanki',name:'Źródła pod Trzciną',craft:'warzelnik',x:801,z:-76,description:'Na skraju mokradeł wybija słona woda. Deszcz i dostawa opału zmieniają rytm warzenia.'},
   {id:'pochylnia',name:'Pochylnia Wron',craft:'szkutnik',x:553,z:115,description:'Na drewnianych kozłach dojrzewają wręgi. Puste miejsca na stojaku zdradzają zapotrzebowanie stoczni.'},
   {id:'warsztat_kila',name:'Przystań pod Kilem',craft:'szkutnik',x:658,z:5,description:'Gdy odpływ odsłania pale, szkutnicy schodzą pod kadłub. Stąd wypływa drewno na oba brzegi.'},
+  {id:'lawica_krabow',name:'Ławica Krabów',craft:'szkutnik',x:1056,z:75,description:'Poławiacze wyciągają kosze przy odpływie. Cieśla czeka z rozszczelnioną łodzią na następny przypływ.'},
+  {id:'brzeg_inkluzji',name:'Brzeg Inkluzji',craft:'bursztynnik',x:1164,z:116,description:'Fala podcina brunatny klif. W korzeniach wystają bryłki jantaru z zatopionymi igłami drzew.'},
+  {id:'biale_progi',name:'Białe Progi',craft:'warzelnik',x:1392,z:-123,description:'U stóp białych progów woda paruje w płytkich basenach. Drewniane zastawki oddzielają solankę od potoku.'},
+  {id:'cicha_stocznia',name:'Cicha Stocznia',craft:'szkutnik',x:1515,z:-86,description:'Na piaszczystym języku łodzie leżą kilem do góry. Świeża smoła zdradza, które wrócą na wodę.'},
+  {id:'wyspa_zrzutek',name:'Wyspa Wyrzutków',craft:'bursztynnik',x:1693,z:132,description:'Za trzcinową mielizną sztorm wyrzuca smocze łuski, gałęzie i bursztyn. Kupcy przebierają wyrzut na sitach.'},
+  {id:'pustelnia_solna',name:'Pustelnia Solna',craft:'warzelnik',x:1930,z:-25,description:'Nad źródłem wiszą wędzone ryby. Zapasy soli odmierzane tu o świcie trafiają na najdalszy odcinek wybrzeża.'},
+  {id:'przyladek_dwoch_szyj',name:'Przylądek Dwóch Szyj',craft:'szkutnik',x:2040,z:-55,description:'Z pomostu widać mokradła. Piloci omijają trzcinę, gdy nad szuwarami podnoszą się jednocześnie dwie zielone głowy.'},
 ];
 export function craftRank(completed:number) {
   return completed >= 8 ? 'Mistrz' : completed >= 3 ? 'Czeladnik' : 'Uczeń';

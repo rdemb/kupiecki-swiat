@@ -84,6 +84,24 @@ interface TrailEventTemplate {
 
 export const TRAIL_EVENT_TEMPLATES: TrailEventTemplate[] = [
   {
+    templateId:'evt_kosze_matyldy', title:'Puste kosze Matyldy',category:'caravan_meeting',categoryLabel:'Poławiaczka krabów',
+    continentId:'kresy_nadziei',regionName:'Ławica Krabów',position2D:[1072,84],atlasPercent:[(1072-930)/12.4,(84+310)/6.2],
+    preferredTimes:['midday','golden_hour'],severity:'opportunity',colorHex:'#e7af7e',
+    loreText:'Matylda wróciła z pustymi koszami. Po rozstawie śladów na mule podejrzewa, że ktoś przeciągnął wiązkę w górę zatoki.',
+    commodityId:'drewno_elfickie',baseGoldReward:65,baseCommodityQty:2,basePrestigeReward:10,monsterPower:0,
+    choices:[{id:'trace',kind:'tactical',label:'Odczytaj ślady odpływu',subtitle:'Pomóż odnaleźć zgubione kosze.',rewardHint:'65 zł'},
+      {id:'replace',kind:'interact',costGold:22,label:'Kup wiklinę na nowe kosze',subtitle:'W zamian otrzymasz drewno z rozbiórki przystani.',rewardHint:'2 szt. drewna'},
+      {id:'bypass',kind:'bypass',label:'Ruszaj dalej',subtitle:'Zostaw ławicę za sobą.',rewardHint:'Wolne przejście'}]
+  },{
+    templateId:'evt_strona_z_gniazda', title:'Dwa ślady pod jednym gniazdem',category:'lost_relic',categoryLabel:'Opiekun gniazd',
+    continentId:'kresy_nadziei',regionName:'Przylądek Dwóch Szyj',position2D:[2010,-46],atlasPercent:[(2010-930)/12.4,264/6.2],
+    preferredTimes:['golden_hour','night'],severity:'mystery',colorHex:'#b1cc83',loreText:'Pod jedną parą skrzydeł Lechosz dostrzegł dwa pyski. Prosi o pomoc w zapisaniu obserwacji, zanim mgła zasłoni gniazdo.',
+    commodityId:'runiczny_pergamin',baseGoldReward:85,baseCommodityQty:1,basePrestigeReward:16,monsterPower:0,
+    choices:[{id:'sketch',kind:'tactical',label:'Naszkicuj obie szyje',subtitle:'Opiekun zapłaci za rysunek.',rewardHint:'85 zł'},
+      {id:'copy',kind:'interact',costGold:24,label:'Zamów odpis bestiariusza',subtitle:'Lechosz przepisze kartę z brulionu.',rewardHint:'1 pergamin'},
+      {id:'bypass',kind:'bypass',label:'Omiń gniazdo',subtitle:'Przejdź cicho przez trzciny.',rewardHint:'Wolne przejście'}]
+  },
+  {
     templateId:'evt_latarniczka',title:'Zgaszona lampa Dobrochny',category:'mysterious_merchant',
     categoryLabel:'Latarniczka',continentId:'nowa_nadzieja',regionName:'Kanał Wron',
     position2D:[530,133],atlasPercent:[35.5,71.5],preferredTimes:['night','golden_hour'],

@@ -1,3 +1,4 @@
+import { GuildPost, SeaPost } from './SeaPost';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CITIES, WEATHER_CONDITIONS, type WeatherConditionId } from '../economy/economyEngine';
 import { getCityInteriorSpec } from '../economy/cityAndArenaEngine';
@@ -224,6 +225,7 @@ export default function MerchantInn({
             Nie udało się otworzyć księgi. <button onClick={read}>Spróbuj ponownie</button>
           </p>
         )}
+        {tab==='guild' && book?.membership && book.seaMail && <GuildPost letters={book.seaMail.received}/>}
         {receipt && <p role="status">{receipt}</p>}
         {!book && !readError && <p>Karczmarz przynosi księgę…</p>}
         {(tab==='mill' || tab==='freight' || tab==='mutual') && <MillHouse visit={onTab} key={tab} room={tab} city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}
@@ -232,6 +234,7 @@ export default function MerchantInn({
             <section>
               {tab === 'board' ? (
                 <>
+                  {city==='krolewska_przystan' && book.seaMail && <SeaPost book={book} busy={busy} login={onAccount} act={act}/>}
                   {isFairTown(city) && <section className="feast-table">{!!book.reliefCalls?.length && <MillHouse visit={onTab} room="relief" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}<PortLink href={infirmaryHref(city)} go={()=>onTab('ward',city)}>Do lazaretu przy koszarach</PortLink><InnSpurRoll entries={book.spurRoll ?? []}/><InnRoadLedger records={book.roadRecords ?? []}/><NewsBoard letters={book.newsLetters ?? []} now={book.boardAt}/><PortLink href={garrisonHref(city)+'#kuchnia'} go={()=>onTab('garrison',city)}>Kuchnia polowa, koszary i poczta traktowa</PortLink></section>}
                   {isFairTown(city) && book.barterCalls && (
                     <section className="feast-table" id="wezwania-kupcow" aria-label="Wezwania z targu">

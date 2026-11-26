@@ -1216,11 +1216,13 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
  */
 export function buildArticulatedDragon(
   materials: SharedWorldMaterials,
-  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' = 'crimson',
+  variant: 'crimson' | 'frost' | 'emerald' | 'gold' | 'copper' | 'sapphire' | 'umber' | 'twin' = 'crimson',
 ): THREE.Group {
   const dragon = new THREE.Group();
 
   const palette = {
+    umber: {body:0x593922,wing:0x4d322a,emissive:0x48291b,roughness:.88,metalness:.08},
+    twin: {body:0x46613b,wing:0x30472a,emissive:0x283524,roughness:.67,metalness:.18},
     copper: { body: 0x765035, wing: 0x955939, emissive: 0x763817, roughness: 0.77, metalness: 0.14 },
     sapphire: { body: 0x194767, wing: 0x284357, emissive: 0x31608b, roughness: 0.32, metalness: 0.45 },
     crimson: { body: 0x7f1d1d, wing: 0x450a0a, emissive: 0x9a3412, roughness: 0.42, metalness: 0.48 },
@@ -1256,16 +1258,24 @@ export function buildArticulatedDragon(
   ];
   const body: number[]=[], indices: number[]=[];
   const sides=14;
-  stations.forEach(([z,x,y,w,h],row)=>{
+  const sections: Station[][] = variant==='twin' ? [
+    stations.slice(0,10),
+    ...[-1,1].map(side=>stations.slice(9).map(([z,x,y,w,h]):Station=>
+      [z,x+side*(z-1.35)*.48,y+side*(z-1.35)*.08,w,h])),
+  ] : [stations];
+  for (const section of sections) {
+    const start=body.length/3;
+    section.forEach(([z,x,y,w,h],row)=>{
     for(let i=0;i<sides;i++){
       const a=i*2*Math.PI/sides;
       body.push(x+Math.cos(a)*w,y+Math.sin(a)*h,z);
       if(row) {
-        const p=(row-1)*sides+i, q=(row-1)*sides+(i+1)%sides;
+        const p=start+(row-1)*sides+i, q=start+(row-1)*sides+(i+1)%sides;
         indices.push(p,q,q+sides,p,q+sides,p+sides);
       }
     }
-  });
+    });
+  }
   const skin = new THREE.BufferGeometry();
   skin.setAttribute('position',new THREE.Float32BufferAttribute(body,3));
   skin.setIndex(indices);skin.computeVertexNormals();
@@ -1278,12 +1288,15 @@ export function buildArticulatedDragon(
     part.position.copy(a).lerp(b,.5); parent.add(part);
   }
   for(const side of [-1,1]){
-    spur(dragon,[.27*side,1.28,3.17],[.61*side,1.78,2.4],.14,.013);
+    for(const neck of (variant==='twin'?[-1,1]:[0])) {
+      const dx=neck*.87,dy=neck*.14;
+      spur(dragon,[dx+.27*side,dy+1.28,3.17],[dx+.61*side,dy+1.78,2.4],.14,.013);
+    }
     spur(dragon,[.54*side,-.04,-1.18],[.85*side,-.66,-1.78],.27,.17);
     spur(dragon,[.85*side,-.66,-1.78],[.70*side,-.77,-2.47],.17,.08);
     for(let toe=-1;toe<=1;toe++) spur(dragon,[.7*side,-.77,-2.47],[(.71+toe*.12)*side,-.97,-2.77],.047,.008);
   }
-  for(const [z,x,y,w,h] of stations.slice(2,13)){
+  for(const [z,x,y,w,h] of stations.slice(2,variant==='twin'?10:13)){
     spur(dragon,[x,y+h*.86,z],[x,y+h+.09+w*.44,z-.24-w*.19],.045+w*.11,.008);
   }
   const wing=new THREE.Group();

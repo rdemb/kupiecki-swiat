@@ -1,4 +1,5 @@
 import { installReturnFreight, ReturnRule } from './returnFreight';
+import { installSeaMail } from './seaMail';
 import { hullMarks } from './hullMarks';
 import { maidenRegister } from './maidenVoyage';
 import { installLighters } from './lighters';
@@ -68,6 +69,13 @@ export function installShipyard(
   const maidens = maidenRegister(db);
   const marks = hullMarks(db);
   const returns = installReturnFreight(db, transfer);
+  const mail = installSeaMail(db,gold);
+  function sealReport(uid: string, sender: string, destination: string, topic: unknown, now: number) {
+    const body = topic === 'grain' ? mail.grainReport()
+      : topic === 'salt' ? 'Warzelnia w Królewskiej Przystani. Beczki soli gotowe do wydania: '+harbor.salt()+'.'
+      : topic === 'timber' ? 'Skład przy pochylni. Partie dębu dostępne do budowy: '+rafts.portStock()+'.' : null;
+    return body ? mail.seal(uid,sender,destination,body,now) : 'Wybierz sprawdzoną wieść z portu.';
+  }
   const hull = db.prepare('SELECT * FROM yardShips WHERE id=?');
   const guild = db.prepare(
     'SELECT id,name,tag,founder,archived FROM innGuilds WHERE id=?',
@@ -189,6 +197,7 @@ export function installShipyard(
       salt: harbor.salt(),
       seconds: sailingSeconds(weather()),
       fleet,
+      mailbag: me ? mail.waiting() : [],
       lighterOffers: lighters.offers(me?.uid ?? null),
       pilotage: pilots.book(me?.uid),
       wallet: me
@@ -272,6 +281,7 @@ export function installShipyard(
   function command(
     me: Actor,
     action: string,
+    letter: unknown,
     ship: unknown,
     rawName: unknown,
     emblem: unknown,
@@ -488,6 +498,7 @@ export function installShipyard(
             'Ten pomiar nie potwierdza przejścia. Wybierz tor zewnętrzny albo wypłyń z sondą.',
           );
         }
+        if (letter !== undefined) check(positive(letter) && mail.embark(letter,charter), 'Ta koperta nie czeka już na kei.');
         lighters.offDuty(me.uid, now);
         pilots.depart(charter, way, way === 'cut' ? mark : null);
         db.prepare(
@@ -582,7 +593,7 @@ export function installShipyard(
         action,
         ship,
         name,
-        emblem,
+        emblem, letter,
         charter,
         course,
         reference,
@@ -604,6 +615,7 @@ export function installShipyard(
       const me = auth(req)!;
       // Keep receipts from clients that predate route selection replayable.
       const parts = [action, ship, name, charter];
+      if (action === 'sail' && letter !== undefined) parts.push({letter});
       if (action === 'engrave') parts.push({ emblem });
       if (course !== undefined || reference !== undefined)
         parts.push(course, reference);
@@ -628,6 +640,7 @@ export function installShipyard(
         selected = command(
           me,
           action,
+          letter,
           ship,
           name,
           emblem,
@@ -667,5 +680,5 @@ export function installShipyard(
     db.exec('ROLLBACK');
     throw e;
   }
-  return { advance, pilotBook: pilots.book, launchBoard };
+  return { mail, sealReport, advance, pilotBook: pilots.book, launchBoard };
 }

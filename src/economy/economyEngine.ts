@@ -311,7 +311,8 @@ export type ContinentId =
   | 'aetheris_wschod'
   | 'valoria_zachod'
   | 'obsydian_wulkan'
-  | 'nowa_nadzieja';
+  | 'nowa_nadzieja'
+  | 'kresy_nadziei';
 
 export interface CityNode {
   id: string;
