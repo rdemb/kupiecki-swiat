@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { fairHref } from '../economy/harvestFair';
 import { PortLink } from './PortLink';
 import { InnGuide } from './InnGuide';
@@ -27,21 +28,45 @@ export function quietPictures() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!network?.saveData;
 }
 
-export function OpeningFilm({ onClose, muted, trailer = false }: { onClose: () => void; muted: boolean; trailer?: boolean }) {
+export function OpeningFilm({ onClose, onEnter, muted, trailer = false }: {
+  onClose: () => void; onEnter?: () => void; muted: boolean; trailer?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const reducedMotion = useReducedMotion();
   const dialog = useRef<HTMLDialogElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const enterButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const el = dialog.current;
     el?.showModal();
     return () => el?.close();
   }, []);
+  useEffect(() => { if (ended) enterButton.current?.focus(); }, [ended]);
+  const name = trailer ? 'znak-kupca' : 'pierwszy-szlak';
+  async function replay() {
+    const player = video.current;
+    if (!player) return;
+    player.currentTime = 0;
+    setEnded(false);
+    try { await player.play(); } catch { player.focus(); }
+  }
   return (
-    <dialog ref={dialog} className="road-film" aria-label={trailer ? 'Od worka do ostrogi · zwiastun' : 'Pierwszy szlak'} onCancel={e => { e.preventDefault(); onClose(); }}>
-      <video controls autoPlay playsInline muted={muted} poster={cinemaFile(trailer ? 'rynek.webp' : 'sakwa.webp')}
-        onEnded={onClose} onError={() => setFailed(true)} src={cinemaFile(trailer ? 'od-worka-do-ostrogi.mp4' : 'pierwszy-szlak.mp4')}>
-        <track kind="captions" srcLang="pl" label="Polskie opisy dźwięku" src={cinemaFile(trailer ? 'od-worka-do-ostrogi.vtt' : 'pierwszy-szlak.vtt')} />
+    <dialog ref={dialog} className="road-film" aria-label={trailer ? 'Znak kupca · zwiastun' : 'Pierwszy szlak'}
+      onCancel={e => { e.preventDefault(); onClose(); }}>
+      <video ref={video} controls={!ended} autoPlay playsInline muted={muted}
+        poster={cinemaFile(trailer ? 'znak-kupca.webp' : 'sakwa.webp')}
+        onPlay={() => setEnded(false)} onEnded={() => trailer ? setEnded(true) : onClose()}
+        onError={() => setFailed(true)} src={cinemaFile(name + '.mp4')}>
+        <track kind="captions" srcLang="pl" label="Polskie opisy dźwięku" src={cinemaFile(name + '.vtt')} />
       </video>
-      <button type="button" className="road-chip road-film-skip" onClick={onClose} autoFocus>Pomiń film</button>
+      <button type="button" className="road-chip road-film-skip" onClick={onClose} autoFocus>{ended ? 'Zamknij' : 'Pomiń film'}</button>
+      {ended && <motion.div className="road-film-ending"
+        initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}>
+        {onEnter && <button ref={enterButton} type="button" className="road-primary" onClick={onEnter}>Wkrocz na targ</button>}
+        <button type="button" className="road-chip" onClick={() => void replay()}>Obejrzyj ponownie</button>
+      </motion.div>}
       {failed && <p role="status">Film nie załadował się. Możesz przejść do gry.</p>}
     </dialog>
   );

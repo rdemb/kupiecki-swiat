@@ -2536,14 +2536,18 @@ export default function App() {
               >
                 Obejrzyj prolog
               </button>
-              <button type="button" className="road-chip min-h-[48px]" onClick={() => setShowTrailer(true)}>Zwiastun · 12 s</button>
+              <button type="button" className="road-chip min-h-[48px]" onClick={() => setShowTrailer(true)}>Zwiastun · Znak kupca · 16 s</button>
             </div>
 
           </div>
         </div>
       )}
 
-      {showTrailer && <OpeningFilm trailer onClose={() => setShowTrailer(false)} muted={muted} />}
+      {showTrailer && <OpeningFilm trailer muted={muted} onClose={() => setShowTrailer(false)} onEnter={() => {
+        setShowTrailer(false);
+        playedIntro.current = true;
+        handleStartGame();
+      }} />}
       {showCinematicIntro && <OpeningFilm onClose={() => setShowCinematicIntro(false)} muted={muted} />}
       {onRoad && atPort && gameState === 'playing' && (
         <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie komory celnej…</p>}>

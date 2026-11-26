@@ -50,3 +50,5 @@
 .coast-view h1{font:500 clamp(1.6rem,3.3vw,3.6rem)/1.06 Georgia,serif;letter-spacing:-.035em}.coast-view span{font:600 .72rem system-ui;letter-spacing:.16em;text-transform:uppercase;color:#eadcc6}
 .coast-tools{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;pointer-events:auto}.coast-tools button,.coast-tools select{padding:.55rem .74rem;border:1px solid #b8a7898f;border-radius:3px;background:#211f19df;color:#fff1da;font-size:.85rem;cursor:pointer}.coast-tools button:focus-visible,.coast-tools select:focus-visible{outline:2px solid #f7dfae}
 @media(max-width:680px){.coast-view{flex-direction:column;align-items:flex-start;gap:.5rem;padding:2rem 4vw .85rem}.coast-tools button,.coast-tools select{padding:.45rem .52rem;font-size:.77rem}}
+.road-film-ending {position:absolute;inset:auto 1rem max(6%,env(safe-area-inset-bottom)) 1rem;display:flex;justify-content:center;flex-wrap:wrap;gap:.65rem}
+.road-film-ending button {min-height:44px}
