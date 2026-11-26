@@ -17,6 +17,7 @@ import { ReturnFreightDesk } from './ReturnFreight';
 import { LaunchBoard } from './LaunchBoard';
 import { SoundingBounty } from './SoundingBounty';
 import { PilotHouse, PilotNotice } from './PilotHouse';
+import { barterHref } from '../economy/barter';
 import { fairGoods, fairHref, isFairTown } from '../economy/harvestFair';
 import { HarvestTable } from './HarvestFeast';
 import { feastTowns, type FeastTown } from '../economy/harvestLoaf';
@@ -24,7 +25,7 @@ import {MillHouse} from './MillHouse';
 import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair';
+export type InnTab = 'board' | 'guild' | 'mill' | 'bridge' | 'shipyard' | 'pilots' | 'rafting' | 'freight' | 'mutual' | 'field' | 'feast' | 'fair' | 'barter';
 interface Props {
   city: string;
   token: string | null;
@@ -153,9 +154,9 @@ export default function MerchantInn({
   const [handover, setHandover] = useState('');
   const [filter, setFilter] = useState('all');
   const board = book?.notices.filter((n) => filter === 'all' || n.kind === filter) ?? [];
-  if (tab === 'fair' && isFairTown(city)) return <main className="merchant-inn common-field">
-    <nav className="field-nav" aria-label="Drogi z jarmarku"><PortLink href={'?miejsce=karczma&miasto='+city+'#stol-dozynkowy'} go={()=>onTab('board',city)}>Do stołu w karczmie</PortLink><button onClick={onClose}>Na trakt</button></nav>
-    <MillHouse visit={onTab} room="fair" city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
+  if ((tab === 'fair' || tab === 'barter') && isFairTown(city)) return <main className="merchant-inn common-field">
+    <nav className="field-nav" aria-label="Drogi z jarmarku">{tab === 'fair' ? <PortLink href={barterHref(city)} go={()=>onTab('barter',city)}>Targ bez monety</PortLink> : <PortLink href={fairHref(city)} go={()=>onTab('fair',city)}>Wróć na plac dożynkowy</PortLink>}<PortLink href={'?miejsce=karczma&miasto='+city+'#stol-dozynkowy'} go={()=>onTab('board',city)}>Do stołu w karczmie</PortLink><button onClick={onClose}>Na trakt</button></nav>
+    <MillHouse visit={onTab} room={tab} city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>
   </main>;
   if (tab === 'feast') return <main className="merchant-inn common-field">
     <nav className="field-nav" aria-label="Drogi z piekarni"><button onClick={()=>onTab('field')}>Na wspólne pole</button><button onClick={()=>onTab('mill')}>Do młyna</button></nav>

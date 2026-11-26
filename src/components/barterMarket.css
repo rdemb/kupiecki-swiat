@@ -1,0 +1,155 @@
+.barter-market {
+  max-width: 72rem;
+  margin: auto;
+  background: #1b1712;
+  color: #eee5d2;
+  border: 1px solid #64533c;
+}
+.barter-market h1,
+.barter-market h2,
+.barter-market h3 {
+  font-family: Georgia, serif;
+  color: #f8e5be;
+  line-height: 1.14;
+}
+.barter-header {
+  background-position: center 54%;
+  background-size: cover;
+  padding: clamp(1.4rem, 4vw, 3.5rem);
+  text-shadow: 0 1px 4px #100a06;
+}
+.barter-header h1 {
+  font-size: clamp(2.5rem, 6vw, 4.2rem);
+  margin: 0.35rem 0 0.7rem;
+}
+.barter-header p {
+  max-width: 37rem;
+  margin: 0;
+}
+.barter-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.barter-content > section {
+  padding: clamp(1rem, 3vw, 2rem);
+  min-width: 0;
+}
+.barter-content > section + section {
+  border-left: 1px solid #534332;
+  background: #221c15;
+}
+.barter-market h2 {
+  margin: 0.25rem 0 0.8rem;
+  font-size: 1.65rem;
+}
+.barter-market h3 {
+  font-size: 1.22rem;
+  margin: 0.7rem 0;
+}
+.barter-market p {
+  line-height: 1.55;
+  margin: 0.65rem 0 1rem;
+}
+.barter-market ul,
+.barter-market ol {
+  padding: 0;
+  list-style: none;
+}
+.barter-offers li,
+.barter-contract,
+.barter-tip,
+.barter-market form {
+  border-top: 1px solid #655139;
+  padding: 0.85rem 0;
+  overflow-wrap: anywhere;
+}
+.barter-market fieldset {
+  min-width: 0;
+  padding: 0.6rem;
+  border: 1px solid #655139;
+}
+.barter-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.barter-fields label {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.84rem;
+  margin: 0.25rem 0;
+}
+.barter-fields select,
+.barter-fields input {
+  width: 100%;
+  border: 1px solid #725f44;
+  background: #201912;
+  color: #fff2d6;
+  padding: 0.45rem;
+  border-radius: 2px;
+}
+.barter-market button {
+  background: #e4c99a;
+  color: #281c0e;
+  padding: 0.6rem 0.9rem;
+  line-height: 1.3;
+  min-height: 2.7rem;
+  margin: 0.2rem 0.3rem 0.2rem 0;
+}
+.barter-market button:disabled {
+  opacity: 0.55;
+}
+.barter-market .barter-quiet {
+  background: transparent;
+  color: #f2d9ac;
+  border: 1px solid #746345;
+}
+.barter-market :focus-visible {
+  outline: 2px solid #f7cc85;
+  outline-offset: 3px;
+}
+.barter-contract li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.7rem 0;
+}
+.barter-seal {
+  display: grid;
+  place-items: center;
+  flex: 0 0 1.85rem;
+  height: 1.85rem;
+  border: 1px dashed #a89574;
+  border-radius: 50%;
+  color: #ead4ad;
+}
+.barter-seal.signed {
+  background: radial-gradient(at 36% 24%, #af4438, #63251f 72%);
+  border: 2px solid #b0644f;
+  box-shadow: 0 2px 4px #0e0b08;
+  color: #ffdfb6;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .barter-seal.signed {
+    animation: barter-press 0.22s ease-out;
+  }
+  @keyframes barter-press {
+    from {
+      transform: scale(1.14);
+      opacity: 0.6;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+@media (max-width: 740px) {
+  .barter-content {
+    grid-template-columns: 1fr;
+  }
+  .barter-content > section + section {
+    border-left: 0;
+    border-top: 1px solid #64533c;
+  }
+}

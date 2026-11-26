@@ -15,6 +15,7 @@ export const millRules = {
 export interface MillMark {
   revision: number;
   iron?: number;
+  wood?: number;
   gold: number;
   grain: number;
 }
@@ -31,6 +32,7 @@ export interface MillOrder {
   expires: number;
 }
 export interface MillBook {
+  barter?: import('./barter').BarterBook;
   fair?: import('./harvestFair').FairBook;
   feast?: import('./harvestLoaf').FeastBook;
   freight?: FreightBook;
@@ -49,5 +51,5 @@ export interface MillBook {
     purpose: Consignee;
     at: number;
   }[];
-  wallet: { uid: string; gold: number; grain: number; iron?: number; ration: boolean; mark: MillMark } | null;
+  wallet: { uid: string; gold: number; grain: number; iron?: number; wood?: number; ration: boolean; mark: MillMark } | null;
 }

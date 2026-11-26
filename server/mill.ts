@@ -3,6 +3,7 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { openBarter } from './barter';
 import { openHarvestFair } from './harvestFair';
 import { isFairTown } from '../src/economy/harvestFair';
 import { FeastRule } from './harvestLoaf';
@@ -46,10 +47,10 @@ export function installMill(
   const towns = new Set(CITIES.map((c) => c.id));
   const getMill = db.prepare('SELECT * FROM mills WHERE city=?');
   const accounts = db.prepare(
-    `SELECT username,json_extract(profile,'$.gold') gold,json_extract(profile,'$.inventory.zboze') grain,json_extract(profile,'$.inventory.zelazo') iron,json_extract(profile,'$.millMark') mark FROM players WHERE json_extract(profile,'$.uid')=?`,
+    `SELECT username,json_extract(profile,'$.gold') gold,json_extract(profile,'$.inventory.zboze') grain,json_extract(profile,'$.inventory.zelazo') iron,json_extract(profile,'$.inventory.drewno_elfickie') wood,json_extract(profile,'$.millMark') mark FROM players WHERE json_extract(profile,'$.uid')=?`,
   );
   const setBalance = db.prepare(
-    `UPDATE players SET profile=json_set(profile,'$.gold',?,'$.inventory.zboze',?,'$.inventory.zelazo',?,'$.millMark',json(?)) WHERE username=?`,
+    `UPDATE players SET profile=json_set(profile,'$.gold',?,'$.inventory.zboze',?,'$.inventory.zelazo',?,'$.inventory.drewno_elfickie',?,'$.millMark',json(?)) WHERE username=?`,
   );
   const orders = db.prepare(
     "SELECT id,issuer,name,purpose,quantity,remaining,price,expires FROM millOrders WHERE city=? AND state='open' ORDER BY id DESC",
@@ -68,21 +69,25 @@ export function installMill(
       gold: Number(p.gold),
       grain: Number(p.grain ?? 0),
       iron: Number(p.iron ?? 0),
+      wood: Number(p.wood ?? 0),
       mark,
     };
   }
-  function transfer(uid: string, gold: number, grain: number, iron = 0) {
+  function transfer(uid: string, gold: number, grain: number, iron = 0, wood = 0) {
     const b = wallet(uid);
     const cash = Math.round((b.gold + gold) * 100) / 100,
       stock = b.grain + grain;
     check(cash >= 0, 'W zapisanej sakwie brakuje złota.');
     check(stock >= 0, 'W zapisanym magazynie brakuje zboża.');
     check(b.iron + iron >= 0, 'W zapisanym magazynie brakuje rudy żelaza.');
+    check(b.wood + wood >= 0, 'W zapisanym magazynie brakuje drewna elfickiego.');
     setBalance.run(
       cash,
       stock,
       b.iron + iron,
+      b.wood + wood,
       JSON.stringify({
+        ...(b.mark.wood || wood ? {wood:(b.mark.wood ?? 0) + wood} : {}),
         ...(b.mark.iron || iron ? {iron:(b.mark.iron ?? 0) + iron} : {}),
         revision: b.mark.revision + 1,
         gold: b.mark.gold + gold,
@@ -91,6 +96,9 @@ export function installMill(
       b.username,
     );
   }
+  const barter = openBarter(db, (uid, good, amount) => {
+    transfer(uid, 0, good === 'zboze' ? amount : 0, good === 'zelazo' ? amount : 0, good === 'drewno_elfickie' ? amount : 0);
+  });
   function endOrder(
     o: Pick<MillOrder, 'id' | 'remaining' | 'price' | 'issuer'>,
     city: string,
@@ -174,7 +182,7 @@ export function installMill(
     const m = getMill.get(city)!;
     const purse = uid ? wallet(uid) : null;
     return {
-      ...(isFairTown(city) ? { fair: fair.book(city, Date.now()) } : {}),
+      ...(isFairTown(city) ? { fair: fair.book(city, Date.now()), barter: barter.book(city, uid) } : {}),
       flour: m.flour,
       grain: m.grain,
       baked: m.baked,
@@ -192,6 +200,7 @@ export function installMill(
             gold: purse.gold,
             grain: purse.grain,
             iron: purse.iron,
+            wood: purse.wood,
             mark: purse.mark,
             ration: !!hasRation.get(uid!),
           }
@@ -236,6 +245,8 @@ export function installMill(
     const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow', ...seedActions].includes(action);
     const isFeast = ['bakeHarvestLoaf','voteHarvestInn','carryHarvestLoaf'].includes(action);
     if (isField || action === 'millHarvestLoaf') fields.push(req.body.round);
+    const isBarter = ['postBarter','withdrawBarter','sealBarter'].includes(action);
+    if (isBarter) fields.push(req.body.give, req.body.giveQty, req.body.want, req.body.wantQty, req.body.offer, req.body.circle);
     if (action === 'supplyFair') fields.push(req.body.loaf, req.body.good);
     if (isFeast) fields.push(req.body.loaf, req.body.town);
     if (action === 'recallHarvestSeed' || action === 'acceptHarvestSeed') fields.push(req.body.lot);
@@ -257,7 +268,10 @@ export function installMill(
         .get(me.uid, nonce);
       if (prior) check(prior.payload === payload, 'Ten dokument ma inną treść.');
       else {
-        if (action === 'supplyFair') {
+        if (isBarter) {
+          check(isFairTown(city), 'Targ bez monety odbywa się na placu jarmarcznym.');
+          barter.command(city, me, req.body, now);
+        } else if (action === 'supplyFair') {
           fair.dispatch(city, req.body, me.displayName, now, weather(), bridgeClosed, good =>
             transfer(me.uid, 0, good === 'zboze' ? -1 : 0, good === 'zelazo' ? -1 : 0));
         } else if (action === 'millHarvestLoaf' || isFeast) {

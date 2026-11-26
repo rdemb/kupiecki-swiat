@@ -100,13 +100,18 @@ const activeSessions = new Map<string, string>();
 
 // Each live tab reports cumulative changes from ordinary play, excluding mill settlements
 // and changes already attributed to another tab. A delayed save can then be replayed safely.
-interface WalletCursor {sequence:number; gold:number; grain:number; iron:number}
-type SessionWallet = WalletCursor & { displayedIron: number };
+interface WalletCursor {sequence:number; gold:number; grain:number; iron:number; wood:number}
+type SessionWallet = WalletCursor & { displayedIron: number; displayedWood: number };
+function readStockDelta(value: unknown, normalized: number | undefined, prior: number, priorDisplay: number) {
+  const displayed = typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : priorDisplay;
+  return { displayed, entry: normalized ?? (prior + displayed - priorDisplay) };
+}
 const walletCursors = new Map<string,SessionWallet>();
 function openWallet(token:string, acc:ServerPlayerAccount) {
   const mark=acc.millMark??emptyMark;
   walletCursors.set(token,{sequence:0,gold:acc.gold-mark.gold,grain:acc.inventory.zboze-mark.grain,
-    iron:(acc.inventory.zelazo ?? 0)-(mark.iron ?? 0), displayedIron:acc.inventory.zelazo ?? 0});
+    iron:(acc.inventory.zelazo ?? 0)-(mark.iron ?? 0), displayedIron:acc.inventory.zelazo ?? 0,
+    wood:(acc.inventory.drewno_elfickie ?? 0)-(mark.wood ?? 0), displayedWood:acc.inventory.drewno_elfickie ?? 0});
 }
 function readAccount(username: string): ServerPlayerAccount | null {
   const row = selectPlayer.get(username);
@@ -1080,7 +1085,7 @@ async function startServer() {
       let cursor=walletCursors.get(req.headers.authorization!.slice(7).trim());
       if(!cursor || !entry || !Number.isSafeInteger(entry.sequence) || entry.sequence<1 ||
         !Number.isSafeInteger(Math.round(entry.gold*100)) || typeof entry.gold!=='number' || !Number.isSafeInteger(entry.grain) ||
-        (entry.iron !== undefined && !Number.isSafeInteger(entry.iron))){
+        (entry.iron !== undefined && !Number.isSafeInteger(entry.iron)) || (entry.wood !== undefined && !Number.isSafeInteger(entry.wood))){
         res.status(400).json({error:'Niepoprawny zapis sakwy.'});return;
       }
       if(entry.sequence>cursor.sequence){
@@ -1088,15 +1093,19 @@ async function startServer() {
         const grain=acc.inventory.zboze+entry.grain-cursor.grain;
         // Older tabs submit a displayed inventory. Use its delta from that tab's
         // previous display so a delayed save cannot restore a dispatched wagon.
-        const displayedIron = Number.isSafeInteger(inventory?.zelazo) && inventory.zelazo >= 0
-          ? inventory.zelazo : cursor.displayedIron;
-        const ironEntry = entry.iron ?? (cursor.iron + displayedIron - cursor.displayedIron);
-        const iron = (acc.inventory.zelazo ?? 0) + ironEntry - cursor.iron;
-        if(cash>=0 && grain>=0 && iron>=0){acc.gold=cash;acc.inventory.zboze=grain;acc.inventory.zelazo=iron;}
-        cursor=acceptedSave={sequence:entry.sequence,gold:entry.gold,grain:entry.grain,iron:ironEntry,displayedIron};
+        const iron = readStockDelta(inventory?.zelazo, entry.iron, cursor.iron, cursor.displayedIron);
+        const wood = readStockDelta(inventory?.drewno_elfickie, entry.wood, cursor.wood, cursor.displayedWood);
+        const oreStock = (acc.inventory.zelazo ?? 0) + iron.entry - cursor.iron;
+        const woodStock = (acc.inventory.drewno_elfickie ?? 0) + wood.entry - cursor.wood;
+        if (cash>=0 && grain>=0 && oreStock>=0 && woodStock>=0) {
+          acc.gold=cash; acc.inventory.zboze=grain; acc.inventory.zelazo=oreStock; acc.inventory.drewno_elfickie=woodStock;
+        }
+        cursor=acceptedSave={sequence:entry.sequence,gold:entry.gold,grain:entry.grain,
+          iron:iron.entry,displayedIron:iron.displayed,wood:wood.entry,displayedWood:wood.displayed};
       }
       walletAdjustment={sequence:cursor.sequence,gold:Math.round((acc.gold-mark.gold-cursor.gold)*100)/100,
-        grain:acc.inventory.zboze-mark.grain-cursor.grain,iron:(acc.inventory.zelazo??0)-(mark.iron??0)-cursor.iron};
+        grain:acc.inventory.zboze-mark.grain-cursor.grain,iron:(acc.inventory.zelazo??0)-(mark.iron??0)-cursor.iron,
+        wood:(acc.inventory.drewno_elfickie??0)-(mark.wood??0)-cursor.wood};
     }
     if (alignedMill && typeof gold === 'number' && Number.isFinite(gold) && gold >= 0) {
       acc.gold = Number(gold.toFixed(2));
@@ -1115,7 +1124,7 @@ async function startServer() {
     }
     if (inventory && typeof inventory === 'object') {
       for (const spec of COMMODITIES) {
-        if ((spec.id === 'zboze' || spec.id === 'zelazo') && !alignedMill) continue;
+        if ((spec.id === 'zboze' || spec.id === 'zelazo' || spec.id === 'drewno_elfickie') && !alignedMill) continue;
         const val = Number(inventory[spec.id]);
         if (Number.isFinite(val) && val >= 0) {
           acc.inventory[spec.id] = Math.round(val);
