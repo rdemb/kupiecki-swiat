@@ -484,17 +484,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     const routeCurves: Record<string, THREE.CatmullRomCurve3> = {};
     const landCurves = new Set<THREE.CatmullRomCurve3>();
-    const roadMat = new THREE.MeshStandardMaterial({
-      map: textures.cobblestone,
-      color: 0xc2b296,
-      roughness: 0.88,
-      metalness: 0.05,
-    });
-
     const buildRoadCurve = (idA: string, idB: string, isSea: boolean) => {
       const cityA = CITIES.find((c) => c.id === idA);
       const cityB = CITIES.find((c) => c.id === idB);
-      if (!cityA || !cityB) return;
+      if (!cityA || !cityB || idA === idB) return;
       const pts: THREE.Vector3[] = [];
       const steps = isSea ? 24 : Math.ceil(Math.hypot(cityB.position3D[0]-cityA.position3D[0],cityB.position3D[2]-cityA.position3D[2]));
       for (let i = 0; i <= steps; i++) {
@@ -514,22 +507,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
       if (!isSea) {
         landCurves.add(fwd); landCurves.add(rev);
-        const ribbon = new THREE.PlaneGeometry(.87,1,1,steps);
-        const vertices = ribbon.getAttribute('position');
-        for (let i=0;i<=steps;i++) {
-          const tangent = fwd.getTangent(i/steps);
-          const horizontal = Math.hypot(tangent.x,tangent.z) || 1;
-          for (let side=0;side<2;side++) {
-            const offset = side===0 ? -.435 : .435;
-            const x = pts[i].x + offset*tangent.z/horizontal;
-            const z = pts[i].z - offset*tangent.x/horizontal;
-            vertices.setXYZ(2*i+side,x,Math.max(.32,terrain.heightAt(x,z)+.048),z);
-          }
-        }
-        ribbon.computeVertexNormals();
-        const roadMesh = new THREE.Mesh(ribbon, roadMat);
-        roadMesh.receiveShadow = true;
-        scene.add(roadMesh);
+        terrain.addRoad(pts);
       }
     };
 
@@ -1009,8 +987,6 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         materials.darkBasaltStone.envMapIntensity = envBoost;
         materials.slateRoof.roughness = THREE.MathUtils.lerp(0.54, 0.16, wet);
         materials.slateRoof.envMapIntensity = envBoost;
-        roadMat.roughness = THREE.MathUtils.lerp(0.88, 0.18, wet);
-        roadMat.envMapIntensity = envBoost;
 
         _tmpSunPos.set(...atmo.sunPos);
         sunLight.position.lerp(_tmpSunPos, atmoLerp);
@@ -1499,6 +1475,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       cityGroups.krolewska_przystan?.getObjectByName('mennica-krolewska')?.userData.releaseMint?.();
       settlements.dispose();
       closeLanding();
+      terrain.dispose();
       ocean.dispose();
       skyDome.dispose();
       scenery.dispose();

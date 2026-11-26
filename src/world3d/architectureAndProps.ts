@@ -960,18 +960,33 @@ export function buildWorldLandmarks(materials: SharedWorldMaterials): {
       orb.position.y = 2.2;
       lmGroup.add(orb);
     } else if (lm.id === 'sztolnia_mithrilu') {
-      const archL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 4.5, 1.6), materials.darkBasaltStone);
-      archL.position.set(-2.1, 2.2, 0);
-      const archR = archL.clone();
-      archR.position.x = 2.1;
-      const lintel = new THREE.Mesh(new THREE.BoxGeometry(5.8, 1.3, 1.9), materials.darkBasaltStone);
-      lintel.position.set(0, 4.6, 0);
-      lmGroup.add(archL, archR, lintel);
-
-      for (let c = 0; c < 3; c++) {
-        const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), materials.frostBeaconGlow);
-        cr.position.set((c - 1) * 1.4, 1.2 + (c % 2) * 0.5, 1.3);
-        lmGroup.add(cr);
+      // The abandoned adit opens downhill. Its supports extend below both
+      // sides of the entrance so the outer jamb cannot hang off the ridge.
+      const slopeX=getTerrainHeight(lx-2,lz)-getTerrainHeight(lx+2,lz);
+      const slopeZ=getTerrainHeight(lx,lz-2)-getTerrainHeight(lx,lz+2);
+      const portal=new THREE.Group();
+      portal.rotation.y=Math.atan2(slopeX,slopeZ);
+      lmGroup.add(portal);
+      const r=1.14, spring=.76, depth=1.35;
+      const opening=new THREE.Shape();
+      opening.moveTo(-r,-1.4);opening.lineTo(-r,spring);
+      opening.absarc(0,spring,r,Math.PI,0,true);opening.lineTo(r,-1.4);opening.closePath();
+      const throat=new THREE.Mesh(new THREE.ShapeGeometry(opening),new THREE.MeshStandardMaterial({color:0x171717,roughness:1}));
+      throat.position.z=.01;portal.add(throat);
+      for(let i=0;i<9;i++){
+        const a=i*Math.PI/9+.015,b=(i+1)*Math.PI/9-.015;
+        const rib=new THREE.Shape();
+        rib.absarc(0,0,r+.40+(i===4?.11:0),a,b,false);
+        rib.absarc(0,0,r,b,a,true);rib.closePath();
+        const stone=new THREE.Mesh(new THREE.ExtrudeGeometry(rib,{depth,bevelEnabled:false,curveSegments:3}),materials.darkBasaltStone);
+        stone.position.set(0,spring,-.91);stone.castShadow=stone.receiveShadow=true;portal.add(stone);
+      }
+      for(const side of [-1,1]) {
+        const support=new THREE.Mesh(new THREE.BoxGeometry(.42,3.35,depth),materials.timberWood);
+        support.position.set(side*(r+.19),spring-1.67,-.23);
+        portal.add(support);
+        const ore=new THREE.Mesh(new THREE.OctahedronGeometry(.24,0),materials.frostBeaconGlow);
+        ore.position.set(side*1.52,.20,.43);ore.scale.y=1.4;portal.add(ore);
       }
     } else if (lm.id === 'wrak_valthora') {
       const ghostShip = buildGalleonMesh(materials, 1.45);
