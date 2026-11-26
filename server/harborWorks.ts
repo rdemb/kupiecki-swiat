@@ -47,6 +47,20 @@ export function installHarborWorks(
     }
     db.prepare('DELETE FROM harborShifts WHERE due<=?').run(now);
   }
+  const issueSalt = db.prepare('UPDATE harborStores SET salt=salt-? WHERE id=1 AND salt>=?');
+  function reserveSalt() {
+    return Boolean(issueSalt.run(rules.exportBarrels, rules.exportBarrels).changes);
+  }
+  function completeShipment(uid: string, name: string, story?: string) {
+    const extra = rafts.usePortLoad();
+    const teams = extra ? 2 : 1;
+    db.prepare('UPDATE harborStores SET provisions=provisions+?,shipments=shipments+1 WHERE id=1').run(teams);
+    const news = story ?? (extra
+      ? 'Szyper odebrał sól. Cieśle zużyli partię belek z Gaju i przygotowali drugi zaprzęg.'
+      : 'Odprawiono transport soli. Fracht opłacił zaprzęg na następny przewóz portowy.');
+    db.prepare('INSERT INTO annals(person,name,site,story) VALUES(?,?,?,?)').run(uid,name,'krolewska_przystan',news);
+    return teams;
+  }
   function state(uid: string | undefined, now: number) {
     return {
       ...stores.get(),
@@ -98,22 +112,8 @@ export function installHarborWorks(
       else if (!prior) {
         if (myShift.get(me.uid)) conflict = 'Twoja załoga jest jeszcze na zmianie.';
         else if (action === 'ship') {
-          const shipped = db
-            .prepare(
-              'UPDATE harborStores SET salt=salt-?,provisions=provisions+1,shipments=shipments+1 WHERE id=1 AND salt>=?',
-            )
-            .run(rules.exportBarrels, rules.exportBarrels);
-          if (!shipped.changes) conflict = 'W magazynie jest za mało beczek na wysyłkę.';
-          else {
-            const extra = rafts.usePortLoad();
-            if (extra) db.exec('UPDATE harborStores SET provisions=provisions+1 WHERE id=1');
-            db.prepare('INSERT INTO annals(person,name,site,story) VALUES(?,?,?,?)').run(
-              me.uid,
-              me.displayName,
-              'krolewska_przystan',
-              extra ? 'Szyper odebrał sól. Cieśle zużyli partię belek z Gaju i przygotowali drugi zaprzęg.' : 'Odprawiono transport soli. Fracht opłacił zaprzęg na następny przewóz portowy.',
-            );
-          }
+          if (!reserveSalt()) conflict = 'W magazynie jest za mało beczek na wysyłkę.';
+          else completeShipment(me.uid, me.displayName);
         } else {
           if (action === 'boil') {
             const ration = db
@@ -153,5 +153,15 @@ export function installHarborWorks(
   const useTeam = db.prepare(
     'UPDATE harborStores SET provisions=provisions-1 WHERE id=1 AND provisions>0',
   );
-  return () => Boolean(useTeam.run().changes);
+  return {
+    useTeam: () => Boolean(useTeam.run().changes), finishDue, reserveSalt,
+    salt: () => Number(stores.get()!.salt),
+    returnSalt: (barrels:number) => receive.run(0, barrels),
+    receiveCharter(uid:string, name:string, ship:string, voyage:number, at:number) {
+      const teams = completeShipment(uid, name, 'Szkuta „'+ship+'” wróciła z redy po dostawie soli. Szyper: '+name+'.');
+      db.prepare('INSERT INTO harborReceipts(owner,nonce,action,name,created) VALUES(?,?,?,?,?)')
+        .run(uid,'szkuta/'+voyage,'ship',name,at);
+      return teams;
+    },
+  };
 }

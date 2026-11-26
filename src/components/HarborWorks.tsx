@@ -36,9 +36,9 @@ const stations = {
   },
 } as const;
 const keys: HarborAction[] = ['fish', 'boil', 'ship'];
-type Props = { token: string | null; onClose: () => void; onAccount: () => void; onLanding: () => void };
+type Props = { token: string | null; onClose: () => void; onAccount: () => void; onLanding: () => void; onYard: () => void };
 
-export default function HarborWorks({ token, onClose, onAccount, onLanding }: Props) {
+export default function HarborWorks({ token, onClose, onAccount, onLanding, onYard }: Props) {
   const [data, setData] = useState<HarborWork | null>(null);
   const [selected, setSelected] = useState<HarborAction>('fish');
   const [error, setError] = useState('');
@@ -261,6 +261,7 @@ export default function HarborWorks({ token, onClose, onAccount, onLanding }: Pr
               <p>Otwieranie księgi…</p>
             ) : (
               <>
+                <button onClick={onYard}>Stocznia szkutnicza</button>
                 <button onClick={onLanding}>Odwiedź przystań flisaków</button>
                 <h3>Na zmianie</h3>
                 {data.workers.length ? (

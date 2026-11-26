@@ -14,6 +14,7 @@ interface Props {
   launch: (offer: number) => void;
   bridge: () => void;
   harbor: () => void;
+  yard: () => void;
   close: () => void;
   login: () => void;
   refresh: () => void;
@@ -45,6 +46,7 @@ export function RaftLanding({
   launch,
   bridge,
   harbor,
+  yard,
   close,
   login,
   refresh,
@@ -86,6 +88,7 @@ export function RaftLanding({
       <section className="inn-room">
         <div className="bridge-nav">
           <button onClick={bridge}>Most i wodowskaz</button>
+          <button onClick={yard}>Stocznia szkutnicza</button>
           <button onClick={harbor}>Keja w Królewskiej Przystani</button>
           <button onClick={refresh}>Odśwież księgę</button>
         </div>

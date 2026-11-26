@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
+import { exerciseShipyard } from './shipyard-scenario.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -758,5 +759,7 @@ test('rejestracja, sesje dwóch kupców i zapis profilu po restarcie', { timeout
     assert.equal((await watch()).rafting.offer,null);
     await gauge(returned,'launchRaft',{offer:bid},409);
     }
+    const currentEmperor=(await request('/api/auth/login',200,first)).token;
+    await exerciseShipyard({request,db:testDb,start,stop,imperator:currentEmperor});
   } finally {testDb.close();}
 });

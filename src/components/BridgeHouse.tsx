@@ -28,6 +28,7 @@ interface Props {
   onBoard: () => void;
   atLanding: boolean;
   onHarbor: () => void;
+  onYard: () => void;
   switchLanding: () => void;
   onSettlement: (uid: string, mark: MillMark) => void;
 }
@@ -41,6 +42,7 @@ export default function BridgeHouse({
   onSettlement,
   atLanding,
   onHarbor,
+  onYard,
   switchLanding,
 }: Props) {
   const [page, setPage] = useState<BridgeBook | null>(null);
@@ -148,7 +150,7 @@ export default function BridgeHouse({
   const materialTypes = ['wood', 'iron'] as const;
   const wait = Math.max(0, Math.ceil(((mine?.due ?? 0) - now) / 1000));
   if (atLanding) return <RaftLanding page={page} now={now} busy={busy} error={error} note={note}
-    muted={muted} launch={offer=>act({action:'launchRaft',offer})} bridge={switchLanding} harbor={onHarbor}
+    muted={muted} launch={offer=>act({action:'launchRaft',offer})} bridge={switchLanding} harbor={onHarbor} yard={onYard}
     close={onClose} login={onAccount} refresh={refresh}/>;
   return (
     <main className="merchant-inn bridge-house">

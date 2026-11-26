@@ -1,4 +1,5 @@
 import express from 'express';
+import { installShipyard } from './server/shipyard';
 import { installRafts } from './server/rafts';
 import { installRiverGauge } from './server/riverGauge';
 import { installBridge } from './server/bridge';
@@ -909,7 +910,7 @@ async function startServer() {
 
   function observeBridgeWeather() {
     db.exec('BEGIN IMMEDIATE');
-    try { bridge.advance(Date.now(), true); db.exec('COMMIT'); }
+    try { const now=Date.now(); bridge.advance(now, true); shipyard.advance(now); db.exec('COMMIT'); }
     catch(e) { db.exec('ROLLBACK'); throw e; }
   }
   setInterval(() => {
@@ -1155,9 +1156,10 @@ async function startServer() {
     return bridge.sign().damaged;
   });
   const rafts = installRafts(db, mill.settleGold);
-  const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount, rafts);
+  const harbor = installHarborWorks(app, db, getAuthenticatedAccount, rafts);
   const bridge = installBridge(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex],river,mill.settleGold,rafts);
-  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation, bridge);
+  const shipyard = installShipyard(app, db, getAuthenticatedAccount, rafts, harbor, mill.settleGold, ()=>WEATHER_ORDER[activeWeatherIndex]);
+  installProvinces(app, db, getAuthenticatedAccount, portCleared, harbor.useTeam, guildTravelBonus, mill.useRation, bridge);
 
   mill.advanceTowns();
 

@@ -1,0 +1,147 @@
+.yard-hero {
+  height: clamp(250px, 42vh, 490px);
+  background-position: 54% 52%;
+  background-color: #36382c;
+}
+.yard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  padding-top: 1.4rem;
+}
+.yard-grid > aside {
+  padding-left: 2rem;
+  border-left: 1px solid #a99a7e;
+}
+.yard-grid p {
+  margin: 0.65rem 0 1rem;
+}
+.yard-register,
+.yard-buttons,
+.yard-build form {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+}
+.yard-register {
+  justify-content: space-between;
+}
+.yard-grid label,
+.yard-folio,
+.yard-stores dt,
+.yard-route,
+.yard-log small {
+  font: 600 0.78rem/1.45 system-ui;
+}
+.yard-grid select,
+.yard-grid input {
+  max-width: 100%;
+  padding: 0.4rem;
+  background: #f4eddc;
+  color: #302e25;
+  border: 1px solid #a49778;
+}
+.yard-register select {
+  display: block;
+  max-width: min(100%, 24rem);
+}
+.yard-grid h3 {
+  margin-top: 1rem;
+}
+.yard-certificate,
+.yard-empty {
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  border-block: 3px double #988468;
+  background: linear-gradient(110deg, #f0e7d1, #dfd0ab);
+}
+.yard-estimate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+.yard-estimate dt {
+  font: 600 0.78rem/1.45 system-ui;
+}
+.yard-estimate dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.yard-folio,
+.yard-route,
+.yard-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+.yard-folio {
+  color: #69553b;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.yard-certificate h2 {
+  font:
+    italic 500 clamp(1.8rem, 3.2vw, 3.25rem) / 1.1 Georgia,
+    serif;
+  margin: 0.5rem 0;
+  overflow-wrap: anywhere;
+}
+.yard-certificate a {
+  color: #355446;
+  text-decoration: underline;
+}
+.yard-stores {
+  display: flex;
+  gap: 1.75rem;
+  border-block: 1px solid #ac9d80;
+  padding: 0.75rem 0;
+}
+.yard-stores dd {
+  font:
+    500 2.1rem/1.2 Georgia,
+    serif;
+  color: #2f4c40;
+}
+.yard-stores small {
+  font-size: 1rem;
+}
+.yard-lines li,
+.yard-log li {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #b8aa8f;
+}
+.yard-log small {
+  display: block;
+  font-weight: 400;
+}
+.yard-build progress {
+  height: 0.6rem;
+  width: 100%;
+  accent-color: #3e6151;
+}
+.yard-route {
+  color: #495b4c;
+}
+.yard-note {
+  padding: 0.65rem;
+  border-left: 3px solid #385846;
+  background: #d8d3bb;
+}
+@media (max-width: 680px) {
+  .yard-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .yard-grid > aside {
+    padding: 1rem 0 0;
+    border: 0;
+    border-top: 1px solid #a99a7e;
+  }
+  .yard-hero {
+    background-position: 66% 50%;
+  }
+  .yard-register label {
+    max-width: 100%;
+  }
+}
