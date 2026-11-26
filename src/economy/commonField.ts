@@ -6,10 +6,31 @@ export const fieldLabels = {
   gold: 'Dojrzewające kłosy', stubble: 'Ściernisko po żniwach',
 } as const;
 export type FieldStage = keyof typeof fieldLabels;
+export const seedActions = ['offerHarvestSeed', 'recallHarvestSeed', 'acceptHarvestSeed'] as const;
+export interface SeedLot {
+  id: number;
+  donor: string;
+  founder: string;
+  generation: number;
+  receiver: string | null;
+  mine: boolean;
+}
+export interface SeedPassage {
+  id: number; donor: string; receiver: string; founder: string; generation: number; day: number;
+}
+export interface SeedRoute { steps: SeedPassage[]; older: number | null; }
+export interface SeedChestBook {
+  target: number;
+  canOffer: boolean;
+  lots: SeedLot[];
+  reserved: boolean;
+  history: SeedPassage[];
+}
 export type FieldCommand = {
-  action: 'bringSeed' | 'takeSeed' | 'voteSow' | 'holdSow';
+  action: 'bringSeed' | 'takeSeed' | 'voteSow' | 'holdSow' | typeof seedActions[number];
   round: number;
   quantity?: number;
+  lot?: number;
 };
 export interface FieldBook {
   round: number;
@@ -23,6 +44,7 @@ export interface FieldBook {
   votes: number;
   journal: {day: number; weather: WeatherConditionId; points: number}[];
   mine: { seed: number; voted: boolean } | null;
+  chest?: SeedChestBook;
   lastHarvest: { day: number; seed: number; yield: number; myShare: number | null } | null;
 }
 

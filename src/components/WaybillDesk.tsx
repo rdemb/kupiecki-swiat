@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CoverChoice, InsuranceReceipt } from './CarrierMutual';
+import { sacks } from '../utils/sacks';
 import { Wheat } from 'lucide-react';
 import type { MillBook } from '../economy/mill';
 import {
@@ -25,13 +26,7 @@ const time = (t: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
-const plural = new Intl.PluralRules('pl');
-function sacks(n: number) {
-  const form = plural.select(n);
-  return (
-    n + ' ' + (form === 'one' ? 'worek' : form === 'few' ? 'worki' : 'worków')
-  );
-}
+
 function Passage({ bill, now }: { bill: Waybill; now: number }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {

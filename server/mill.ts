@@ -3,6 +3,7 @@ import type { Express, Request } from 'express';
 import { CITIES, type WeatherConditionId } from '../src/economy/economyEngine';
 import { emptyMark, millRules as rules, type MillOrder, type MillMark } from '../src/economy/mill';
 
+import { seedActions } from '../src/economy/commonField';
 import { FieldRule, type openCommonField } from './commonField';
 import { installWaybills } from './waybills';
 import { WaybillRule } from './waybillRules';
@@ -187,6 +188,12 @@ export function installMill(
         : null,
     };
   }
+  app.get('/api/field/seed/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const route = Number.isSafeInteger(id) && id > 0 ? field.seedRoute(id) : null;
+    if (!route) { res.status(404).json({error:'Tego worka nie wpisano do księgi siewów.'}); return; }
+    res.json(route);
+  });
   const scope = '/api/mill/:city';
   app.get(scope, (req, res, next) => {
     const city = String(req.params.city);
@@ -216,8 +223,9 @@ export function installMill(
     const { action, nonce, quantity, price, order, purpose } = req.body ?? {};
     const isFreight = ['commission', 'withdraw', 'depart', 'seal', 'tariff', 'suspendCover', 'pledge', 'redeem'].includes(action);
     const fields = isFreight ? [req.body.wage, req.body.road, req.body.bill] : [];
-    const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow'].includes(action);
+    const isField = ['bringSeed', 'takeSeed', 'voteSow', 'holdSow', ...seedActions].includes(action);
     if (isField) fields.push(req.body.round);
+    if (action === 'recallHarvestSeed' || action === 'acceptHarvestSeed') fields.push(req.body.lot);
     // Keep previously signed documents valid after the upgrade.
     if (isFreight && (req.body.quote !== undefined || req.body.guild !== undefined || req.body.amount !== undefined || req.body.cover !== undefined || req.body.fee !== undefined)) {
       fields.push(req.body.quote, req.body.guild, req.body.amount, req.body.cover, req.body.fee);
@@ -238,7 +246,7 @@ export function installMill(
       else {
         if (isField) {
           check(city === waybillTown, 'Wspólne pole leży pod Srebrnym Gajem.');
-          field.command(me.uid, req.body, worldDay(), transfer);
+          field.command(me.uid, me.displayName, req.body, worldDay(), transfer);
         } else if (isFreight) {
           check(city === waybillTown, 'Ten szlak zaopatruje młyn w Srebrnym Gaju.');
           freight.command(me, req.body, now);

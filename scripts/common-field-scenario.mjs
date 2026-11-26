@@ -65,6 +65,18 @@ export async function exerciseCommonField({request, db, start, stop}) {
   }
   await send(marta,'bringSeed',slip);
   assert.equal((await read(marta.token)).wallet.grain,marta.before+1);
+  // The chest is funded from the grower's wallet during the fallow or the following open round.
+  const offer = {nonce:randomUUID()};
+  const baseline = marta.before + 1;
+  await Promise.all([send(marta,'offerHarvestSeed',offer),send(marta,'offerHarvestSeed',offer)]);
+  assert.equal((await read(marta.token)).wallet.grain,baseline-1);
+  assert.equal((await read()).field.chest.lots.length,1);
+  await send(marta,'offerHarvestSeed',{},409);
+  const previousLot = (await read()).field.chest.lots[0].id;
+  await send(jan,'recallHarvestSeed',{lot:previousLot},409);
+  await send(jan,'acceptHarvestSeed',{lot:previousLot},409);
+  await send(marta,'recallHarvestSeed',{lot:previousLot});
+  assert.equal((await read(marta.token)).wallet.grain,baseline);
   const reopened=(await nextDay(8,1)).field;
   assert.equal(reopened.round,round+1);
   assert.equal(reopened.total,0);
@@ -73,4 +85,69 @@ export async function exerciseCommonField({request, db, start, stop}) {
   marta.token=(await request('/api/auth/login',200,marta.credentials)).token;
   await send(marta,'bringSeed',{quantity:1},409);
   assert.equal((await read(marta.token)).wallet.grain,marta.before+1);
+  jan.token=(await request('/api/auth/login',200,jan.credentials)).token;
+  const current = {round:reopened.round};
+  assert.equal((await read(marta.token)).field.chest.canOffer,true);
+  const chest = (await send(marta,'offerHarvestSeed',current)).field.chest;
+  const lot = chest.lots[0].id;
+  await request('/api/field/seed/'+lot,404);
+  assert.ok(lot > previousLot);
+  const janLot = (await send(jan,'offerHarvestSeed',current)).field.chest.lots.find(l=>l.mine).id;
+  await send(jan,'acceptHarvestSeed',{...current,lot:previousLot},409);
+  await send(marta,'acceptHarvestSeed',{...current,lot},409);
+  await send(null,'acceptHarvestSeed',{...current,lot},401);
+  await send(jan,'bringSeed',{...current,quantity:4});
+  await send(jan,'acceptHarvestSeed',{...current,lot},409);
+  await send(jan,'takeSeed',current);
+  const take = {...current,lot,nonce:randomUUID()};
+  await Promise.all([send(jan,'acceptHarvestSeed',take),send(jan,'acceptHarvestSeed',take)]);
+  assert.equal((await read(jan.token)).field.mine.seed,1);
+  await send(jan,'acceptHarvestSeed',{...take,lot:janLot},409);
+  await send(marta,'recallHarvestSeed',{...current,lot},409);
+  await send(jan,'bringSeed',{...current,quantity:1});
+  await send(jan,'takeSeed',current);
+  assert.equal((await read(jan.token)).wallet.grain,jan.before); // Only Jan's personally donated sack is outside his warehouse.
+  assert.equal((await read()).field.chest.lots.find(l=>l.id===lot).receiver,null);
+  const guest = await request('/api/auth/register',201,{username:'kupiec_pola',password:randomUUID()});
+  await send(guest,'offerHarvestSeed',current,409);
+  await send(jan,'acceptHarvestSeed',{...current,lot});
+  await send(guest,'acceptHarvestSeed',{...current,lot},409);
+  await send(jan,'voteSow',current);
+  const ledger=(await read()).field.chest;
+  assert.deepEqual(ledger.lots,[]);
+  assert.deepEqual(ledger.history.map(x=>[x.donor,x.receiver,x.generation]),[[marta.credentials.username,jan.credentials.username,1]]);
+  assert.equal((await read(jan.token)).wallet.grain,jan.before+1); // Unclaimed gift refunded at sowing.
+  for (let dayOffset=9;dayOffset<=12;dayOffset++) await nextDay(dayOffset,0);
+  jan.token=(await request('/api/auth/login',200,jan.credentials)).token;
+  assert.equal((await read(jan.token)).field.lastHarvest.myShare,2);
+  assert.equal((await read(jan.token)).wallet.grain,jan.before+3);
+  const second = (await send(jan,'offerHarvestSeed',current)).field.chest.lots[0];
+  assert.equal(second.generation,2);
+  assert.equal(second.founder,marta.credentials.username);
+  const thirdSeason = (await nextDay(16,0)).field;
+  assert.equal(thirdSeason.chest.lots[0].id,second.id);
+  marta.token=(await request('/api/auth/login',200,marta.credentials)).token;
+  await send(marta,'acceptHarvestSeed',{round:thirdSeason.round,lot:second.id});
+  const book=(await send(marta,'voteSow',{round:thirdSeason.round})).field.chest;
+  assert.deepEqual(book.history.map(x=>[x.founder,x.generation]),[[marta.credentials.username,2],[marta.credentials.username,1]]);
+  const trace = await request('/api/field/seed/'+second.id,200);
+  assert.deepEqual(trace.steps.map(x=>x.id),[second.id,lot]);
+  assert.equal(trace.older,null);
+  assert.equal(trace.steps[0].receiver,marta.credentials.username);
+  assert.equal(trace.steps[1].receiver,jan.credentials.username);
+  assert.deepEqual(Object.keys(trace.steps[0]).sort(),['day','donor','founder','generation','id','receiver']);
+  // Model an old lineage in this isolated world. Paging follows parents across
+  // seasons even when the village ledger has already rolled past the founder.
+  let ancestor = second.id;
+  for (let generation=3; generation<=10; generation++) {
+    const row = db.prepare(`INSERT INTO fieldSeedGifts(target,donor,donorName,founder,generation,receiver,receiverName,sownDay,parent)
+      VALUES(?,?,?,?,?,?,?,?,?)`).run(40+generation,'a','A',marta.credentials.username,generation,'b','B',200+generation,ancestor);
+    ancestor = Number(row.lastInsertRowid);
+  }
+  const recent = await request('/api/field/seed/'+ancestor,200);
+  assert.deepEqual(recent.steps.map(s=>s.generation),[10,9,8,7,6,5,4,3]);
+  assert.equal(recent.older,second.id);
+  const oldest = await request('/api/field/seed/'+recent.older,200);
+  assert.deepEqual(oldest.steps.map(s=>s.generation),[2,1]);
+  assert.equal(oldest.older,null);
 }

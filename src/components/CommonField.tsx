@@ -3,6 +3,8 @@ import { WEATHER_CONDITIONS } from '../economy/economyEngine';
 import { fieldLabels, fieldRules as rules, type FieldBook, type FieldCommand } from '../economy/commonField';
 import type { MillBook } from '../economy/mill';
 import { cinemaFile } from './MerchantRoad';
+import { SeedChest } from './SeedChest';
+import { sacks } from '../utils/sacks';
 import './commonField.css';
 
 interface Props {
@@ -38,7 +40,7 @@ export function CommonField({field:f, wallet, busy, onAccount, sign}: Props) {
         {f.journal.length > 0 && <><h3>Pogoda na polu</h3><ol className="field-log">{f.journal.map(entry=>
           <li key={entry.day}><span>Dzień {entry.day}</span><b>{WEATHER_CONDITIONS[entry.weather].name}</b><span>{entry.points}/3 do plonu</span></li>)}</ol></>}
         {f.lastHarvest && <section className="field-last"><h3>Ostatnie żniwa · dzień {f.lastHarvest.day}</h3>
-          <p>Wysiano {f.lastHarvest.seed} worków. Zebrano {f.lastHarvest.yield}.
+          <p>Wysiano {sacks(f.lastHarvest.seed)}. Zebrano {sacks(f.lastHarvest.yield)}.
           {f.lastHarvest.myShare !== null && <strong> Twój udział w zbiorze wyniósł {f.lastHarvest.myShare}.</strong>}</p></section>}
         <details><summary>Jak pogoda i udziały zmieniają zbiór?</summary>
           <p>Deszcz sprzyja wschodom, ale obciąża dojrzałe kłosy. Słońce najbardziej pomaga pod koniec. Mróz wstrzymuje przyrost. Za każdy dzień przypada od zera do trzech ćwierci worka na worek zasiewu.</p>
@@ -46,20 +48,22 @@ export function CommonField({field:f, wallet, busy, onAccount, sign}: Props) {
         </details>
       </section>
       <aside><h2>Twoja część pola</h2>
+        {f.chest && <a className="field-chest-link" href="#skrzynia">Zajrzyj do skrzyni siewnej ↓</a>}
         {wallet ? <>
-          <p>Twój magazyn · <b>{wallet.grain}</b> worków zboża<br/>Twój wkład w zasiew · <b>{seed}</b></p>
+          <p>Twój magazyn · <b>{sacks(wallet.grain)}</b> zboża<br/>Twój wkład w zasiew · <b>{seed}</b></p>
           {open && <>
             {max > 0 && <form onSubmit={ev => {ev.preventDefault(); void sign({action:'bringSeed',round:f.round,quantity:Number(amount)},'Ziarno przeniesiono z magazynu na wspólny zasiew.');}}>
               <label>Worki na zasiew<input type="number" min={1} max={max} value={amount} required onChange={e=>setAmount(e.target.value)}/></label>
               <button className="inn-primary" disabled={busy || !Number.isInteger(+amount) || +amount<1 || +amount>max}>Wnieś ziarno</button></form>}
-            {max === 0 && seed === 0 && <p>{f.total >= rules.capacity ? 'Wszystkie zagony są zajęte.' : 'Zboże na zasiew możesz kupić na targu.'}</p>}
+            {max === 0 && seed === 0 && <p>{f.total >= rules.capacity ? 'Wszystkie zagony są zajęte.' : f.chest?.lots.some(lot => !lot.mine && lot.receiver === null) ? 'W skrzyni siewnej czeka dar sąsiada.' : 'Zboże na zasiew możesz kupić na targu.'}</p>}
             {seed > 0 && <div className="field-decisions">
               <button className="inn-primary" disabled={busy} onClick={()=>void sign({action:f.mine?.voted?'holdSow':'voteSow',round:f.round},'Zapisano decyzję o siewie.')}>{f.mine?.voted?'Cofnij głos':'Głosuję za siewem'}</button>
-              <button disabled={busy} onClick={()=>void sign({action:'takeSeed',round:f.round},'Ziarno wróciło do twojego magazynu.')}>Wycofaj ziarno ({seed})</button></div>}
+              <button disabled={busy} onClick={()=>void sign({action:'takeSeed',round:f.round},f.chest?.reserved ? 'Twój zagon został zwolniony. Dar wrócił do skrzyni, a własne ziarno do magazynu.' : 'Ziarno wróciło do twojego magazynu.')}>Wycofaj ziarno ({seed})</button></div>}
           </>}
         </> : <button className="inn-primary" onClick={onAccount}>Zaloguj się, żeby siać</button>}
         {open && <p className="field-hint">Każdy kupiec wnosi do czterech worków i ma jeden głos. Gdy siew poprze ponad połowa uczestników, ziarno trafia w ziemię. Do tego czasu możesz je wycofać.</p>}
       </aside>
     </div>
+    {f.chest && <SeedChest field={f} chest={f.chest} busy={busy} sign={sign} grain={wallet?.grain ?? null} onAccount={onAccount}/>}
   </>;
 }

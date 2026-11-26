@@ -2,6 +2,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { WeatherConditionId } from '../src/economy/economyEngine';
 import { cropPoints, fieldRules as rules, type FieldBook, type FieldStage } from '../src/economy/commonField';
 
+import { openSeedChest } from './seedChest';
+
 export class FieldRule extends Error {}
 function requireField(ok: unknown, reason: string): asserts ok {
   if (!ok) throw new FieldRule(reason);
@@ -20,6 +22,7 @@ export function openCommonField(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS fieldDays(round INTEGER NOT NULL, day INTEGER NOT NULL, weather TEXT NOT NULL, points INTEGER NOT NULL, PRIMARY KEY(round,day));
     INSERT OR IGNORE INTO fieldRounds(id) VALUES(1);
   `);
+  const chest = openSeedChest(db);
   const latest = db.prepare('SELECT * FROM fieldRounds ORDER BY id DESC LIMIT 1');
   const current = () => latest.get() as unknown as Round;
   const totals = db.prepare('SELECT COALESCE(SUM(seed),0) total, COUNT(*) growers, COALESCE(SUM(voted),0) votes FROM fieldGrowers WHERE round=?');
@@ -56,20 +59,35 @@ export function openCommonField(db: DatabaseSync) {
     db.prepare('UPDATE fieldRounds SET harvested=?,yield=? WHERE id=?').run(day,yieldSacks,r.id);
   }
 
-  function command(uid: string, c: Record<string,unknown>, day: number, transfer: Transfer) {
+  function command(uid: string, name: string, c: Record<string,unknown>, day: number, transfer: Transfer) {
     const r = current();
-    requireField(c.round === r.id && r.sown === null, 'Ten zasiew jest zamknięty. Odśwież księgę pola.');
+    requireField(c.round === r.id, 'Księga dotyczy już innego zasiewu. Odśwież pole.');
+    const target = r.harvested === null ? r.id : r.id + 1;
+    if (c.action === 'offerHarvestSeed' || c.action === 'recallHarvestSeed') {
+      requireField(r.sown === null || r.harvested !== null, 'Poczekaj na żniwa.');
+      if (c.action === 'offerHarvestSeed') {
+        requireField(chest.offer(uid, name, target, transfer), 'Możesz przekazać jeden worek po własnych udanych żniwach.');
+      } else {
+        requireField(typeof c.lot === 'number' && Number.isSafeInteger(c.lot) && chest.recall(uid, target, c.lot, transfer), 'Ten worek został już podjęty albo należy do innego gospodarza.');
+      }
+      return;
+    }
+    requireField(r.sown === null, 'Ten zasiew jest zamknięty. Odśwież księgę pola.');
     const seed = Number(participant.get(r.id, uid)?.seed ?? 0);
-    if (c.action === 'bringSeed') {
-      const qty = c.quantity;
+    if (c.action === 'bringSeed' || c.action === 'acceptHarvestSeed') {
+      const gift = c.action === 'acceptHarvestSeed';
+      const qty = gift ? 1 : c.quantity;
       requireField(typeof qty === 'number' && Number.isSafeInteger(qty) && qty > 0 && seed + qty <= rules.perMerchant, 'Na kupca przypadają najwyżej cztery worki na zasiew.');
       requireField(Number(totals.get(r.id)!.total) + qty <= rules.capacity, 'Na polu brakuje miejsca na tyle ziarna.');
-      transfer(uid, 0, -qty);
+      if (gift) {
+        requireField(typeof c.lot === 'number' && Number.isSafeInteger(c.lot) && chest.reserve(uid, name, target, c.lot), 'Wybierz dostępny worek sąsiada. Na gospodarza przypada jeden dar.');
+      } else transfer(uid, 0, -qty);
       db.prepare('INSERT INTO fieldGrowers(round,uid,seed) VALUES(?,?,?) ON CONFLICT(round,uid) DO UPDATE SET seed=seed+excluded.seed').run(r.id,uid,qty);
     } else {
       requireField(seed > 0, 'Najpierw przynieś własne ziarno.');
       if (c.action === 'takeSeed') {
-        transfer(uid, 0, seed);
+        const ownSeed = seed - chest.release(uid, target);
+        if (ownSeed > 0) transfer(uid, 0, ownSeed);
         db.prepare('DELETE FROM fieldGrowers WHERE round=? AND uid=?').run(r.id,uid);
       } else {
         requireField(c.action === 'voteSow' || c.action === 'holdSow', 'Nieznana decyzja o zasiewie.');
@@ -77,7 +95,10 @@ export function openCommonField(db: DatabaseSync) {
       }
     }
     const t = totals.get(r.id)!;
-    if (Number(t.votes) * 2 > Number(t.growers)) db.prepare('UPDATE fieldRounds SET sown=?,lastDay=? WHERE id=?').run(day,day,r.id);
+    if (Number(t.votes) * 2 > Number(t.growers)) {
+      chest.sow(target, day, transfer);
+      db.prepare('UPDATE fieldRounds SET sown=?,lastDay=? WHERE id=?').run(day,day,r.id);
+    }
   }
 
   function book(uid: string | null, day: number, weather: WeatherConditionId): FieldBook {
@@ -90,8 +111,9 @@ export function openCommonField(db: DatabaseSync) {
       total:Number(t.total), growers:Number(t.growers), votes:Number(t.votes),
       journal:notes.all(r.id) as unknown as FieldBook['journal'],
       mine:uid === null ? null : {seed:Number(mine?.seed ?? 0), voted:!!mine?.voted},
+      chest:chest.book(uid, r.harvested === null ? r.id : r.id + 1, r.sown === null || r.harvested !== null),
       lastHarvest:h ? {day:Number(h.harvested), seed:Number(totals.get(h.id)!.total), yield:Number(h.yield), myShare:share ? Number(share.share) : null} : null,
     };
   }
-  return { advance, command, book, landscape: () => stage(current()) };
+  return { advance, command, book, seedRoute:chest.route, landscape: () => stage(current()) };
 }
