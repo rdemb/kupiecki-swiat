@@ -1,3 +1,4 @@
+import type {MillMark} from '../economy/mill';
 import { gameRequest } from '../utils/gameServer';
 import { imageUrl } from '../utils/imageUrl';
 import React, { useState } from 'react';
@@ -46,6 +47,7 @@ interface AuthAndProfilePanelProps {
       raceId: string;
       guildId: string;
       gold: number;
+      millMark?: MillMark;
       bondsGold: number;
       netWorth: number;
       tradesExecutedCount: number;

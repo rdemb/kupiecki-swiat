@@ -1,4 +1,6 @@
 import express from 'express';
+import { installMill } from './server/mill';
+import {emptyMark,type MillMark} from './src/economy/mill';
 import { installMerchantInn } from './server/merchantInn';
 import { installHarborWorks } from './server/harborWorks';
 import { installWeighhouse } from './server/weighhouse';
@@ -58,6 +60,7 @@ export interface ServerPlayerAccount {
   raceId: string;
   guildId: string;
   gold: number;
+  millMark?: MillMark;
   bondsGold: number;
   netWorth: number;
   tradesExecutedCount: number;
@@ -90,6 +93,14 @@ const updatePlayer = db.prepare('UPDATE players SET profile = ? WHERE username =
 const selectPlayer = db.prepare('SELECT profile FROM players WHERE username = ?');
 const activeSessions = new Map<string, string>();
 
+// Each live tab reports cumulative changes from ordinary play, excluding mill settlements
+// and changes already attributed to another tab. A delayed save can then be replayed safely.
+interface WalletCursor {sequence:number; gold:number; grain:number}
+const walletCursors = new Map<string,WalletCursor>();
+function openWallet(token:string, acc:ServerPlayerAccount) {
+  const mark=acc.millMark??emptyMark;
+  walletCursors.set(token,{sequence:0,gold:acc.gold-mark.gold,grain:acc.inventory.zboze-mark.grain});
+}
 function readAccount(username: string): ServerPlayerAccount | null {
   const row = selectPlayer.get(username);
   return row ? JSON.parse(String(row.profile)) : null;
@@ -895,6 +906,7 @@ async function startServer() {
 
   setInterval(() => {
     advanceEconomyTick();
+    mill.advanceTowns();
   }, 4500);
 
   // --- AUTHENTICATION & PLAYER PROFILE BACKEND ROUTES ---
@@ -963,6 +975,7 @@ async function startServer() {
 
     const token = crypto.randomBytes(32).toString('hex');
     activeSessions.set(token, cleanUser);
+    openWallet(token, newAccount);
 
     res.status(201).json({
       token,
@@ -982,6 +995,7 @@ async function startServer() {
 
     const token = crypto.randomBytes(32).toString('hex');
     activeSessions.set(token, cleanUser);
+    openWallet(token, acc);
 
     res.json({
       token,
@@ -1003,6 +1017,7 @@ async function startServer() {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7).trim();
       activeSessions.delete(token);
+      walletCursors.delete(token);
     }
     res.json({ success: true });
   });
@@ -1039,7 +1054,27 @@ async function startServer() {
       acc.raceId = raceId;
     }
     // Membership changes are handled by the guild register.
-    if (typeof gold === 'number' && Number.isFinite(gold) && gold >= 0) {
+    const mark = acc.millMark ?? emptyMark;
+    const entry = req.body.walletSave;
+    const alignedMill = entry===undefined && (req.body.millRevision ?? 0) === mark.revision;
+    let walletAdjustment:WalletCursor|undefined;
+    let acceptedSave:WalletCursor|undefined;
+    if(entry!==undefined){
+      let cursor=walletCursors.get(req.headers.authorization!.slice(7).trim());
+      if(!cursor || !entry || !Number.isSafeInteger(entry.sequence) || entry.sequence<1 ||
+        !Number.isSafeInteger(Math.round(entry.gold*100)) || typeof entry.gold!=='number' || !Number.isSafeInteger(entry.grain)){
+        res.status(400).json({error:'Niepoprawny zapis sakwy.'});return;
+      }
+      if(entry.sequence>cursor.sequence){
+        const cash=Math.round((acc.gold+entry.gold-cursor.gold)*100)/100;
+        const grain=acc.inventory.zboze+entry.grain-cursor.grain;
+        if(cash>=0 && grain>=0){acc.gold=cash;acc.inventory.zboze=grain;}
+        cursor=acceptedSave={sequence:entry.sequence,gold:entry.gold,grain:entry.grain};
+      }
+      walletAdjustment={sequence:cursor.sequence,gold:Math.round((acc.gold-mark.gold-cursor.gold)*100)/100,
+        grain:acc.inventory.zboze-mark.grain-cursor.grain};
+    }
+    if (alignedMill && typeof gold === 'number' && Number.isFinite(gold) && gold >= 0) {
       acc.gold = Number(gold.toFixed(2));
     }
     if (typeof bondsGold === 'number' && Number.isFinite(bondsGold) && bondsGold >= 0) {
@@ -1056,6 +1091,7 @@ async function startServer() {
     }
     if (inventory && typeof inventory === 'object') {
       for (const spec of COMMODITIES) {
+        if (spec.id === 'zboze' && !alignedMill) continue;
         const val = Number(inventory[spec.id]);
         if (Number.isFinite(val) && val >= 0) {
           acc.inventory[spec.id] = Math.round(val);
@@ -1096,7 +1132,8 @@ async function startServer() {
     acc.updatedAt = new Date().toISOString();
 
     saveAccount(acc);
-    res.json({ profile: sanitizeAccountForClient(acc) });
+    if(acceptedSave)walletCursors.set(req.headers.authorization!.slice(7).trim(),acceptedSave);
+    res.json({ profile: sanitizeAccountForClient(acc), walletAdjustment });
   });
 
   const insignia = installCourt(app, db, getAuthenticatedAccount, (uid, prefix) => broadcast('court:prefix', {uid, prefix}));
@@ -1104,7 +1141,9 @@ async function startServer() {
   const portCleared = installWeighhouse(app, db, getAuthenticatedAccount, () => broadcast('port:manifest', {}));
   const useHarborTeam = installHarborWorks(app, db, getAuthenticatedAccount);
   const guildTravelBonus = installMerchantInn(app, db, getAuthenticatedAccount, guilds);
-  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus);
+  const mill = installMill(app,db,getAuthenticatedAccount,()=>WEATHER_ORDER[activeWeatherIndex]);
+  mill.advanceTowns();
+  installProvinces(app, db, getAuthenticatedAccount, portCleared, useHarborTeam, guildTravelBonus, mill.useRation);
 
   // Public State & Registered Leaderboard
   app.get('/api/state', (_req, res) => {

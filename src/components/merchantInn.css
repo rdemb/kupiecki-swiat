@@ -264,3 +264,22 @@
     gap: 0.2rem;
   }
 }
+
+.inn-nav nav {flex-wrap:wrap}
+.mill-stocks {display:flex;flex-wrap:wrap;gap:.8rem 3.2rem;border-block:1px solid #ad9e83;padding:1rem 0;margin:1rem 0}
+.mill-stocks dt,.mill-order time,.mill-ledger time{font:500 .78rem/1.4 system-ui;color:#625944}
+.mill-stocks dd{font-size:1.8rem;line-height:1.2;font-variant-numeric:tabular-nums}
+.mill-stocks small{font:normal .8rem system-ui}
+.mill-house .inn-spread{border:0;padding-top:0}
+.mill-order{border-top:1px solid #ac9c83;padding:.8rem 0}
+.mill-order progress{display:block;accent-color:#665531;width:100%;height:.48rem;margin:.7rem 0 .35rem}
+.mill-order small,.mill-order button{display:block;margin:.4rem 0}
+.mill-order-title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:.35rem}
+.mill-order-title span,.mill-wallet{font:600 .9rem/1.5 system-ui}
+.mill-house .mill-deliver,.mill-terms{display:flex;gap:.7rem;align-items:end;flex-wrap:wrap}
+.mill-deliver input{max-width:6rem}.mill-house .mill-deliver button{margin:0}
+.mill-terms label{flex:1;min-width:6.5rem}
+.mill-ledger li{padding:.5rem 0;border-bottom:1px solid #b4a68d}
+.mill-ledger time{display:block}
+.mill-house [role=status],.mill-house [role=alert]{padding:.7rem;border-left:3px solid #705339;background:#dcd0b4}
+@media(max-width:680px){.mill-stocks{gap:.8rem 1.3rem}.mill-stocks dd{font-size:1.45rem}.inn-nav nav button{padding:.4rem .35rem;font-size:.83rem}}

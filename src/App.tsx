@@ -1,3 +1,4 @@
+import {emptyMark,type MillMark} from './economy/mill';
 import { grainHarvest } from './economy/merchantInn';
 import type { InnTab } from './components/MerchantInn';
 import { gameRequest, gameSocketUrl } from './utils/gameServer';
@@ -228,7 +229,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
   const startAtPort = place === 'waga-portowa';
-  const startAtInn = place === 'karczma' || place === 'gildia';
+  const startAtInn = place === 'karczma' || place === 'gildia' || place === 'mlyn';
   const startAtWorks = place === 'warzelnia';
   const startAtCoast = place === 'zatoka' || place === 'mennica';
   const isAutostart =
@@ -269,7 +270,7 @@ export default function App() {
   const [atPort, setAtPort] = useState(startAtPort);
   const [portMotion, setPortMotion] = useState(() => !quietPictures());
   type InnVisit={city:string;tab:InnTab};
-  const [inn,setInn]=useState<InnVisit|null>(startAtInn?{city:'krolewska_przystan',tab:place==='gildia'?'guild':'board'}:null);
+  const [inn,setInn]=useState<InnVisit|null>(startAtInn?{city:'krolewska_przystan',tab:place==='gildia'?'guild':place==='mlyn'?'mill':'board'}:null);
   const innAfterLogin=useRef<InnVisit|null>(null);
   const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
   const [roadStop, setRoadStop] = useState<RoadStop>(roadStops[0]);
@@ -318,6 +319,21 @@ export default function App() {
     smocza_luska: 1,
   });
 
+  const millLedger = useRef({uid:'',mark:emptyMark});
+  const [settledMark,setSettledMark]=useState<MillMark>(emptyMark);
+  const zeroElsewhere={sequence:0,gold:0,grain:0};
+  const [elsewhere,setElsewhere]=useState(zeroElsewhere);
+  const acknowledged=useRef(zeroElsewhere);
+  const walletSaveNumber=useRef(0);
+  const sessionToken=useRef<string|null>(null);
+  const applyMillMark = React.useCallback((uid:string,next:MillMark)=>{
+    const prior=millLedger.current;
+    if(prior.uid!==uid||next.revision<=prior.mark.revision)return;
+    millLedger.current={uid,mark:next};
+    setSettledMark(next);
+    setPlayerGold(g=>Math.round((g+next.gold-prior.mark.gold)*100)/100);
+    setPlayerInventory(i=>({...i,zboze:i.zboze+next.grain-prior.mark.grain}));
+  },[]);
   const [knight, setKnight] = useState<KnightState>(() => createInitialKnightState('ludzie'));
   const [duchy, setDuchy] = useState<DuchyState>(() => createInitialDuchyState('ludzie'));
   const [dragonSanctuary, setDragonSanctuary] = useState<DragonSanctuaryState>(() =>
@@ -445,7 +461,7 @@ export default function App() {
       if (usr && usr.emailVerified) {
         try {
           const loaded = await loadPlayerProfileFromFirestore(usr.uid);
-          if (loaded) {
+          if (loaded && !millLedger.current.uid) {
             setHasExistingCloudDoc(true);
             setPlayerDisplayName(loaded.displayName);
             setPlayerTitle(loaded.title);
@@ -648,6 +664,10 @@ export default function App() {
             raceId: selectedRaceId,
             guildId: playerGuildId,
             gold: playerGold,
+            millRevision:settledMark.revision,
+            walletSave:{sequence:++walletSaveNumber.current,
+              gold:Math.round((playerGold-settledMark.gold-elsewhere.gold)*100)/100,
+              grain:playerInventory.zboze-settledMark.grain-elsewhere.grain},
             bondsGold: playerBondsGold,
             netWorth,
             tradesExecutedCount,
@@ -659,6 +679,18 @@ export default function App() {
           }),
         });
         if (res.ok) {
+          const saved=await res.json();
+          if(sessionToken.current!==activeToken)return;
+          const adjustment=saved.walletAdjustment;
+          if(adjustment && adjustment.sequence>acknowledged.current.sequence){
+            const previous=acknowledged.current;acknowledged.current=adjustment;
+            if(adjustment.gold!==previous.gold || adjustment.grain!==previous.grain){
+              setElsewhere(adjustment);
+              setPlayerGold(g=>Math.round((g+adjustment.gold-previous.gold)*100)/100);
+              setPlayerInventory(i=>({...i,zboze:i.zboze+adjustment.grain-previous.grain}));
+            }
+          }
+          if(saved.profile?.millMark)applyMillMark(saved.profile.uid,saved.profile.millMark);
           setSyncStatusMsg(`Zapisano ${new Date().toLocaleTimeString('pl-PL')}`);
         } else {
           setSyncStatusMsg(res.status === 401 ? 'Sesja wygasła. Zaloguj się ponownie.' : 'Zapis nie powiódł się.');
@@ -703,6 +735,7 @@ export default function App() {
   }, [
     playerGold,
     playerBondsGold,
+    settledMark,elsewhere,
     netWorth,
     unlockedTechIds,
     playerDisplayName,
@@ -2584,7 +2617,7 @@ export default function App() {
         </React.Suspense>
       )}
       {inn && gameState === 'playing' && <React.Suspense fallback={<p className="fixed inset-0 z-30 grid place-items-center bg-stone-950 text-amber-100">Otwieranie karczmy…</p>}>
-        <MerchantInn key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({...inn,tab})}
+        <MerchantInn onSettlement={applyMillMark} key={(backendToken??'guest')+inn.city} city={inn.city} token={backendToken} tab={inn.tab} onTab={tab=>setInn({...inn,tab})}
           muted={muted} weather={macro.activeWeather} onMembership={syncGuild} onClose={()=>setInn(null)}
           onAccount={()=>{innAfterLogin.current=inn;returnToPort.current='inn';setInn(null);openRoadPanel('profile',inn.city);}}/>
       </React.Suspense>}
@@ -3243,6 +3276,9 @@ export default function App() {
                     firebaseUser={firebaseUser}
                     syncStatusMsg={syncStatusMsg}
                     onBackendAuthSuccess={({ token, profile }) => {
+                      millLedger.current={uid:profile.uid,mark:profile.millMark??emptyMark};
+                      setSettledMark(millLedger.current.mark);
+                      sessionToken.current=token;acknowledged.current=zeroElsewhere;setElsewhere(zeroElsewhere);walletSaveNumber.current=0;
                       setBackendToken(token);
                       setBackendUid(profile.uid);
                       setBackendUsername(profile.username);
@@ -3285,6 +3321,7 @@ export default function App() {
                           headers: { Authorization: `Bearer ${backendToken}` },
                         }).catch(() => {});
                       }
+                      millLedger.current={uid:'',mark:emptyMark};setSettledMark(emptyMark);sessionToken.current=null;
                       setBackendToken(null);setPlayerGuildId('');
                       setBackendUid(null);
                       setBackendUsername(null);

@@ -9,9 +9,11 @@ import {
 } from '../economy/merchantInn';
 import { gameRequest } from '../utils/gameServer';
 import { cinemaFile } from './MerchantRoad';
+import {MillHouse} from './MillHouse';
+import type {MillMark} from '../economy/mill';
 import { InnGuide } from './InnGuide';
 import './merchantInn.css';
-export type InnTab = 'board' | 'guild';
+export type InnTab = 'board' | 'guild' | 'mill';
 interface Props {
   city: string;
   token: string | null;
@@ -19,6 +21,7 @@ interface Props {
   onTab: (v: InnTab) => void;
   onClose: () => void;
   onAccount: () => void;
+  onSettlement:(uid:string,mark:MillMark)=>void;
   onMembership: (id: string, tag: string) => void;
   weather: WeatherConditionId;
   muted: boolean;
@@ -30,6 +33,7 @@ export default function MerchantInn({
   onTab,
   onClose,
   onAccount,
+  onSettlement,
   onMembership,
   weather,
   muted,
@@ -139,11 +143,11 @@ export default function MerchantInn({
     <main className="merchant-inn">
       <header
         className="inn-hero"
-        style={{ backgroundImage: 'url(' + cinemaFile('gospoda.webp') + ')' }}
+        style={{ backgroundImage: 'url(' + cinemaFile(tab==='mill'?'mlyn.webp':'gospoda.webp') + ')' }}
       >
         <div className="inn-heading">
           <span>{CITIES.find((c) => c.id === city)?.name}</span>
-          <h1>{getCityInteriorSpec(city).tavernName}</h1>
+          <h1>{tab==='mill'?'Młyn miejski':getCityInteriorSpec(city).tavernName}</h1>
         </div>
         <button onClick={onClose}>Wróć do gry</button>
       </header>
@@ -168,10 +172,11 @@ export default function MerchantInn({
             >
               Stół gildii
             </button>
+            <button aria-pressed={tab==='mill'} onClick={()=>{onTab('mill');setReceipt('');}}>Kontrakty i młyn</button>
           </nav>
           <span>{WEATHER_CONDITIONS[weather].name}</span>
         </div>
-        <InnGuide key={tab} cue={tab === 'board' ? 'karczma' : 'gildia'} muted={muted} />
+        <InnGuide key={tab} cue={tab === 'board' ? 'karczma' : tab==='mill'?'mlyn':'gildia'} muted={muted} />
         {error && <p role="alert">{error}</p>}
         {readError && (
           <p role="alert">
@@ -180,7 +185,8 @@ export default function MerchantInn({
         )}
         {receipt && <p role="status">{receipt}</p>}
         {!book && !readError && <p>Karczmarz przynosi księgę…</p>}
-        {!!book && (
+        {tab==='mill' && <MillHouse city={city} token={token} onAccount={onAccount} onSettlement={onSettlement}/>}
+        {!!book && tab!=='mill' && (
           <div className="inn-spread">
             <section>
               {tab === 'board' ? (
