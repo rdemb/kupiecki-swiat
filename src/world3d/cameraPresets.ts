@@ -1,5 +1,5 @@
 import { CITIES, COMMODITIES, CommodityId, ContinentId } from '../economy/economyEngine';
-import {atlasSheets,projectAtlas} from '../economy/atlasSheets';
+import {atlasSheets,projectAtlas,sheetFor,type AtlasSheet} from '../economy/atlasSheets';
 import { WORLD_CONTINENTS, WORLD_REGIONS } from '../economy/worldMapData';
 
 export type CameraPresetId = 'world' | 'continent' | 'city' | 'routes' | 'caravan' | 'quay' | 'coast' | 'mint';
@@ -240,15 +240,15 @@ export function computeStaticCameraPresetPose(
   }
   const [west,north,east,south]=atlasSheets.swiat;
   const x=(west+east)/2, z=(north+south)/2;
-  const altitude=(south-north)*1.36;
+  const altitude=(south-north)*1.63;
   return {position:[x,altitude,z+altitude*.16],target:[x,0,z]};
 }
 
-function getCityAtlasPercent(cityId: string): [number, number] {
+function getCityAtlasPercent(cityId: string, sheet: AtlasSheet): [number, number] {
   const reg =
     WORLD_REGIONS.find((r) => r.linkedCityId === cityId || r.id === cityId) ??
     WORLD_REGIONS[0];
-  return projectAtlas('stary_lad',reg.position2D);
+  return projectAtlas(sheet,reg.position2D);
 }
 
 function getCityShortName(cityId: string): string {
@@ -270,9 +270,10 @@ export function buildActiveRouteList(
   playerCaravans: PlayerCaravanSummaryInput[],
   selectedContinentId: ContinentId | 'all' = 'all',
 ): ActiveRouteListItem[] {
+  const sheet = selectedContinentId === 'all' ? 'swiat' : sheetFor(selectedContinentId);
   const playerItems: ActiveRouteListItem[] = playerCaravans.map((c) => {
-    const origPct = getCityAtlasPercent(c.originCityId);
-    const destPct = getCityAtlasPercent(c.destinationCityId);
+    const origPct = getCityAtlasPercent(c.originCityId, sheet);
+    const destPct = getCityAtlasPercent(c.destinationCityId, sheet);
     const t = Math.max(0, Math.min(1, Number.isFinite(c.progress) ? c.progress : 0));
     const comm = COMMODITIES.find((item) => item.id === c.commodityId);
     const origContinent = getCityContinentId(c.originCityId);
@@ -301,8 +302,8 @@ export function buildActiveRouteList(
   });
 
   const royalItems: ActiveRouteListItem[] = AMBIENT_CARAVAN_ROUTES.map((route) => {
-    const origPct = getCityAtlasPercent(route.originCityId);
-    const destPct = getCityAtlasPercent(route.destinationCityId);
+    const origPct = getCityAtlasPercent(route.originCityId, sheet);
+    const destPct = getCityAtlasPercent(route.destinationCityId, sheet);
     const t = route.initialPhase;
     return {
       id: route.id,

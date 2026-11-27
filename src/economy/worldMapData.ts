@@ -1,3 +1,5 @@
+import {frontierCities} from './frontierCities';
+import {atlasSheets, sheetFor} from './atlasSheets';
 import {uplandBounds} from './uplandFair';
 import {westBounds, riverX} from './westernMarch';
 import {southBounds} from './southernTrail';
@@ -100,20 +102,20 @@ export const WORLD_CONTINENTS: ContinentSpec[] = [
     capitalRegionId: 'obsydianowa_cytadela',
   },
   {id:'wzgorza_jarmarczne',name:'Wzgórza Trzech Jarmarków',shortName:'Wzgórza Jarmarczne',subtitle:'Od pól nad rzeką po krasnoludzkie podcienia',climate:'Wyżynny',
-    colorHex:'#ddab70',description:'Po każdej wysokiej wodzie trzy osady wytyczają dojazdy. Pierwsza, która przyjmie mąkę, drewno i płótno, otwiera jarmark.',cameraOverviewPos:[-280,1250,-940],cameraOverviewLook:[-280,7,-2180],capitalRegionId:'rozhuk'},
+    colorHex:'#ddab70',description:'Po każdej wysokiej wodzie trzy osady wytyczają dojazdy. Pierwsza, która przyjmie mąkę, drewno i płótno, otwiera jarmark.',cameraOverviewPos:[-280,1250,-940],cameraOverviewLook:[-280,7,-2180],capitalRegionId:'klosow'},
   {id:'zachodnie_rozlewiska',name:'Zachodnie Rozlewiska Starego Lądu',shortName:'Zachodnie Rozlewiska',subtitle:'Kredowe jary, sady i zatopione trakty',climate:'Rzeczny',
-    colorHex:'#98bb96',description:'Po obu stronach rzeki kupcy szukają wieści o zaginionej karawanie.',cameraOverviewPos:[-1550,1280,1480],cameraOverviewLook:[-1550,4,310],capitalRegionId:'gospoda_koperty'},
+    colorHex:'#98bb96',description:'Po obu stronach rzeki kupcy szukają wieści o zaginionej karawanie.',cameraOverviewPos:[-1550,1280,1480],cameraOverviewLook:[-1550,4,310],capitalRegionId:'sitowiec'},
   {id:'poludniowe_trakty',name:'Południowe Trakty Nowej Nadziei',shortName:'Południowe Trakty',subtitle:'Od delty pereł do złotych stołów skalnych',climate:'Rzeczny i stepowy',
-    colorHex:'#dfb675',description:'Gospody na trzech szlakach przyjmują wędrowny gabinet. Jego drogę wyznaczają kupcy.',cameraOverviewPos:[910,960,1760],cameraOverviewLook:[910,5,925],capitalRegionId:'dom_matryc'},
+    colorHex:'#dfb675',description:'Gospody na trzech szlakach przyjmują wędrowny gabinet. Jego drogę wyznaczają kupcy.',cameraOverviewPos:[910,960,1760],cameraOverviewLook:[910,5,925],capitalRegionId:'szafraniec'},
   {id:'morze_wylin',name:'Morze Wylin · północny szlak',shortName:'Morze Wylin',subtitle:'Od fiordu do ciepłych kominów',climate:'Chłodny morski',
     colorHex:'#8dc9d0',description:'Północny szlak między wyspami. Po sztormach kupcy nanoszą nowe lęgowiska na swoje mapy.',
-    cameraOverviewPos:[925,510,-112],cameraOverviewLook:[925,0,-614],capitalRegionId:'sieci_matyldy'},
+    cameraOverviewPos:[925,510,-112],cameraOverviewLook:[925,0,-614],capitalRegionId:'rudnica'},
   {id:'kresy_nadziei',name:'Dalekie Wybrzeże Nowej Nadziei',shortName:'Dalekie Wybrzeże',subtitle:'Ławice, kredowe progi i smocze mokradła',
     climate:'Morski i bagienny',colorHex:'#a1bd82',description:'Za dawnym krańcem mapy kupcy utrzymują osady na czterech wyspach.',
-    cameraOverviewPos:[1510,360,395],cameraOverviewLook:[1510,0,0],capitalRegionId:'biale_progi'},
+    cameraOverviewPos:[1510,360,395],cameraOverviewLook:[1510,0,0],capitalRegionId:'luskolow'},
   {id:'nowa_nadzieja',name:'Nowa Nadzieja',shortName:'Nowa Nadzieja',subtitle:'Warsztaty za wschodnią cieśniną',
     climate:'Morski',colorHex:'#ade1d2',description:'Kupcy zakładają warsztaty pomiędzy wydmami, solankami i szkutniczymi przystaniami.',
-    cameraOverviewPos:[620,235,291],cameraOverviewLook:[620,3,0],capitalRegionId:'mierzeja'},
+    cameraOverviewPos:[620,235,291],cameraOverviewLook:[620,3,0],capitalRegionId:'nadkil'},
 ];
 
 export interface WorldRegionNode {
@@ -641,6 +643,14 @@ export const WORLD_REGIONS: WorldRegionNode[] = [
     linkedQuestId: 'quest_tytan_obsydian',
     featuredCommodity: 'mithril',
   },
+  ...frontierCities.map((c):WorldRegionNode=>{
+    const [x,,z]=c.position3D;
+    const [w,n,e,s]=atlasSheets[sheetFor(c.continentId)];
+    return {id:c.id,name:c.name,subtitle:c.district,continentId:c.continentId,type:'capital',typeLabel:'Miasto handlowe',
+      biome:c.biome,position2D:[x,z],atlasPercent:[(x-w)/((e-w)/100),(z-n)/((s-n)/100)],
+      altitudeMeters:c.altitudeMeters,dangerLabel:c.raceLabel,loreDescription:c.description,colorHex:c.colorHex,
+      linkedCityId:c.id,featuredCommodity:c.specialty};
+  }),
   ...worksites.map((site):WorldRegionNode=>({
     id:site.id,name:site.name,subtitle:crafts[site.craft].name,continentId:site.z<uplandBounds.south?'wzgorza_jarmarczne':site.x<westBounds.east?'zachodnie_rozlewiska':site.z>310?'poludniowe_trakty':site.z < -310?'morze_wylin':site.x>930?'kresy_nadziei':'nowa_nadzieja',type:'workshop',
     typeLabel:'Warsztat kupiecki',biome:site.z<uplandBounds.south ? uplandBiome(site.x) : site.x<westBounds.east ? westBiome(site.x) : site.z>310 ? southBiome(site.x) : site.z < -310 ? northernBiomeNames[northernTerrain(site.x,site.z).biome] : 'Nadmorska Nizina',position2D:[site.x,site.z],
@@ -741,8 +751,14 @@ export interface ContinentBiomeWeights {
  * Pure geographic biome classifier across all 6 Continents in 620x620 world space.
  */
 export function getContinentBiomeWeights(x: number, z: number): ContinentBiomeWeights {
-  if (z<uplandBounds.south) return {desert:x>800?.38:.08,glacier:0,jade:x>=-900 && x<800?.7:.1,oasis:x < -900?.66:.15,volcanic:0};
-  if (x<westBounds.east) return {desert:x < -2100?.25:0,glacier:0,jade:x>-1300?.65:.1,oasis:x>-2100?.8:.1,volcanic:0};
+  if (z<uplandBounds.south) {
+    const woods=smoothstep(-1160,-690,x+85*Math.sin(z*.006)),slate=smoothstep(540,1030,x+94*Math.cos(z*.003));
+    return {desert:.08+.30*slate,glacier:0,jade:.1+.6*woods*(1-slate),oasis:.15+.51*(1-woods),volcanic:0};
+  }
+  if (x<westBounds.east) {
+    const chalk=1-smoothstep(-2300,-1900,x+110*Math.sin(z*.006)),alder=smoothstep(-1510,-1070,x+90*Math.cos(z*.009));
+    return {desert:.25*chalk,glacier:0,jade:.1+.55*alder,oasis:.8-.7*chalk,volcanic:0};
+  }
   if (z>310) {
     return {desert:x<560?0:.65,glacier:0,jade:0,oasis:x<560?.78:.12,volcanic:0};
   }
@@ -826,11 +842,22 @@ function uplandBiome(x:number) {
 }
 function uplandHeight(x:number,z:number) {
   const {west,east,north,south}=uplandBounds;
-  const margin=Math.min(x-west,east-x,z-north,south-z);
+  const edge=Math.min(x-west,east-x,z-north,south-z);
+  if(edge<=0) return -10;
+  const nx=(x-(west+east)/2)/((east-west)/2),nz=(z-(north+south)/2)/((south-north)/2);
+  const headland=1-Math.pow(Math.pow(Math.abs(nx),3)+Math.pow(Math.abs(nz),3),1/3);
+  const millHeadland=170*Math.exp(-(((x+2340)/260)**2+((z+2840)/170)**2));
+  const margin=Math.min(edge,headland*1280)+millHeadland+120*Math.sin(x*.0038+z*.004)
+    +55*Math.cos(z*.009-x*.003)-72*Math.cos(x*.0015-z*.006);
   if(margin<10) return -10;
   const noise=fbm2D(x*.004,z*.004,3);
   const valley=Math.abs(z-(-2390+135*Math.sin(x*.003)+60*Math.cos(x*.006)));
-  const ridge=x < -900 ? 13+Math.floor(noise*6)*2 : x < 800 ? 32+19*Math.sin(x*.006+noise*2) : 28+85*Math.abs(Math.cos(z*.006+x*.003+noise));
+  const folds=fbm2D(x*.013+noise*3,z*.013,4);
+  const loess=13+noise*12+folds*6;
+  const woods=32+19*Math.sin(x*.006+noise*2)+folds*12;
+  const slate=28+85*Math.abs(Math.cos(z*.006+x*.003+noise))+folds*19;
+  const foothills=loess+(woods-loess)*smoothstep(-1120,-700,x+80*Math.sin(z*.006));
+  const ridge=foothills+(slate-foothills)*smoothstep(590,990,x+95*Math.cos(z*.003));
   const ground=-6+smoothstep(12,70,valley)*(8+ridge);
   return -10+smoothstep(15,130,margin)*(ground+10);
 }
@@ -840,10 +867,13 @@ function westBiome(x:number) {
 }
 function westHeight(x:number,z:number) {
   const edge=Math.min(x-westBounds.west,westBounds.east-x,z-westBounds.north,westBounds.south-z);
-  const shore=edge+28*Math.sin(x*.013)+22*Math.cos(z*.014);
+  const nx=(x+1550)/1240,nz=(z-310)/1240;
+  const basin=1-Math.pow(Math.pow(Math.abs(nx),3)+Math.pow(Math.abs(nz),3),1/3);
+  const shore=Math.min(edge,basin*1240)+82*Math.sin(x*.008-z*.003)+64*Math.cos(z*.007+x*.003);
   if(shore<45) return -10;
   const relief=fbm2D(x*.009,z*.009,3);
-  const gorge=x < -2100 ? 22+54*Math.abs(Math.sin(z*.008+relief*2)) : 13+9*relief;
+  const chalk=1-smoothstep(-2300,-1900,x+110*Math.sin(z*.006));
+  const gorge=13+9*relief+chalk*(10+54*Math.abs(Math.sin(z*.008+relief*2)));
   const bank=Math.abs(x-riverX(z));
   const surface=-8+smoothstep(25,65,bank)*(8+gorge);
   return -10+smoothstep(45,155,shore)*(surface+10);

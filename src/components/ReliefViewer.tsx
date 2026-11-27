@@ -13,6 +13,7 @@ export function ReliefViewer({initial,visit,close}:{initial:AtlasSheet;visit:(re
   useEffect(()=>{const el=dialog.current!;el.showModal();return ()=>el.close();},[]);
   const [west,north,east,south]=atlasSheets[sheet],aspect=(east-west)/(south-north);
   const places=WORLD_REGIONS.filter(r=>belongs(sheet,r.continentId));
+  const pan=useRef<{x:number;y:number;left:number;top:number}|null>(null);
   function travel(id:string){visit(id);close();}
   function switchSheet(value:AtlasSheet){setSheet(value);setZoom(1);viewport.current?.scrollTo(0,0);}
   return <dialog ref={dialog} aria-label="Atlas rzeźby świata" className="relief-viewer" onCancel={close}>
@@ -25,7 +26,15 @@ export function ReliefViewer({initial,visit,close}:{initial:AtlasSheet;visit:(re
       <button aria-label="Przybliż mapę" disabled={zoom===4} onClick={()=>setZoom(z=>z+1)}>+</button>
       <button aria-pressed={pins} onClick={()=>setPins(!pins)}>Nazwy {pins?'wł.':'wył.'}</button>
       <button onClick={close}>Zamknij</button></header>
-    <div className="relief-viewport" ref={viewport} tabIndex={0} aria-label="Mapa do przewijania">
+    <div className="relief-viewport" ref={viewport} tabIndex={0} aria-label="Mapa do przewijania" style={{cursor:zoom>1?'grab':'default'}}
+      onPointerDown={e=>{
+        if(zoom===1 || e.pointerType!=='mouse' || e.button!==0 || (e.target as HTMLElement).closest('button'))return;
+        const el=e.currentTarget;
+        pan.current={x:e.clientX,y:e.clientY,left:el.scrollLeft,top:el.scrollTop};
+        el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';
+      }}
+      onPointerMove={e=>{if(pan.current)e.currentTarget.scrollTo(pan.current.left+pan.current.x-e.clientX,pan.current.top+pan.current.y-e.clientY);}}
+      onLostPointerCapture={e=>{pan.current=null;e.currentTarget.style.cursor=zoom>1?'grab':'default';}}>
       <div className={sheet==='swiat' && zoom<3 ? 'relief-sheet overview' : 'relief-sheet'} style={{width:'min('+zoom*100+'cqw, '+zoom*aspect*100+'cqh)',aspectRatio:aspect}}>
         <img src={reliefUrl(sheet)} alt="Rzeźba terenu, zabudowa i głębokość wody" draggable={false}/>
         {pins && places.map(r=>{

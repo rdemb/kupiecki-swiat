@@ -731,7 +731,7 @@ export const CityInteriorModal: React.FC<CityInteriorModalProps> = ({
             {/* Horizontal Strip of All 12 Trade Capitals */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 pr-1">
-                12 Miast:
+                Miasta ({CITIES.length})
               </span>
               {CITIES.map((c) => {
                 const isCurrent = c.id === activeCity.id;

@@ -52,6 +52,44 @@ export function merchantCraft(materials: SharedWorldMaterials) {
     );
   }
   return {
+    workshop(cityId:string, ground:number) {
+      const base = new THREE.Matrix4().makeTranslation(-5.6,ground,4.2);
+      const wood = materials.timberWood;
+      if (cityId === 'nadkil') {
+        // An unplanked hull on the shipwright's stocks.
+        for (let i=-3;i<=3;i++) {
+          const z=i*.68, half=1.15-.06*i*i;
+          for (const side of [-1,1]) {
+            beam(base,[0,.34,z],[side*half,1.44,z],.13);
+            beam(base,[side*half*.8,.12,z],[side*half*.45,.7,z],.18);
+          }
+        }
+        piece(block,wood,base,[0,.33,0],[.23,.26,4.9]);
+      } else if (cityId === 'rudnica') {
+        for (const x of [-1.2,1.2]) {
+          piece(spindle,materials.darkBasaltStone,base,[x,1.3,0],[1.55,2.6,1.55]);
+          piece(spindle,materials.castleStone,base,[x,3.05,0],[.72,1.1,.72]);
+          piece(block,materials.warmWindowGlow,base,[x,.64,.72],[.48,.54,.14]);
+        }
+      } else if (cityId === 'klosow') {
+        for (const x of [-1.4,1.4]) {
+          for(const dx of [-.8,.8])for(const z of [-1.4,1.4])
+            piece(block,materials.castleStone,base,[x+dx,.45,z],[.42,.9,.42]);
+          piece(block,wood,base,[x,1.83,0],[2.05,2.08,3.45]);
+          for(const side of [-1,1]) piece(block,materials.warmTerracottaRoof,base,
+            [x+side*.56,3.15,0],[1.4,.14,3.75],[0,0,-side*.45]);
+        }
+      } else if (['szafraniec','luskolow','sitowiec'].includes(cityId)) {
+        const finish = cityId === 'sitowiec' ? materials.sailCloth
+          : cityId === 'szafraniec' ? materials.warmTerracottaRoof : materials.emeraldRoof;
+        const tilt=cityId === 'szafraniec' ? -.15 : -1.1;
+        for(const z of [-1.45,0,1.45]) {
+          for(const x of [-1.45,1.45])piece(block,wood,base,[x,.8,z],[.15,1.6,.15]);
+          piece(block,wood,base,[0,1.55,z],[3.2,.16,.16]);
+          for(const x of [-.9,0,.9])piece(block,finish,base,[x,1.12,z+.25],[.75,.055,1.05],[tilt,0,0]);
+        }
+      }
+    },
     facade(parent: THREE.Matrix4, w: number, h: number, d: number) {
       const z = d / 2 + 0.04;
       for (const side of [-1, 1]) {

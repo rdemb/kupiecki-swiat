@@ -233,6 +233,7 @@ const PortWeighhouse = React.lazy(() => import('./components/PortWeighhouse'));
 
 export default function App() {
   const place = new URLSearchParams(window.location.search).get('miejsce');
+  const startCity=CITIES.find(c=>c.id===place);
   const startAtUplands=place==='wedrowny-jarmark';
   const startAtLetter=place==='list';
   const startAtCabinet=place==='gabinet';
@@ -248,7 +249,7 @@ export default function App() {
     new URLSearchParams(window.location.search).get('autostart') === '1';
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>(
-    isAutostart || startAtInn || startAtWorks || startAtPort || startAtCoast || startAtHope ? 'playing' : 'title',
+    isAutostart || startCity || startAtInn || startAtWorks || startAtPort || startAtCoast || startAtHope ? 'playing' : 'title',
   );
   const [selectedRaceId, setSelectedRaceId] = useState<string>('ludzie');
   const sceneCamera:SceneCamera=useRef(null);
@@ -259,13 +260,15 @@ export default function App() {
   const [postFromNests,setPostFromNests]=useState(false);
   const [nestSighting,setNestSighting]=useState<import('./economy/northPassage').NestBook['sighting']>(null);
   const [careerSite,setCareerSite]=useState('mierzeja');
-  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startAtUplands?'wzgorza_jarmarczne':startAtLetter?'zachodnie_rozlewiska':startAtCabinet?'poludniowe_trakty':startAtNests?'morze_wylin':startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
-  const [selectedCityId, setSelectedCityId] = useState<string>('krolewska_przystan');
-  const [selectedRegionId, setSelectedRegionId] = useState<string>(startAtUplands?'rozhuk':startAtLetter?'gospoda_koperty':startAtCabinet?'dom_matryc':startAtNests?'sieci_matyldy':startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
+  const [selectedContinentId, setSelectedContinentId] = useState<ContinentId | 'all'>(startCity?startCity.continentId:startAtUplands?'wzgorza_jarmarczne':startAtLetter?'zachodnie_rozlewiska':startAtCabinet?'poludniowe_trakty':startAtNests?'morze_wylin':startAtCoastlands?'kresy_nadziei':startAtHope?'nowa_nadzieja':'all');
+  const [selectedCityId, setSelectedCityId] = useState<string>(startCity?.id??'krolewska_przystan');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>(startCity?startCity.id:startAtUplands?'rozhuk':startAtLetter?'gospoda_koperty':startAtCabinet?'dom_matryc':startAtNests?'sieci_matyldy':startAtCoastlands?'lawica_krabow':startAtHope?'mierzeja':'krolewska_przystan');
   const [selectedCommodityId, setSelectedCommodityId] = useState<CommodityId>('mithril');
   const [activeTab, setActiveTab] = useState<DockTab>('world_map');
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
-  const [cameraPreset, setCameraPreset] = useState<CameraPresetId>(startAtHope?'continent':place === 'mennica' ? 'mint' : startAtCoast ? 'coast' : 'world');
+  const [cameraReset, resetCamera]=useState(0);
+  function setCameraPreset(value:CameraPresetId){changeCameraPreset(value);resetCamera(v=>v+1);}
+  const [cameraPreset, changeCameraPreset] = useState<CameraPresetId>(startCity?'city':startAtHope?'continent':place === 'mennica' ? 'mint' : startAtCoast ? 'coast' : 'world');
   const [trackedCaravanId, setTrackedCaravanId] = useState<string | null>(null);
   const [lightingMood, setLightingMood] = useState<LightingMoodId>('golden_hour');
   const [pbrWeather, setPbrWeather] = useState<PbrWeatherId>('clear');
@@ -300,7 +303,7 @@ export default function App() {
   const innAfterLogin=useRef<InnVisit|null>(null);
   const returnToPort = useRef<'scales' | 'works' | 'inn' | null>(null);
   const [roadStop, setRoadStop] = useState<RoadStop>(atRiver?roadStops[1]:innTown==='zelazna_kuznia'?roadStops[2]:roadStops[0]);
-  const [hasOpenedMap, setHasOpenedMap] = useState(isAutostart || startAtCoast || startAtHope);
+  const [hasOpenedMap, setHasOpenedMap] = useState(Boolean(startCity) || isAutostart || startAtCoast || startAtHope);
   const [coastView,setCoastView] = useState(startAtCoast);
   const [coastTracking,setCoastTracking] = useState(false);
   const [bellStrike, setBellStrike] = useState(-Infinity);
@@ -2440,7 +2443,7 @@ export default function App() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#080b10] select-none">
       {/* Persistent 3D World WebGL Canvas (Isolated Container) */}
-      {hasOpenedMap && <div hidden={!showMap}><World3DCanvas sceneCamera={sceneCamera} uhd={uhd} fairHost={fairHost} ferryOpen={ferryOpen}
+      {hasOpenedMap && <div hidden={!showMap}><World3DCanvas cameraReset={cameraReset} sceneCamera={sceneCamera} uhd={uhd} fairHost={fairHost} ferryOpen={ferryOpen}
         visible={showMap}
         fieldStage={macro.fieldStage}
         towns={provinces.data.towns}
@@ -2474,6 +2477,7 @@ export default function App() {
         playerDragonSpecies={dragonBonuses.activeSpecies}
         playerDragonStage={dragonBonuses.activeStage}
         cinematicTourActive={cinematicTourActive}
+        onManualCamera={() => setCinematicTourActive(false)}
         onTourContinentChange={setTourContinentId}
       /></div>}
 
@@ -2707,10 +2711,11 @@ export default function App() {
                 ).map((cam) => (
                   <button
                     key={cam.id}
+                    title="Przeciągnij mapę lewym przyciskiem, obracaj prawym. Kółko przybliża, WASD przesuwa."
                     type="button"
                     onClick={() => {
                       setTrackedCaravanId(null);
-                      setCameraPreset(cam.id);
+                      setCinematicTourActive(false);setCameraPreset(cam.id);
                     }}
                     className={`px-1.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
                       cameraPreset === cam.id

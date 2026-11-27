@@ -1,3 +1,4 @@
+import {frontierCities} from '../economy/frontierCities';
 import {worksites} from '../economy/newHope';
 import { insideCommonField } from './commonField';
 import * as THREE from 'three';
@@ -346,6 +347,42 @@ function buildImperialPagoda(
  * - Frostheim: Nordic Glacial Fjord Fortress with A-Frame Longhouses & Frost Beacon
  * - Aetheris: Multi-Tiered Imperial Jade Pagoda Metropolis
  */
+// Retain the real skyline when houses become a few pixels wide. Merge their
+// walls and roofs into a single draw and leave hardware details for the near view.
+export function distantCity(detail:THREE.Group):THREE.Mesh {
+  const positions:number[]=[], colors:number[]=[], normals:number[]=[];
+  const point=new THREE.Vector3(), normal=new THREE.Vector3(), rotation=new THREE.Matrix3();
+  detail.updateWorldMatrix(true,true);
+  const toLocal=detail.matrixWorld.clone().invert(), transform=new THREE.Matrix4();
+  detail.traverse(object=>{
+    if (!(object instanceof THREE.Mesh) || object instanceof THREE.InstancedMesh ||
+        object.material.visible===false || Array.isArray(object.material) || !object.material.color) return;
+    const geo=object.geometry as THREE.BufferGeometry;
+    geo.computeBoundingBox();
+    const size=geo.boundingBox!.getSize(point);
+    if (Math.max(size.x,size.z)<1 || size.y<.35 || geo.attributes.position.count>1200) return;
+    transform.multiplyMatrices(toLocal,object.matrixWorld);
+    rotation.getNormalMatrix(transform);
+    const pos=geo.getAttribute('position'), norm=geo.getAttribute('normal');
+    const tint=object.material.color as THREE.Color;
+    for(let i=0,n=geo.index?.count??pos.count;i<n;i++) {
+      const j=geo.index?geo.index.getX(i):i;
+      point.fromBufferAttribute(pos,j).applyMatrix4(transform);
+      normal.fromBufferAttribute(norm,j).applyNormalMatrix(rotation);
+      positions.push(point.x,point.y,point.z);
+      normals.push(normal.x,normal.y,normal.z);
+      colors.push(tint.r,tint.g,tint.b);
+    }
+  });
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  const mesh=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({vertexColors:true}));
+  mesh.position.copy(detail.position);
+  mesh.name=detail.name+'_panorama';
+  return mesh;
+}
 export function buildRealisticCity(city: CityNode, materials: SharedWorldMaterials): THREE.Group {
   const group = new THREE.Group();
   const craft = merchantCraft(materials);
@@ -354,9 +391,9 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
   const cz = city.position3D[2];
   const groundY = getTerrainHeight(cx, cz);
 
-  const isDesertSultanate = city.id === 'oaza_alkharim';
-  const isNordicFjord = city.id === 'frostgard';
-  const isImperialPagoda = city.id === 'jadeitowa_przystan';
+  const isDesertSultanate = city.id === 'oaza_alkharim' || city.id === 'szafraniec';
+  const isNordicFjord = city.id === 'frostgard' || city.id === 'rudnica';
+  const isImperialPagoda = city.id === 'jadeitowa_przystan' || city.id === 'sitowiec';
   const isValoriaHighland = city.continentId === 'valoria_zachod';
   const isObsidianFortress = city.continentId === 'obsydian_wulkan';
   const isDarkFortress = isObsidianFortress || city.race === 'krasnoludy' || city.race === 'orkowie';
@@ -592,17 +629,33 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
     [9.4, 5.2, 2.0, 1.4, 1.5, 0.9],
   ];
 
+  if (frontierCities.some(town => town.id === city.id)) {
+    // Two staggered rows of workshops follow the high ground outside the walls.
+    for (let lot = 0; lot < 10; lot++) {
+      const row = lot % 2;
+      const hx = -15 - 4.6 * row;
+      const hz = -9 + Math.floor(lot / 2) * 4.8 + row * 1.5;
+      const elevation = getTerrainHeight(cx + hx, cz + hz);
+      const slope = Math.hypot(getTerrainHeight(cx + hx + 1.5, cz + hz) - elevation,
+        getTerrainHeight(cx + hx, cz + hz + 1.5) - elevation);
+      if (elevation > 1.1 && slope < 0.95) {
+        houseLayout.push([hx, hz, 2.1 + row * 0.4, 1.3 + (lot % 3) * 0.2, 1.6, 0.18 * Math.sin(lot)]);
+      }
+    }
+  }
   for (let i = 0; i < houseLayout.length; i++) {
     const [plotX, hz, hw, hh, hd, rot] = houseLayout[i];
     // Keep the path between the sea gate and the great hall clear.
     const hx = city.id === 'krolewska_przystan' && i === 1 ? -4.9 : plotX;
     const localGroundDelta = getTerrainHeight(cx + hx, cz + hz) - groundY;
     if (groundY + localGroundDelta < 0.85) continue;
+    const outsideWalls = Math.hypot(hx, hz) > 12;
+    const baseY = outsideWalls ? localGroundDelta : Math.max(-0.2, localGroundDelta);
 
     if (isDesertSultanate) {
       // Flat-roofed terraced sandstone desert house with glowing arched doorway
       const dHouse = new THREE.Mesh(new THREE.BoxGeometry(hw, hh * 1.15, hd), materials.sandstoneBrick);
-      dHouse.position.set(hx, Math.max(-0.2, localGroundDelta) + hh * 0.55, hz);
+      dHouse.position.set(hx, baseY + hh * 0.55, hz);
       dHouse.rotation.y = rot;
       dHouse.castShadow = true;
       group.add(dHouse);
@@ -611,7 +664,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
       const wallM = i % 2 === 0 ? materials.plasterWall : primaryStone;
       const roofM = isNordicFjord ? materials.snowRoof : i % 3 === 0 ? materials.slateRoof : primaryRoof;
       const hMesh = buildMedievalHouse(hw, hh, hd, wallM, roofM, materials.timberWood, materials.warmWindowGlow);
-      hMesh.position.set(hx, Math.max(-0.2, localGroundDelta - 0.1), hz);
+      hMesh.position.set(hx, outsideWalls ? baseY - 0.1 : Math.max(-0.2, localGroundDelta - 0.1), hz);
       hMesh.rotation.y = rot;
       hMesh.updateMatrix();
       craft.facade(hMesh.matrix,hw,hh,hd);
@@ -677,6 +730,7 @@ export function buildRealisticCity(city: CityNode, materials: SharedWorldMateria
   hitProxy.userData = { regionId: city.id, cityId: city.id, name: city.name };
   group.add(hitProxy);
 
+  craft.workshop(city.id,Math.max(.1,getTerrainHeight(cx-5.6,cz+4.2)-groundY));
   craft.finish(group);
   group.position.set(cx, groundY, cz);
   return group;
@@ -744,6 +798,25 @@ export function buildOrganicForestsAndBoulders(materials: SharedWorldMaterials, 
     treePoints.push({ x, y:ground.heightAt(x,z), z, s: scale, biomeType });
   }
 
+  for (const [region, town] of frontierCities.entries()) {
+    const [cx, , cz] = town.position3D;
+    const sparse = town.id === 'szafraniec' || town.id === 'klosow';
+    const biomeType = town.id === 'rudnica' ? 'pine' : town.id === 'sitowiec' ? 'jade' : 'oak';
+    for (let grove = 0; grove < (sparse ? 3 : 7); grove++) {
+      const bearing = grove * 2.4 + region * 0.83;
+      const reach = 29 + (grove * 7 % 23);
+      for (let j = 0; j < (sparse ? 6 : 20); j++) {
+        const angle = j * 2.4 + grove;
+        const radius = 2.5 * Math.sqrt(j);
+        const x = cx + reach * Math.cos(bearing) + radius * Math.cos(angle);
+        const z = cz + reach * Math.sin(bearing) + radius * Math.sin(angle);
+        const y = ground.heightAt(x, z);
+        if (y < 1.15 || ground.nearRoad(x, z) || Math.hypot(x - cx, z - cz) < 25) continue;
+        if (Math.hypot(ground.heightAt(x + 1.5, z) - y, ground.heightAt(x, z + 1.5) - y) > 1.2) continue;
+        treePoints.push({x, y, z, s: 0.72 + ((j * 19 + region * 3) % 59) / 100, biomeType});
+      }
+    }
+  }
   for(const tree of portGroves(ground,treePoints)) treePoints.push({...tree,biomeType:'oak'});
   // Port trees form a contiguous tail in each broadleaf batch. Switch the
   // whole tail to 3D with one count change, including during an atlas load failure.

@@ -348,6 +348,10 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
     uGlacierTex: { value: textures.glacierIce },
   };
 
+  // Geographic macro detail survives minification when ground textures reach their last mip.
+  const survey = new THREE.TextureLoader().load(import.meta.env.BASE_URL+'atlas/swiat.webp');
+  survey.colorSpace = THREE.SRGBColorSpace;
+  survey.anisotropy = 4;
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.84,
@@ -355,6 +359,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
   });
 
   mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSurvey = {value:survey};
     shader.uniforms.uRoadMask = {value:roadMask};
     shader.uniforms.uSeasonSnow = uniforms.uSeasonSnow;
     shader.uniforms.uSeasonAutumn = uniforms.uSeasonAutumn;
@@ -421,6 +426,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         uniform sampler2D uGrassTex;
         varying vec4 vHorizon;
         uniform sampler2D uRoadMask;
+        uniform sampler2D uSurvey;
         uniform sampler2D uRockTex;
         uniform sampler2D uCobbleTex;
         uniform sampler2D uDesertTex;
@@ -538,7 +544,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         terrainCol = mix(terrainCol,gravel,wear*(.61+.30*exposed.a));
 
         // Snow-capped Alpine Peaks on Stary Kontynent (dynamic seasonal snowline!)
-        float snowLine = mix(26., 5.5, uSeasonSnow);
+        float mountainClimate = max(vContinent.y, 1.-smoothstep(160.,280.,length(vWorldPos.xz)));
+        float snowLine = mix(mix(180.,26.,mountainClimate), 5.5, uSeasonSnow);
         float northFace = clamp(.5 - .5 * normalize(vWorldNorm).z, 0., 1.);
         float ledge = smoothstep(.48, .88, flatness + (exposed.a - .5) * .34);
         float snowMask = ledge * smoothstep(-2., 5., h - snowLine + northFace * 3.8 + (exposed.a - .5) * 4.);
@@ -577,6 +584,10 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
           terrainCol = mix(terrainCol, ashTint, uDisasterAsh * 0.45 * landAboveSea);
         }
 
+        vec2 surveyUv = (vWorldPos.xz + vec2(2790.,3410.))/4960.;
+        vec3 surveyed = texture2D(uSurvey,vec2(surveyUv.x,1.-surveyUv.y)).rgb;
+        float surveyWeight = smoothstep(130.,1250.,length(vWorldPos-cameraPosition))*smoothstep(.4,4.,h);
+        terrainCol = mix(terrainCol,surveyed, surveyWeight*.74);
         diffuseColor.rgb *= terrainCol;
         `,
       )
@@ -647,8 +658,8 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
         float sunAlign = max(dot(viewDir, normalize(uSunDir)), 0.0);
         vec3 scatterCol = mix(uHorizonColor, uSunColor, pow(sunAlign, 5.0) * 0.45);
         float heightAtten = exp(-max(vWorldPos.y, 0.0) * 0.045);
-        float aerialFog = 1.0 - exp(-distCam * 0.0021 * uAerialFogDensity * (0.65 + 0.35 * heightAtten));
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, scatterCol, clamp(aerialFog, 0.0, 0.88));
+        float aerialFog = 1.0 - exp(-distCam * 0.0009 * uAerialFogDensity * (0.65 + 0.35 * heightAtten));
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, scatterCol, clamp(aerialFog, 0.0, 0.24));
         `,
       );
   };
@@ -674,7 +685,7 @@ export function buildSculptedTerrain(textures: WorldTexturePack): {
     if (u+v<=1) return (1-u-v)*posAttr.getY(i)+v*b+u*d;
     return (u+v-1)*posAttr.getY(i+rowLength+1)+(1-u)*b+(1-v)*d;
   }
-  return { mesh, uniforms, heightAt, addRoad, nearRoad, paintUnderTree, dispose() { roadMask.dispose(); geo.dispose(); mat.dispose(); } };
+  return { mesh, uniforms, heightAt, addRoad, nearRoad, paintUnderTree, dispose() { survey.dispose(); roadMask.dispose(); geo.dispose(); mat.dispose(); } };
 }
 
 /** Water mesh with more shoreline samples in the central trading archipelago. */
@@ -692,11 +703,18 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
     const x = innerX + Math.max(0,innerX-240)*1860/380 + Math.min(0,innerX+240)*2480/380;
     const innerZ = gridCoordinate(pos.getZ(i));
     const z = innerZ + Math.min(0,innerZ+475)*2480/145 + Math.min(0,innerZ+240)*620/380 + Math.max(0,innerZ-240)*1240/380;
-    pos.setXYZ(i, x, 0, z);
-    depths[i] = -getTerrainHeight(x, z);
+    // The outermost ring is open sea. Extend it to the horizon so the world
+    // overview never exposes the sky colour through the sea floor.
+    const oceanX=Math.abs(innerX)>619 ? Math.sign(innerX)*36000 : x;
+    const oceanZ=Math.abs(innerZ)>619 ? Math.sign(innerZ)*36000 : z;
+    pos.setXYZ(i, oceanX, 0, oceanZ);
+    depths[i] = oceanX!==x || oceanZ!==z ? 16 : -getTerrainHeight(x, z);
   }
   geo.setAttribute('aDepth', new THREE.BufferAttribute(depths, 1));
 
+  const chartReady = {value:0};
+  const depthChart = new THREE.TextureLoader().load(import.meta.env.BASE_URL+'materials/glebia-atlasu.png',
+    () => {chartReady.value=1;});
   const size = softwareRenderer ? 256 : 640;
   const mirror = new Reflector(new THREE.PlaneGeometry(1, 1), {
     textureWidth: size, textureHeight: size, clipBias: 0.002, multisample: 0,
@@ -713,6 +731,7 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
     uSkyHorizon: { value: new THREE.Color(0xe6be8a) },
     uSkyZenith: { value: new THREE.Color(0x1b4678) },
     uSunColor: { value: new THREE.Color(0xfff1cc) },
+    uDepthChart: {value:depthChart}, uChartReady:chartReady,
     uMirror: {value: mirror.getRenderTarget().texture},
     uMirrorMatrix: {value: mirrorMaterial.uniforms.textureMatrix.value},
     uMirrorWeight: {value: 0},
@@ -756,6 +775,8 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
       uniform float uTime;
       uniform vec3 uSunDir;
       uniform sampler2D uMirror;
+      uniform sampler2D uDepthChart;
+      uniform float uChartReady;
       uniform float uMirrorWeight;
       varying vec4 vMirror;
       uniform vec3 uSkyHorizon;
@@ -780,7 +801,8 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
         float detail = (1.0-smoothstep(12.0,65.0,distCamInit)) * rippleAtten;
         vec2 capillary = vec2(cos(dot(wp,vec2(7.1,4.3))+a1-uTime*3.1),
                              sin(dot(wp,vec2(-3.2,5.1))+a2+uTime*2.7));
-        vec3 N = normalize(vec3(nx + capillary.x*.018*detail, 1.0, nz + capillary.y*.015*detail));
+        float resolvedWave = 1.-smoothstep(.6,6.,length(fwidth(wp)));
+        vec3 N = normalize(vec3(nx*resolvedWave + capillary.x*.018*detail, 1.0, nz*resolvedWave + capillary.y*.015*detail));
         vec3 V = normalize(cameraPosition - vWorldPos);
         vec3 L = normalize(uSunDir);
 
@@ -789,8 +811,13 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
         vec3 midSeaCol  = vec3(0.030, 0.076, 0.079);
         vec3 deepSeaCol = vec3(0.009, 0.033, 0.047);
 
-        float shallowT = smoothstep(0.0, 2.8, vDepth);
-        float deepT = smoothstep(2.6, 8.2, vDepth);
+        vec2 chartUv = (wp+vec2(2790.,3410.))/4960.;
+        vec2 border=min(chartUv,1.-chartUv);
+        float chartDepth=mix(16.,16.*texture2D(uDepthChart,vec2(chartUv.x,1.-chartUv.y)).r,
+          smoothstep(0.,.008,min(border.x,border.y)));
+        float opticalDepth=mix(vDepth,chartDepth,uChartReady*smoothstep(75.,310.,length(cameraPosition-vWorldPos)));
+        float shallowT = smoothstep(0.0, 2.8, opticalDepth);
+        float deepT = smoothstep(2.6, 8.2, opticalDepth);
         vec3 waterCol = mix(shallowCol, midSeaCol, shallowT);
         waterCol = mix(waterCol, deepSeaCol, deepT) * (0.26 + 0.94 * sqrt(dot(uSkyHorizon,vec3(.21,.72,.07))));
 
@@ -813,7 +840,7 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
         // Broken caustics reveal the bottom through shallow, sunlit water.
         float lens1 = sin(a1*3.7 + sin(a2*2.4)), lens2 = cos(a2*4.1 + .7*sin(a3*2.2));
         float rays = 1.-smoothstep(.035,.25+fwidth(lens1-lens2),abs(lens1-lens2));
-        waterCol += uSunColor * rays * (1.-shallowT) * (1.-fresnel) * .055;
+        waterCol += uSunColor * resolvedWave * rays * (1.-shallowT) * (1.-fresnel) * .016;
         vec3 col = mix(waterCol, skyRefl, .10 + .86 * fresnel);
 
         // Dual-lobe UE5 Sun Specular Glitter (sharp pinpoint sun path + broad warm sheen)
@@ -828,20 +855,22 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
 
         // Dynamic Breaking Shoreline Surf Foam Rings + Storm Whitecaps
         float waveBreak = sin(vDepth * 8.5 - uTime * 2.8 + sin(wp.x * 0.35 + wp.y * 0.25) * 1.6);
-        float shoreEdge = 1.0 - smoothstep(0.0, 0.85, vDepth);
+        float shoreEdge = 1.0 - smoothstep(0.0, 0.85, opticalDepth);
         float foamBands = smoothstep(0.48, 0.90, waveBreak) * (1.0 - smoothstep(0.15, 1.85, vDepth));
         float stormWhitecaps = smoothstep(0.76, 0.97, vWaveCrest) * clamp((uWaveChoppiness - 1.2) * 0.45, 0.0, 0.65);
         float lace = sin(wp.x * 2.1 + uTime + sin(wp.y * 1.7)) * cos(wp.y * 2.6 - 0.55 * uTime);
         float pores = mix(0.40, 1.0, smoothstep(-0.45, 0.65, lace));
-        float foam = pores * clamp(shoreEdge * 0.26 + foamBands * 0.23 + stormWhitecaps, 0.0, 0.95);
+        float foam = (1.-smoothstep(.3,3.,length(fwidth(wp)))) * pores * clamp(shoreEdge * 0.26 + foamBands * 0.23 + stormWhitecaps, 0.0, 0.95);
         col = mix(col, mix((vec3(.21,.23,.22)+uSkyHorizon*.44), uSunColor, 0.16), foam);
 
         // Seamless UE5 Atmospheric Horizon Haze Blend
         float distCam = length(cameraPosition.xz - wp);
-        float fogFactor = 1.0 - exp(-max(0.0, distCam - 110.0) * 0.0038);
-        col = mix(col, uSkyHorizon, clamp(fogFactor, 0.0, 0.96));
+        float horizon = pow(1.0 - clamp(V.y,0.0,1.0), 4.0);
+        float fogFactor = (1.0-exp(-max(0.0,distCam-160.0)*0.0012))*horizon;
+        col = mix(col, uSkyHorizon, clamp(fogFactor, 0.0, 0.56));
 
         float alpha = clamp(0.84 + smoothstep(0.0, 1.2, vDepth) * 0.15 + foam * 0.15, 0.0, 0.99);
+        alpha = mix(alpha,1.0,smoothstep(100.0,700.0,cameraPosition.y));
         gl_FragColor = vec4(col, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -869,6 +898,7 @@ export function buildRealisticOcean(softwareRenderer: boolean) {
     }
   }
   function dispose() {
+    depthChart.dispose();
     mirror.dispose();
     mirror.geometry.dispose();
     geo.dispose();

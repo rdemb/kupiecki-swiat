@@ -42,7 +42,7 @@ import {
   buildDetailedCaravanWagon,
   buildGalleonMesh,
   buildOrganicForestsAndBoulders,
-  buildRealisticCity,
+  buildRealisticCity, distantCity,
   buildWorldLandmarks,
   createSharedWorldMaterials,
 } from '../world3d/architectureAndProps';
@@ -76,6 +76,7 @@ interface World3DCanvasProps {
   selectedContinentId: ContinentId | 'all';
   onSelectRegion: (regionId: string) => void;
   activeCaravans: ActiveCaravan3D[];
+  cameraReset: number;
   cameraPreset: CameraPresetId;
   coastTracking?: boolean;
   bellStrike?: number;
@@ -91,6 +92,7 @@ interface World3DCanvasProps {
   playerDragonSpecies?: DragonSpeciesId;
   playerDragonStage?: DragonLifeStage;
   cinematicTourActive?: boolean;
+  onManualCamera: () => void;
   onTourContinentChange?: (continentId: ContinentId) => void;
 }
 
@@ -147,7 +149,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   selectedContinentId,
   onSelectRegion,
   activeCaravans,
-  cameraPreset,
+  cameraReset, cameraPreset,
   coastTracking = false,
   bellStrike = -Infinity,
   trackedCaravanId = null,
@@ -161,7 +163,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   nestSighting=null, playerDragonSpecies = 'ogien',
   playerDragonStage = 2,
   cinematicTourActive = false,
-  onTourContinentChange,
+  onTourContinentChange, onManualCamera,
 }) => {
   const fairHostRef=useRef(fairHost);fairHostRef.current=fairHost;
   const qualityRef=useRef(uhd);qualityRef.current=uhd;
@@ -201,6 +203,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   bellStrikeRef.current = bellStrike;
   const coastTrackingRef = useRef(coastTracking);
   coastTrackingRef.current = coastTracking;
+  const resetRef=useRef(cameraReset);resetRef.current=cameraReset;
   const cameraPresetRef = useRef(cameraPreset);
   cameraPresetRef.current = cameraPreset;
 
@@ -237,6 +240,8 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
   const cinematicTourActiveRef = useRef(cinematicTourActive);
   cinematicTourActiveRef.current = cinematicTourActive;
 
+  const manualCameraRef = useRef(onManualCamera);
+  manualCameraRef.current = onManualCamera;
   const onTourContinentChangeRef = useRef(onTourContinentChange);
   onTourContinentChangeRef.current = onTourContinentChange;
 
@@ -304,6 +309,11 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     }
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.mouseButtons = { LEFT:THREE.MOUSE.PAN, MIDDLE:THREE.MOUSE.DOLLY, RIGHT:THREE.MOUSE.ROTATE };
+    controls.touches = { ONE:THREE.TOUCH.PAN, TWO:THREE.TOUCH.DOLLY_ROTATE };
+    controls.screenSpacePanning = false;
+    controls.zoomToCursor = true;
+    renderer.domElement.style.cursor='grab';
     controls.enableDamping = !isSoftwareGl;
     controls.dampingFactor = 0.065;
     controls.maxPolarAngle = isHarbourView() ? Math.PI * .525 : Math.PI / 2.12;
@@ -329,9 +339,14 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     let lastHarbourShadow = -Infinity;
     let wasTracking = false;
     let userInteractingWithCamera = false;
-    controls.addEventListener('start', () => {
+    function takeCamera() {
       userInteractingWithCamera = true;
-    });
+      if (cinematicTourActiveRef.current) {
+        cinematicTourActiveRef.current = false;
+        manualCameraRef.current();
+      }
+    }
+    controls.addEventListener('start', takeCamera);
 
     // 3. Unreal-Engine-5 GPU Post-Processing Composer (Bloom + Filmic Grade)
     let composer: EffectComposer | null = null;
@@ -340,9 +355,9 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       composer.addPass(new RenderPass(scene, camera));
       const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(Math.floor(width / 2), Math.floor(height / 2)),
-        0.38, // subtle golden sunlight & magma/lantern halo
+        0.13, // subtle golden sunlight & magma/lantern halo
         0.52,
-        0.86,
+        1.12,
       );
       composer.addPass(bloomPass);
       const gradePass = new ShaderPass(UE5FilmicGradeShader);
@@ -407,11 +422,21 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     // 6. Build ALL 8 Culturally Distinct Continental Capitals + City Lantern Lights
     const cityGroups: Record<string, THREE.Group> = {};
     const clickableProxies: THREE.Object3D[] = [];
-    const cityPointLights: THREE.PointLight[] = [];
+    const cityPointLights = Array.from({length:3}, () => {
+      const lamp = new THREE.PointLight(0xffb454, 0.18, 30, 1.65);
+      scene.add(lamp);
+      return lamp;
+    });
+    const lanternLocations: {position:THREE.Vector3;color:number;distance:number}[] = [];
+    const banners: {mesh:THREE.Object3D;phase:number}[] = [];
+    const lightAnchor = new THREE.Vector3(Infinity,0,Infinity);
 
+    const cityViews: {near:THREE.Group;far:THREE.Mesh}[] = [];
     for (const city of CITIES) {
       const cityGroup = buildRealisticCity(city, materials);
-      scene.add(cityGroup);
+      const far = distantCity(cityGroup);
+      scene.add(cityGroup,far);
+      cityViews.push({near:cityGroup,far});
       cityGroups[city.id] = cityGroup;
       cityGroup.traverse((child) => {
         if (child.userData?.regionId) {
@@ -420,12 +445,10 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       });
 
       const cy = getTerrainHeight(city.position3D[0], city.position3D[2]);
-      const lightHex = city.id === 'frostgard' ? 0x7dd3fc : 0xffb454;
-      const warmLight = new THREE.PointLight(lightHex, 4.6, 30, 1.65);
-      warmLight.position.set(city.position3D[0], cy + 8.0, city.position3D[2]);
-      warmLight.castShadow = false;
-      scene.add(warmLight);
-      cityPointLights.push(warmLight);
+      lanternLocations.push({position:new THREE.Vector3(city.position3D[0],cy+8,city.position3D[2]),
+        color:city.id==='frostgard' || city.id==='rudnica' ? 0x7dd3fc : 0xffb454,distance:0});
+      const banner = cityGroup.getObjectByName('city_banner');
+      if (banner) banners.push({mesh:banner,phase:city.position3D[0]});
     }
 
     const mintBell = cityGroups.krolewska_przystan.getObjectByName('mint_bell');
@@ -796,6 +819,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
 
     let lastSelectedRegion = selectedRegionIdRef.current;
     let lastSelectedContinent = selectedContinentIdRef.current;
+    let lastReset=resetRef.current;
     let lastPreset = cameraPresetRef.current;
     let lastTrackedCaravanId = trackedCaravanIdRef.current;
     let lastLightingMood = lightingMoodRef.current;
@@ -807,8 +831,18 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     const raycaster = new THREE.Raycaster();
     raycaster.layers.set(1);
 
+    let startX=0,startY=0,dragged=false;
+    const pointerStart=(e:PointerEvent)=>{
+      if(!e.isPrimary){dragged=true;return;}
+      dragged=false;startX=e.clientX;startY=e.clientY;
+    };
+    const pointerMove=(e:PointerEvent)=>{
+      if(e.buttons && Math.hypot(e.clientX-startX,e.clientY-startY)>5)dragged=true;
+    };
+    renderer.domElement.addEventListener('pointerdown',pointerStart);
+    renderer.domElement.addEventListener('pointermove',pointerMove);
     const handlePointerClick = (e: MouseEvent) => {
-      if (gameStateRef.current !== 'playing') return;
+      if (gameStateRef.current !== 'playing' || dragged) return;
       const rect = renderer.domElement.getBoundingClientRect();
       _rayMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       _rayMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -833,7 +867,12 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
     // Keyboard WASD camera pan support
     const keysHeld = new Set<string>();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (!visibleRef.current || gameStateRef.current!=='playing' || e.altKey || e.ctrlKey || e.metaKey ||
+          document.querySelector('dialog[open], [aria-modal="true"]') ||
+          (e.target as HTMLElement)?.closest('input, textarea, select, [contenteditable=true]')) return;
+      if (!['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code)) return;
+      if (!e.code.startsWith('Shift')) takeCamera();
+      if(e.code.startsWith('Arrow'))e.preventDefault();
       keysHeld.add(e.code);
     };
     const onKeyUp = (e: KeyboardEvent) => keysHeld.delete(e.code);
@@ -884,13 +923,32 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       }
     }
 
+    const labelSizes = new WeakMap<HTMLElement,{text:string|null;width:number;height:number}>();
+    const footprints:{x:number;y:number;width:number;height:number}[]=[];
+    function placeLabel(el:HTMLButtonElement,x:number,y:number){
+      let size = labelSizes.get(el);
+      if (!size || size.text !== el.textContent) {
+        el.style.display = 'flex';
+        size = {text:el.textContent,width:el.offsetWidth+8,height:el.offsetHeight+5};
+        labelSizes.set(el,size);
+      }
+      const {width,height} = size;
+      if(footprints.some(p=>Math.abs(p.x-x)<(width+p.width)/2 && Math.abs(p.y-(y-height/2))<(height+p.height)/2)){
+        el.style.display='none';return;
+      }
+      el.style.display = 'flex';
+      footprints.push({x,y:y-height/2,width,height});
+      el.style.transform=`translate(-50%, -100%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    }
     function updateProjectedLabels() {
       const w = renderer.domElement.clientWidth || window.innerWidth;
       const h = renderer.domElement.clientHeight || window.innerHeight;
       const visible = gameStateRef.current === 'playing' && showWorldLabelsRef.current && cameraPresetRef.current !== 'quay' && !isHarbourView();
       const camDist = camera.position.distanceTo(controls.target);
 
-      for (const reg of WORLD_REGIONS) {
+      footprints.length=0;
+      const selected=WORLD_REGIONS.find(r=>r.id===selectedRegionIdRef.current);
+      for (const reg of selected?[selected,...WORLD_REGIONS.filter(r=>r!==selected)]:WORLD_REGIONS) {
         const el = labelRefs.current[reg.id];
         if (!el) continue;
         if (!visible) {
@@ -919,13 +977,12 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           continue;
         }
 
-        el.style.display = 'flex';
-        el.style.transform = `translate(-50%, -100%) translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0)`;
+        placeLabel(el,sx,sy);
       }
 
       // Project clickable 3D Trail Event callout badges across the 4 continents
       const activeEvents = trailEventsRef.current;
-      const showEvents = gameStateRef.current === 'playing' && !isHarbourView();
+      const showEvents = visible && camDist<900;
       for (const ev of activeEvents) {
         const el = eventLabelRefs.current[ev.id];
         if (!el) continue;
@@ -949,8 +1006,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           continue;
         }
 
-        el.style.display = 'flex';
-        el.style.transform = `translate(-50%, -100%) translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0)`;
+        placeLabel(el,sx,sy);
       }
     }
 
@@ -1113,6 +1169,15 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
           ? lanternBoost
           : THREE.MathUtils.damp(materials.warmWindowGlow.emissiveIntensity, lanternBoost, 4.5, dt);
         const targetCityLight = 0.18 + atmo.nightFactor * 6.5 + weatherParams.overcast * 2.2;
+        if (lightAnchor.distanceToSquared(controls.target) > 16*16) {
+          lightAnchor.copy(controls.target);
+          for (const town of lanternLocations) town.distance = town.position.distanceToSquared(lightAnchor);
+          lanternLocations.sort((a,b)=>a.distance-b.distance);
+          cityPointLights.forEach((light,i) => {
+            light.position.copy(lanternLocations[i].position);
+            light.color.setHex(lanternLocations[i].color);
+          });
+        }
         for (const pl of cityPointLights) {
           pl.intensity = snapNow
             ? targetCityLight
@@ -1126,7 +1191,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             _tmpColor.lerp(_tmpWxColor, Math.min(0.75, (weatherParams.fogMultiplier - 1.0) * 0.55));
           }
           scene.fog.color.lerp(_tmpColor, atmoLerp);
-          const targetFogDensity = 0.00175 * airDensity;
+          const targetFogDensity = 0.00095 * airDensity;
           scene.fog.density = snapNow
             ? targetFogDensity
             : THREE.MathUtils.damp(scene.fog.density, targetFogDensity, 3.5, dt);
@@ -1206,10 +1271,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         }
 
         // Wind flutter on capital banners & frost beacon rotation
-        for (const city of CITIES) {
-          const b = cityGroups[city.id]?.getObjectByName('city_banner');
-          if (b) b.rotation.y = Math.sin(elapsed * 3.2 + city.position3D[0]) * 0.25;
-        }
+        for (const {mesh,phase} of banners) mesh.rotation.y = Math.sin(elapsed * 3.2 + phase) * 0.25;
 
         // Animate Intercontinental Sailing Galleons (speed governed by Season + Disaster physics!)
         for (const s of sailingShips) {
@@ -1363,12 +1425,12 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         if (
           selectedRegionIdRef.current !== lastSelectedRegion ||
           selectedContinentIdRef.current !== lastSelectedContinent ||
-          cameraPresetRef.current !== lastPreset ||
+          resetRef.current!==lastReset || cameraPresetRef.current !== lastPreset ||
           trackedCaravanIdRef.current !== lastTrackedCaravanId
         ) {
           lastSelectedRegion = selectedRegionIdRef.current;
           lastSelectedContinent = selectedContinentIdRef.current;
-          lastPreset = cameraPresetRef.current;
+          lastReset=resetRef.current;lastPreset = cameraPresetRef.current;
           lastTrackedCaravanId = trackedCaravanIdRef.current;
           userInteractingWithCamera = false;
         }
@@ -1429,26 +1491,17 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             onTourContinentChangeRef.current?.(WORLD_CONTINENTS[contIdx].id);
           }
         } else {
-          const panSpeed = 62 * dt;
-          if (keysHeld.has('KeyW') || keysHeld.has('ArrowUp')) {
-            userInteractingWithCamera = true;
-            camera.position.z -= panSpeed;
-            controls.target.z -= panSpeed;
-          }
-          if (keysHeld.has('KeyS') || keysHeld.has('ArrowDown')) {
-            userInteractingWithCamera = true;
-            camera.position.z += panSpeed;
-            controls.target.z += panSpeed;
-          }
-          if (keysHeld.has('KeyA') || keysHeld.has('ArrowLeft')) {
-            userInteractingWithCamera = true;
-            camera.position.x -= panSpeed;
-            controls.target.x -= panSpeed;
-          }
-          if (keysHeld.has('KeyD') || keysHeld.has('ArrowRight')) {
-            userInteractingWithCamera = true;
-            camera.position.x += panSpeed;
-            controls.target.x += panSpeed;
+          const forward=Number(keysHeld.has('KeyW') || keysHeld.has('ArrowUp'))-Number(keysHeld.has('KeyS') || keysHeld.has('ArrowDown'));
+          const sideways=Number(keysHeld.has('KeyD') || keysHeld.has('ArrowRight'))-Number(keysHeld.has('KeyA') || keysHeld.has('ArrowLeft'));
+          if(forward || sideways){
+            userInteractingWithCamera=true;
+            const speed=THREE.MathUtils.clamp(camera.position.distanceTo(controls.target)*.85,12,3500);
+            const step=speed*cameraDt*(keysHeld.has('ShiftLeft') || keysHeld.has('ShiftRight') ? 2:1)/Math.hypot(forward,sideways);
+            const angle=controls.getAzimuthalAngle();
+            const dx=(sideways*Math.cos(angle)-forward*Math.sin(angle))*step;
+            const dz=(-sideways*Math.sin(angle)-forward*Math.cos(angle))*step;
+            controls.target.x+=dx;camera.position.x+=dx;
+            controls.target.z+=dz;camera.position.z+=dz;
           }
 
           if (wasTracking !== coastTrackingRef.current) {
@@ -1508,9 +1561,28 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
             controls.target.z = THREE.MathUtils.damp(controls.target.z, _targetLook.z, camDamp, cameraDt);
           }
           controls.update();
+          if(userInteractingWithCamera && !isHarbourView()){
+            const x=THREE.MathUtils.clamp(controls.target.x,-2790,2170);
+            const z=THREE.MathUtils.clamp(controls.target.z,-3410,1550);
+            const ground=Math.max(.5,getTerrainHeight(x,z));
+            const lift=THREE.MathUtils.damp(controls.target.y,ground,6,cameraDt)-controls.target.y;
+            camera.position.x+=x-controls.target.x;camera.position.z+=z-controls.target.z;
+            camera.position.y=Math.max(camera.position.y+lift,getTerrainHeight(camera.position.x,camera.position.z)+2);
+            controls.target.set(x,controls.target.y+lift,z);
+            camera.lookAt(controls.target);
+          }
         }
       }
 
+      // At atlas scale, a one-metre near plane makes the depth buffer confuse
+      // the sea floor and the surface. Allocate its precision to the visible land.
+      const nearPlane = Math.max(.35,Math.min(1500,(camera.position.y-145)*.22));
+      if (Math.abs(camera.near-nearPlane) > .05) {
+        camera.near = nearPlane;
+        camera.updateProjectionMatrix();
+        // Keep the sky sphere outside the elevated camera's near plane too.
+        skyDome.mesh.scale.setScalar(Math.max(1,nearPlane/300));
+      }
       skyDome.mesh.position.copy(camera.position);
       // Keep the sun's shadow volume over the camera's subject on every sheet.
       const snap=.25;
@@ -1539,8 +1611,13 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         mintBell.rotation.z = seconds < 4 ? .49*Math.exp(-seconds*1.13)*Math.sin(7.6*seconds) : 0;
       }
       field.update(fieldStageRef.current ?? 'earth');
-      scenery.update(camera.position.y, reduceLandscapeMotion.matches ? 0 : elapsed, getPbrWeatherParams(pbrWeatherRef.current).windSpeed,
+      scenery.update(Math.max(0, camera.position.y - controls.target.y), reduceLandscapeMotion.matches ? 0 : elapsed, getPbrWeatherParams(pbrWeatherRef.current).windSpeed,
         terrain.uniforms.uSeasonAutumn.value, terrain.uniforms.uSeasonSnow.value);
+      for (const {near,far} of cityViews) {
+        const threshold = near.visible ? 350 : 310;
+        near.visible = camera.position.distanceToSquared(near.position) < threshold*threshold;
+        far.visible = !near.visible;
+      }
       ocean.updateReflection(renderer, scene, camera, performance.now());
       drawWorld();
       updateProjectedLabels();
@@ -1571,7 +1648,13 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
+      renderer.domElement.removeEventListener('pointerdown',pointerStart);
+      renderer.domElement.removeEventListener('pointermove',pointerMove);
       renderer.domElement.removeEventListener('click', handlePointerClick);
+      for (const {far} of cityViews) {
+        far.geometry.dispose();
+        (far.material as THREE.Material).dispose();
+      }
       materials.sailCloth.bumpMap?.dispose();
       materials.sailCloth.dispose();
       materials.timberWood.map?.dispose();
@@ -1616,7 +1699,7 @@ export const World3DCanvas: React.FC<World3DCanvasProps> = ({
         data-camera-preset={cameraPreset}
         data-tracked-caravan={trackedCaravanId ?? ''}
         className="w-full h-full"
-        aria-label="Kupiecki Świat 3D — Stary Ląd i Nowa Nadzieja"
+        aria-label="Mapa 3D. Przeciągnij, aby przesunąć. Prawy przycisk obraca, kółko przybliża. Strzałki lub WASD przesuwają mapę."
       />
 
       {/* Projected 3D Region Labels across all 6 Continents */}

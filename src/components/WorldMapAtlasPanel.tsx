@@ -102,7 +102,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
     WORLD_CONTINENTS.find((c) => c.id === activeRegion.continentId) ?? WORLD_CONTINENTS[0];
 
   const [largeAtlas,setLargeAtlas]=React.useState(false);
-  const sheet=sheetFor(selectedContinentId);
+  const sheet=selectedContinentId==='all'?'swiat':sheetFor(selectedContinentId);
   const [selectedShow,setSelectedShow]=React.useState(0);
   const [showRoute,setShowRoute]=React.useState<string[]>([]);
   const uplands=selectedContinentId==='wzgorza_jarmarczne';
@@ -112,13 +112,9 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
   const northern=selectedContinentId==='morze_wylin';
   const farCoast=selectedContinentId==='kresy_nadziei';
   const eastern=selectedContinentId==='nowa_nadzieja' || farCoast || northern || southern || western || uplands;
-  const visibleRegions = WORLD_REGIONS.filter((r) =>
-    selectedContinentId === 'all' ? r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska' && r.continentId!=='wzgorza_jarmarczne' : r.continentId === selectedContinentId,
-  );
-
-  const visibleTrailEvents = trailEvents.filter((ev) =>
-    selectedContinentId === 'all' ? ev.continentId!=='nowa_nadzieja' && ev.continentId!=='kresy_nadziei' && ev.continentId!=='morze_wylin' && ev.continentId!=='poludniowe_trakty' && ev.continentId!=='zachodnie_rozlewiska' && ev.continentId!=='wzgorza_jarmarczne' : ev.continentId === selectedContinentId,
-  );
+  const overview=selectedContinentId==='all';
+  const visibleRegions=WORLD_REGIONS.filter(r=>overview || r.continentId===selectedContinentId);
+  const visibleTrailEvents=trailEvents.filter(ev=>overview || ev.continentId===selectedContinentId);
 
   const visibleRoutes = buildActiveRouteList(activeCaravans, selectedContinentId);
 
@@ -152,7 +148,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   : 'bg-[#111722] text-slate-300 border border-slate-800 hover:bg-slate-800'
               }`}
             >
-              Stary Ląd ({WORLD_REGIONS.filter(r=>r.continentId!=='nowa_nadzieja' && r.continentId!=='kresy_nadziei' && r.continentId!=='morze_wylin' && r.continentId!=='poludniowe_trakty' && r.continentId!=='zachodnie_rozlewiska' && r.continentId!=='wzgorza_jarmarczne').length})
+              Cały świat ({WORLD_REGIONS.length})
             </button>
             <button className="atlas-expand" aria-pressed={uhd} onClick={()=>selectUhd(!uhd)}>Scena 3D · {uhd?'4K UHD':'Auto'}</button>
             <button className="atlas-expand" onClick={()=>setLargeAtlas(true)}>Otwórz atlas 4K</button>
@@ -186,7 +182,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
         <div className="relative w-full h-[236px] xl:h-[248px] rounded-lg overflow-hidden border border-amber-500/35 bg-[#040a14] shadow-inner">
           <img
             src={reliefUrl(sheet)}
-            alt={uplands?'Mapa Wzgórz Trzech Jarmarków':western?'Zachodnie Rozlewiska · mapa brodu':southern?'Południowe Trakty · mapa gospód':northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
+            alt={overview?'Mapa wszystkich kontynentów':uplands?'Mapa Wzgórz Trzech Jarmarków':western?'Zachodnie Rozlewiska · mapa brodu':southern?'Południowe Trakty · mapa gospód':northern?'Morze Wylin · mapa wysp i warsztatów':eastern?'Mapa rzeźby terenu Nowej Nadziei':'Stary Ląd i jego szlaki'}
             referrerPolicy="no-referrer"
             className="w-full h-full object-fill"
           />
@@ -198,7 +194,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
             <polyline points={routePoints} fill="none" stroke="#ffd586" strokeWidth=".65" strokeDasharray="1.5 .7" />
           </svg>}
           {/* SVG Intercontinental Trade Lanes (Land Caravans + Trans-Oceanic Galleon Routes across 6 Continents) */}
-          {!eastern && <svg
+          {<svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             className="absolute inset-0 w-full h-full pointer-events-none"
@@ -213,12 +209,13 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
           </svg>}
 
           {/* Interactive Clickable Region Pins */}
-          {visibleRegions.map((reg) => {
+          {visibleRegions.filter(r=>!overview || WORLD_CONTINENTS.some(c=>c.capitalRegionId===r.id) || r.id===activeRegion.id).map((reg) => {
             const isSelected = reg.id === activeRegion.id;
             const isCap = reg.type === 'capital';
             return (
               <button
                 key={reg.id}
+                title={reg.name} aria-label={reg.name}
                 type="button"
                 onClick={() => onSelectRegion(reg.id)}
                 style={{
@@ -238,13 +235,13 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
                   className="w-1.5 h-1.5 rounded-full shrink-0"
                   style={{ backgroundColor: reg.colorHex }}
                 />
-                <span className="whitespace-nowrap">{reg.name.split(' (')[0]}{reg.id===fairHost && <small className="block">Jarmark</small>}{towns.filter(t=>t.approved && t.site===reg.linkedCityId).map(t=><small className="block" key={t.site}>⚑ {t.name}</small>)}</span>
+                <span className={overview && !isSelected?'sr-only':'whitespace-nowrap'}>{reg.name.split(' (')[0]}{reg.id===fairHost && <small className="block">Jarmark</small>}{towns.filter(t=>t.approved && t.site===reg.linkedCityId).map(t=><small className="block" key={t.site}>⚑ {t.name}</small>)}</span>
               </button>
             );
           })}
 
           {/* Interactive Trail Event Markers (Encounter / Monster Blockade / Mystery) */}
-          {visibleTrailEvents.map((ev) => {
+          {!overview && visibleTrailEvents.map((ev) => {
             const toneClass =
               ev.severity === 'danger'
                 ? 'bg-rose-600/95 text-white border-rose-200 hover:bg-rose-500'
@@ -271,7 +268,7 @@ export const WorldMapAtlasPanel: React.FC<WorldMapAtlasPanelProps> = ({
           })}
 
           {/* Interactive Active Caravan Pins on Atlas (Click for Instant 3D Follow) */}
-          {!eastern && visibleRoutes
+          {visibleRoutes
             .filter((route) => route.kind === 'player' || route.id === trackedCaravanId)
             .map((route) => {
               const isTracked = cameraPreset === 'caravan' && trackedCaravanId === route.id;

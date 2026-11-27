@@ -64,9 +64,9 @@ const SAMPLE_LEADERBOARD: LeaderboardEntry[] = [
   },
 ];
 
-describe('City Interiors catalog for all 12 capitals', () => {
+describe('City Interiors catalog for every trade capital', () => {
   it('defines a bespoke interior spec, 5 hotspots, and a unique Arena Champion for every city', () => {
-    assert.equal(CITIES.length, 12);
+    assert.equal(CITIES.length, 18);
     for (const city of CITIES) {
       const spec = CITY_INTERIOR_SPECS[city.id];
       assert.ok(spec, `Missing city interior spec for ${city.id}`);

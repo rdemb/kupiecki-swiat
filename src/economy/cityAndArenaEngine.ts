@@ -1,5 +1,6 @@
+import {frontierCities} from './frontierCities';
 import { imageUrl } from '../utils/imageUrl';
-import { CITIES, type CityNode } from './economyEngine';
+import { CITIES, COMMODITIES, type CityNode } from './economyEngine';
 import type { LeaderboardEntry } from './gameData';
 import { HERO_PORTRAITS } from './heroProgression';
 
@@ -329,6 +330,23 @@ export const CITY_INTERIOR_SPECS: Record<string, CityInteriorSpec> = {
   },
 };
 
+for(const city of frontierCities){
+  const template=CITY_INTERIOR_SPECS[city.affinity];
+  const resource = COMMODITIES.find(c=>c.id===city.specialty)!.name;
+  const demand = COMMODITIES.find(c=>c.id===city.demandCommodity)!.name;
+  const districtNames:Record<CityDistrictActionId,string> = {
+    market:city.district, arena:'Plac turniejowy', tavern:city.inn, forge:'Kuźnia cechowa',
+    gate:city.isCoastalPort ? 'Nabrzeże kupieckie' : 'Brama wozów',
+  };
+  CITY_INTERIOR_SPECS[city.id] = {
+    ...template, cityId:city.id, districtTagline:city.district, welcomeLine:city.description,
+    tavernName:city.inn, cityPerkLabel:`Eksport · ${resource}. Skup · ${demand}.`,
+    backdropUrl:(import.meta.env?.BASE_URL ?? '/')+'cinema/'+city.scene+'.webp',
+    hotspots:template.hotspots.map(spot=>({...spot,label:districtNames[spot.id],
+      subtitle:spot.id==='market'?resource:spot.id==='gate'?'Szlaki handlowe':spot.subtitle})),
+  };
+}
+
 export function getCityInteriorSpec(cityId: string): CityInteriorSpec {
   return CITY_INTERIOR_SPECS[cityId] ?? CITY_INTERIOR_SPECS.krolewska_przystan;
 }
@@ -599,6 +617,12 @@ export const CITY_ARENA_CHAMPIONS: ArenaOpponentSpec[] = [
     isCityChampion: true,
   },
 ];
+for(const city of frontierCities){
+  const mentor=CITY_ARENA_CHAMPIONS.find(c=>c.cityId===city.affinity)!;
+  CITY_ARENA_CHAMPIONS.push({...mentor,id:'champ_'+city.id,cityId:city.id,cityName:city.name,name:city.champion,
+    title:'Mistrz areny · '+city.name,bannerHex:city.colorHex,guildTag:city.raceLabel});
+}
+
 
 /**
  * Builds the arena challenger roster for a given city:

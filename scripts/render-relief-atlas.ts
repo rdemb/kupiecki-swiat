@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdirSync} from 'node:fs';
 import {atlasSheets,projectAtlas,type AtlasSheet} from '../src/economy/atlasSheets';
 import {WORLD_REGIONS,getTerrainHeight,getContinentBiomeWeights} from '../src/economy/worldMapData';
-const width=3840,height=2160, stride=5;
+const width=3840,height=2160, stride=4;
 const out='public/atlas';
 mkdirSync(out,{recursive:true});
 function texture(name:string){
@@ -20,7 +20,7 @@ function hash(x:number,z:number) {
   n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;
 }
 function encode(name:string,pixels:Buffer){
-  const command=['-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',width+'x'+height,'-i','pipe:0','-frames:v','1','-quality','79',out+'/'+name+'.webp'];
+  const command=['-v','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s',width+'x'+height,'-i','pipe:0','-frames:v','1','-quality','91',out+'/'+name+'.webp'];
   const result=spawnSync('ffmpeg',command,{input:pixels});if(result.status!==0)throw Error(String(result.stderr));
 }
 for(const sheet of Object.keys(atlasSheets) as AtlasSheet[]){
@@ -45,6 +45,14 @@ for(const sheet of Object.keys(atlasSheets) as AtlasSheet[]){
       if(i&&j)shore[n]=Math.min(shore[n],shore[n-dir*(cols+1)]+1.414);
     }
   }
+  if (sheet === 'swiat') {
+    // Linear optical depth, sampled per fragment at map scale. The sparse
+    // ocean grid cannot describe narrow estuaries several islands away.
+    const depth = Buffer.from(terrain.map((y,n)=>255*clamp((-y*.30+shore[n]*.8)/16)));
+    const result=spawnSync('ffmpeg',['-v','error','-y','-f','rawvideo','-pix_fmt','gray','-s',cols+'x'+rows,
+      '-i','pipe:0','-frames:v','1','public/materials/glebia-atlasu.png'],{input:depth});
+    if(result.status!==0) throw Error(String(result.stderr));
+  }
   const colors=Array.from({length:4},()=>new Float32Array(rows*cols));
   for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
     const n=j*cols+i,y=terrain[n];
@@ -55,7 +63,10 @@ for(const sheet of Object.keys(atlasSheets) as AtlasSheet[]){
     const illumination=(.50+.61*sun)*(1-.32*clamp((shade-.38)*1.7));
     const cliff=clamp(Math.hypot(sx,sz)*.95+.30*clamp((y-27)/19)),snow=clamp(channels[1][n]*(.36+clamp(y/30)));
     const moisture=channels[3][n],sand=channels[0][n],volcano=channels[2][n];
-    let red=101+74*sand-40*moisture,green=112+34*sand-16*moisture,blue=66+30*sand-3*moisture;
+    const x=west+i*stride*dx,z=north+j*stride*dz;
+    const drainage=Math.sin(x*.017+.9*Math.sin(z*.035))+Math.cos(z*.021+.8*Math.sin(x*.028));
+    const woodland=clamp(.5+.43*drainage)*(1-cliff)*(1-sand)*(1-volcano);
+    let red=101+74*sand-40*moisture-31*woodland,green=112+34*sand-16*moisture-16*woodland,blue=66+30*sand-3*moisture-9*woodland;
     red+=(127-red)*cliff;green+=(122-green)*cliff;blue+=(113-blue)*cliff;
     red+=(72-red)*volcano;green+=(67-green)*volcano;blue+=(65-blue)*volcano;
     red+=(217-red)*snow;green+=(227-green)*snow;blue+=(230-blue)*snow;
@@ -77,7 +88,7 @@ for(const sheet of Object.keys(atlasSheets) as AtlasSheet[]){
         pixels[idx]=14+(1-depth)*43+glint+foam+shelf*7;pixels[idx+1]=38+54*(1-depth)+glint+foam+shelf*35;pixels[idx+2]=53+(1-depth)*39+glint+foam+shelf*27;
       }else{
         const slope=interp(colors[3]);
-        const surface=(grass[tex]*(1-slope)*.14+rock[tex]*slope*.29+coarse*.17);
+        const surface=(grass[tex]*(1-slope)*.23+rock[tex]*slope*.39+coarse*.24);
         const cell=12,cx=Math.floor(i/cell),cz=Math.floor(j/cell),seed=hash(cx,cz);
         const canopy=clamp((y-2)*.5)*(1-slope)*clamp((coarse+8)/24);
         const ax=i%cell-3-seed*6,az=j%cell-3-hash(cx+17,cz)*6;

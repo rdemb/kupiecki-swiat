@@ -3,6 +3,8 @@
  * Real-World Seasonal & Physics Economy, P2P Player & City Exchange, and Turn-Based Knight RPG Engine
  */
 
+import {frontierCities} from './frontierCities';
+
 export type RaceId = 'ludzie' | 'elfy' | 'krasnoludy' | 'orkowie' | 'gobliny';
 
 export type CommodityId =
@@ -515,6 +517,7 @@ export const CITIES: CityNode[] = [
     dangerLevel: 0.34,
     colorHex: '#EA580C',
   },
+  ...frontierCities,
 ];
 
 export const COMMODITIES: CommoditySpec[] = [

@@ -159,17 +159,18 @@ import {
 
 test('Expanded map retains old ports and adds six workshops across the eastern strait', () => {
   assert.equal(WORLD_CONTINENTS.length, 12);
-  assert.equal(CITIES.length, 12, 'Expected 12 trade capitals across the 6 continents');
-  assert.equal(WORLD_REGIONS.length, 78);
+  assert.equal(CITIES.length, 18);
+  assert.equal(new Set(CITIES.map(c=>c.continentId)).size,WORLD_CONTINENTS.length);
+  assert.equal(WORLD_REGIONS.length, 84);
   const workshops=WORLD_REGIONS.filter(r=>r.continentId==='nowa_nadzieja');
-  assert.equal(workshops.length,6);
+  assert.equal(workshops.length,7);
   for(const {position2D:[x,z]} of workshops) assert.ok(x>310 && x<930 && getTerrainHeight(x,z)>1);
 
   const uplands=WORLD_REGIONS.filter(r=>r.continentId==='wzgorza_jarmarczne');
-  assert.equal(uplands.length,12);
+  assert.equal(uplands.length,13);
   for(const r of uplands){assert.ok(getTerrainHeight(...r.position2D)>1,r.name);assert.ok(r.atlasPercent.every(v=>v>0 && v<100));}
   const west=WORLD_REGIONS.filter(r=>r.continentId==='zachodnie_rozlewiska');
-  assert.equal(west.length,10);
+  assert.equal(west.length,11);
   for(const r of west){
     const [x,z]=r.position2D;
     assert.ok(x> -2790 && x < -310 && z> -930 && z<1550 && getTerrainHeight(x,z)>1,r.name);
@@ -177,21 +178,21 @@ test('Expanded map retains old ports and adds six workshops across the eastern s
   }
   assert.ok(getTerrainHeight(-1395,325)<0,'Woda pomiędzy dwoma promowiskami');
   const south=WORLD_REGIONS.filter(r=>r.continentId==='poludniowe_trakty');
-  assert.equal(south.length,9);
+  assert.equal(south.length,10);
   for (const r of south) {
     const [x,z]=r.position2D;
     assert.ok(z>310 && z<1550 && getTerrainHeight(x,z)>1,r.name);
     assert.ok(Math.abs(r.atlasPercent[0]-(x+310)/24.8)<1e-9 && Math.abs(r.atlasPercent[1]-(z-310)/12.4)<1e-9);
   }
   const north=WORLD_REGIONS.filter(r=>r.continentId==='morze_wylin');
-  assert.equal(north.length,8);
+  assert.equal(north.length,9);
   for(const r of north) {
     const [x,z]=r.position2D;
     assert.ok(z < -310 && z > -930 && getTerrainHeight(x,z)>1,r.name);
     assert.deepEqual(r.atlasPercent,[(x+310)/24.8,(z+930)/6.2]);
   }
   const coast=WORLD_REGIONS.filter(r=>r.continentId==='kresy_nadziei');
-  assert.equal(coast.length,7);
+  assert.equal(coast.length,8);
   for(const r of coast) {
     const [x,z]=r.position2D;
     assert.ok(x>930 && x<2170 && getTerrainHeight(x,z)>1,r.name);
